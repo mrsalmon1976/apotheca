@@ -1,0 +1,5 @@
+# for the vue front-end
+# NOTE: http-server listens on port 8080.  The below binds the host port 8081 to the container port 8080.  You can change 
+# the 8081 to anything
+docker build -t apotheca/web-frontend .
+docker run -it -p 8081:8080 -d --name apotheca-web-frontend apotheca/web-frontend
