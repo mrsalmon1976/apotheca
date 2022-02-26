@@ -1,11 +1,11 @@
-# apotheca-web
+# web-frontend
 
 ## Project setup
 ```
 npm install
 ```
 
-### Compiles and hot-reloads for development
+### Compiles and hot-reloads for development (port 4040 configured in package.json)
 ```
 npm run serve
 ```
@@ -15,14 +15,14 @@ npm run serve
 npm run build
 ```
 
-### Run your unit tests
-```
-npm run test:unit
-```
-
 ### Lints and fixes files
 ```
 npm run lint
+```
+
+### Runs unit tests
+```
+npm run test:unit
 ```
 
 ### Customize configuration
