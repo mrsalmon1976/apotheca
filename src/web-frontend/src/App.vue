@@ -62,7 +62,7 @@ export default {
   name: 'App',
 
   data: function() {
-    return {
+  return {
       versionInfo: null,
       versionTitle: "",
     }
@@ -72,6 +72,18 @@ export default {
       this.versionInfo = vi
       this.versionTitle = "Apotheca version " + vi.version
     });
+  },
+  metaInfo: function() {
+    return {
+      title: "Apotheca",
+      meta: [
+                { name: 'description', content:  'Apotheca allows you to categorise, store, and process your documents.'},
+                { property: 'og:title', content: "Apotheca - document storage and processing"},
+                { property: 'og:site_name', content: 'Apotheca'},
+                {property: 'og:type', content: 'website'},    
+                {name: 'robots', content: 'index,follow'} 
+            ]
+    }
   },
   methods: {
     // Log the user in
