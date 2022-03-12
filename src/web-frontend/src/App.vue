@@ -6,13 +6,13 @@
       dark
     >
       <div class="d-flex align-center">
-        <router-link to="/">
+        <router-link :to="(!$auth.loading && $auth.isAuthenticated ? '/dashboard' : '/')">
           <v-img alt="Vuetify Logo" class="shrink mr-2" contain src="https://cdn.vuetifyjs.com/images/logos/vuetify-logo-dark.png" transition="scale-transition"
             width="40"
           />
         </router-link>
 
-        <router-link to="/">
+        <router-link :to="(!$auth.loading && $auth.isAuthenticated ? '/dashboard' : '/')">
           <v-img
             alt="Vuetify Name"
             class="shrink mt-1 hidden-sm-and-down"
@@ -27,25 +27,24 @@
 
       <v-spacer></v-spacer>
 
+      <template v-if="!$auth.loading && $auth.isAuthenticated">
+        <v-btn href="/profile" text>
+          <span class="mr-2">Profile</span>
+        </v-btn>
+        <v-btn @click="logout" text>
+          <span class="mr-2">Log Out</span>
+        </v-btn>
+      </template>
+      <template  v-if="!$auth.loading && !$auth.isAuthenticated">
+        <v-btn href="/about" text>
+          <span class="mr-2">About</span>
+        </v-btn>
+        <v-btn @click="login" text>
+          <span class="mr-2">Log In</span>
+        </v-btn>
+      </template>
 
-      <v-btn :disabled="$auth.loading || !$auth.isAuthenticated" href="/profile" text>
-        <span class="mr-2">Profile</span>
-      </v-btn>
-      <v-btn v-if="!$auth.loading && !$auth.isAuthenticated" @click="login" text>
-        <span class="mr-2">Log In</span>
-      </v-btn>
-      <v-btn v-if="!$auth.loading && $auth.isAuthenticated" @click="logout" text>
-        <span class="mr-2">Log Out</span>
-      </v-btn>
 
-      <v-btn
-        href="https://github.com/vuetifyjs/vuetify/releases/latest"
-        target="_blank"
-        text
-      >
-        <span class="mr-2">Latest Release</span>
-        <v-icon>mdi-open-in-new</v-icon>
-      </v-btn>
     </v-app-bar>
 
     <v-main>
