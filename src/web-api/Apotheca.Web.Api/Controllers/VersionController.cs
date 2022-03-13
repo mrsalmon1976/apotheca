@@ -7,7 +7,7 @@ namespace Apotheca.Web.Api.Controllers
   [Route("[controller]")]
   public class VersionController : ControllerBase
   {
-
+            
     [HttpGet("")]
     public VersionInfo Index()
     {
