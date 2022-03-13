@@ -34,7 +34,11 @@ builder.Services.AddAuthentication(options => {
             NameClaimType = ClaimTypes.NameIdentifier
         };
     });
-builder.Services.AddAuthorization(options => { });
+builder.Services.AddAuthorization(options => 
+{
+    // https://auth0.com/docs/quickstart/backend/aspnet-core-webapi
+    //options.AddPolicy("read:messages", policy => policy.Requirements.Add(new HasScopeRequirement("read:messages", domain)));
+});
 builder.Services.AddSingleton<IAuthorizationHandler, HasScopeHandler>();
 
 
