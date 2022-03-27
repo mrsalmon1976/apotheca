@@ -6,8 +6,8 @@ export default class VersionService {
     
     async getVersion() {
         var url = `${process.env.VUE_APP_API_SERVER_URL}${this.versionEndPoint}`;
-        console.log(`Loading version number from ${url}`);
         var response = await axios.get(url)
+        console.log(`Apotheca version number: ${response.data.version}`);
         return response.data;
       }
 }
