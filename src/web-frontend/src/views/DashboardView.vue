@@ -20,9 +20,11 @@ export default {
       // Get the access token from the auth wrapper
       const token = await this.$auth.getTokenSilently();
       //alert(token);
+      //var userId = this.$auth.user.sub;
 
       // Use Axios to make a call to the API
-      const { data } = await axios.get("https://localhost:6060/api/store/userstores", {
+      var url = `${process.env.VUE_APP_API_SERVER_URL}/user/current/documentstores`
+      const { data } = await axios.get(url, {
          headers: {
            Authorization: `Bearer ${token}`    // send the access token through the 'Authorization' header
          }

@@ -60,3 +60,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// required of .NET 6 integration tests
+public partial class Program { }
