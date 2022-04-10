@@ -7,9 +7,9 @@ using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add custom services to the container.
+builder.Services.RegisterDbContext();
 builder.Services.RegisterRepositories();
-CosmosClient client;
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -62,6 +62,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+app.ExecuteMigrations();
 app.Run();
 
 // required of .NET 6 integration tests

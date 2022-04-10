@@ -1,6 +1,6 @@
 ﻿namespace Apotheca.Web.Api.Models
 {
-    public class DocumentStore
+    public class WorkspaceViewModel
     {
         public Guid Id {  get; set; }
 

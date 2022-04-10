@@ -11,6 +11,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apotheca.Db", "Apotheca.Db\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apotheca.Db.Tests", "Apotheca.Db.Tests\Apotheca.Db.Tests.csproj", "{BFB99F3A-BB8C-48DC-9AD5-DD94BE933E20}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apotheca.Repository", "Apotheca.Repository\Apotheca.Repository.csproj", "{C6AD56E4-9E8D-40D2-A72F-DFC81CE8D3F9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apotheca.Command", "Apotheca.Command\Apotheca.Command.csproj", "{D681DCAB-3D6C-494C-84A5-CBEA8F6A63CC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{BFB99F3A-BB8C-48DC-9AD5-DD94BE933E20}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BFB99F3A-BB8C-48DC-9AD5-DD94BE933E20}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BFB99F3A-BB8C-48DC-9AD5-DD94BE933E20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C6AD56E4-9E8D-40D2-A72F-DFC81CE8D3F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C6AD56E4-9E8D-40D2-A72F-DFC81CE8D3F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C6AD56E4-9E8D-40D2-A72F-DFC81CE8D3F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C6AD56E4-9E8D-40D2-A72F-DFC81CE8D3F9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D681DCAB-3D6C-494C-84A5-CBEA8F6A63CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D681DCAB-3D6C-494C-84A5-CBEA8F6A63CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D681DCAB-3D6C-494C-84A5-CBEA8F6A63CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D681DCAB-3D6C-494C-84A5-CBEA8F6A63CC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

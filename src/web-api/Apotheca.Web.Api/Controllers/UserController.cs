@@ -16,14 +16,14 @@ namespace Apotheca.Web.Api.Controllers
         /// <returns></returns>
         [HttpGet(UrlGetCurrentUserDocumentStores)]
         [Authorize]
-        [ProducesResponseType(typeof(IEnumerable<DocumentStore>), 200)]
+        [ProducesResponseType(typeof(IEnumerable<WorkspaceViewModel>), 200)]
         public async Task<IActionResult> GetCurrentUserDocumentStores()
         {
-            var result = new List<DocumentStore>();
-            result.Add(new DocumentStore() {  Id = Guid.NewGuid(), Name = "Checkers" });
-            result.Add(new DocumentStore() { Id = Guid.NewGuid(), Name = "Pick 'n Pay" });
-            result.Add(new DocumentStore() { Id = Guid.NewGuid(), Name = "Spar" });
-            result.Add(new DocumentStore() { Id = Guid.NewGuid(), Name = "Woolworths" });
+            var result = new List<WorkspaceViewModel>();
+            result.Add(new WorkspaceViewModel() {  Id = Guid.NewGuid(), Name = "Checkers" });
+            result.Add(new WorkspaceViewModel() { Id = Guid.NewGuid(), Name = "Pick 'n Pay" });
+            result.Add(new WorkspaceViewModel() { Id = Guid.NewGuid(), Name = "Spar" });
+            result.Add(new WorkspaceViewModel() { Id = Guid.NewGuid(), Name = "Woolworths" });
             return this.Ok(result);
             //var x = this.Ok();
         }
