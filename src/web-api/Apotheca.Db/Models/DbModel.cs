@@ -1,4 +1,5 @@
-﻿using Microsoft.Azure.Cosmos;
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -8,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace Apotheca.Db.Models
 {
+    [BsonIgnoreExtraElements]
     public abstract class DbModel
     {
         public DbModel()
@@ -16,12 +18,9 @@ namespace Apotheca.Db.Models
         }
 
         [JsonProperty(PropertyName = "id")]
+        [BsonId]
         public string Id { get; set; }
 
-        [JsonIgnore]
-        internal abstract string ContainerName { get; }
 
-        [JsonIgnore]
-        internal abstract PartitionKey PartitionKey { get; }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.Azure.Cosmos;
+﻿using MongoDB.Bson.Serialization.Attributes;
 using Newtonsoft.Json;
 
 namespace Apotheca.Db.Models
@@ -7,19 +7,19 @@ namespace Apotheca.Db.Models
     {
         public UserDbModel()
         {
-            this.PartitionKey = new PartitionKey(this.Auth0Id);
+            this.CreateDateTime = DateTime.UtcNow;
         }
 
-        [JsonProperty(PropertyName = "auth0Id")]
-        public string Auth0Id { get; set; }
+        public string AuthId { get; set; }
 
-        [JsonProperty(PropertyName = "workspaces")]
-        public IEnumerable<string> Workspaces { get; set; }
+        public string UserName { get; set; }
 
+        public string Email { get; set; }
 
-        internal override string ContainerName { get => DbSchema.UserContainer.Name; }
+        public string[] Workspaces { get; set; }
 
-        internal override PartitionKey PartitionKey { get; }
+        public DateTime CreateDateTime { get; internal set; }
+
 
     }
 }

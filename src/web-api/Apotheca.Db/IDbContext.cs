@@ -1,13 +1,17 @@
 ﻿using Apotheca.Db.Models;
+using MongoDB.Driver;
 
 namespace Apotheca.Db
 {
     public interface IDbContext : IDisposable
     {
-        Task<T> CreateItemAsync<T>(T model) where T : DbModel;
 
-        Task<IEnumerable<T>> GetManyItemsAsync<T>(string containerName, string query, IEnumerable<DbParameter> dbParameters) where T : DbModel;
-        
-        Task<bool> InitialiseAsync();
+        Task<IEnumerable<T>> GetManyAsync<T>(string containerName, FilterDefinition<T> filter) where T : DbModel;
+
+        Task<T> GetOneAsync<T>(string containerName, FilterDefinition<T> filter) where T : DbModel;
+
+
+        Task<T> InsertAsync<T>(string containerName, T model) where T : DbModel;
+
     }
 }

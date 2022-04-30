@@ -1,26 +1,22 @@
 ﻿using Apotheca.Db;
-using Apotheca.Db.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Apotheca.Db.Models;
 
-namespace Apotheca.Command.Workspace
+namespace Apotheca.BLL.Commands.Workspace
 {
     public class CreateWorkspaceCommand
     {
-        public CreateWorkspaceCommand(IDbContext dbContext)
-        {
-            this.DbContext = dbContext;
-        }
-
-        public IDbContext DbContext { get; set; }
-
-        public WorkspaceDbModel Execute(string name)
+        public virtual async Task<WorkspaceDbModel> ExecuteAsync(IDbContext dbContext, string name)
         {
             WorkspaceDbModel model = new WorkspaceDbModel();
             model.Name = name;
+
+            await dbContext.InsertAsync<WorkspaceDbModel>(DbSchema.WorkspaceContainer, model);
+
             return model;
         }
     }

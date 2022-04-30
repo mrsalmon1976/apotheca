@@ -1,20 +1,26 @@
+using Apotheca.Web.Api.Caching;
 using Apotheca.Web.Api.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Azure.Cosmos;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add custom services to the container.
-builder.Services.RegisterDbContext();
-builder.Services.RegisterRepositories();
-
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
+
+// Add custom services to the container.
+builder.Services.RegisterAutoMapper();
+builder.Services.AddTransient<IMemoryCacheWrapper, MemoryCacheWrapper>();
+builder.Services.RegisterDbContext();
+builder.Services.RegisterRepositories();
+builder.Services.RegisterCommands();
+builder.Services.RegisterViewServices();
+
 
 builder.Services.AddCors(p => p.AddPolicy("ApothecaCorsPolicy", builder =>
 {
@@ -43,7 +49,6 @@ builder.Services.AddAuthorization(options =>
     //options.AddPolicy("read:messages", policy => policy.Requirements.Add(new HasScopeRequirement("read:messages", domain)));
 });
 builder.Services.AddSingleton<IAuthorizationHandler, HasScopeHandler>();
-
 
 var app = builder.Build();
 

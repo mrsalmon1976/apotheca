@@ -1,29 +1,47 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Apotheca.Web.Api.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Apotheca.Web.Api.Controllers
 {
     public class ApothecaBaseController : ControllerBase
     {
-        private string? _userId = null;
+        private UserInfo? _userInfo = null;
 
-        public string? UserId
+        public virtual bool IsCurrentUser
         {
             get
             {
-                if (_userId == null)
+                var claimUserId = this.User?.Claims?.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+                return (claimUserId != null);
+            }
+        }
+
+
+        public virtual UserInfo CurrentUser
+        {
+            get
+            {
+                if (_userInfo == null)
                 {
-                    var claim = this.User?.Claims?.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
-                    if (claim != null)
+                    var claimUserId = this.User?.Claims?.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier);
+                    if (claimUserId == null)
                     {
-                        _userId = claim.Value;
+                        throw new NullReferenceException("There is no user logged in - use IsCurrentUser to determine if authorised user exists");
                     }
+
+                    _userInfo = new UserInfo();
+                    _userInfo.AuthId = claimUserId.Value;
+                    _userInfo.Name = this.User?.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name)?.Value;
+                    _userInfo.Email = this.User?.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value;
                 }
-                return _userId;
+                return _userInfo;
             }
             set
             {
-                _userId = value;
+                _userInfo = value;
             }
         }
+
+
     }
 }
