@@ -1,0 +1,66 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* Backgrounds */
+  --bg-primary: #0a0a0f;
+  --bg-nav: #0d0d14;
+  --bg-sidebar: #0d0d14;
+  --bg-card: #111118;
+  --bg-hover: rgba(168, 85, 247, 0.08);
+  --bg-active: rgba(168, 85, 247, 0.12);
+  --bg-input: rgba(255, 255, 255, 0.04);
+  --bg-badge: rgba(168, 85, 247, 0.12);
+
+  /* Brand colors */
+  --color-purple: #a855f7;
+  --color-pink: #ec4899;
+  --color-purple-light: #c084fc;
+  --color-pink-light: #f472b6;
+
+  /* Gradients */
+  --gradient-brand: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+  --gradient-brand-subtle: linear-gradient(135deg, rgba(168,85,247,0.15) 0%, rgba(236,72,153,0.15) 100%);
+
+  /* Glows */
+  --glow-purple: rgba(168, 85, 247, 0.25);
+  --glow-pink: rgba(236, 72, 153, 0.25);
+
+  /* Text */
+  --text-primary: #f1f0f5;
+  --text-secondary: #b8b4c8;
+  --text-muted: #7a7590;
+  --text-dim: #524e65;
+
+  /* Borders */
+  --border-color: rgba(168, 85, 247, 0.12);
+  --border-purple: rgba(168, 85, 247, 0.3);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.3);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-purple);
+}
