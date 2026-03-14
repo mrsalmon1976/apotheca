@@ -2,8 +2,7 @@
   <div class="app-dark app-root">
     <nav class="top-bar">
       <div class="logo-area">
-        <span class="logo-icon"><i class="pi pi-star-fill"></i></span>
-        <span class="logo-text">Apotheca</span>
+<span class="logo-text"><span class="logo-at">@</span>potheca</span>
       </div>
       <div class="nav-tabs">
         <button
@@ -59,14 +58,6 @@ import { RouterView } from 'vue-router'
   margin-right: 2.5rem;
 }
 
-.logo-icon {
-  font-size: 1.4rem;
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 .logo-text {
   font-size: 1.2rem;
   font-weight: 700;
@@ -75,6 +66,11 @@ import { RouterView } from 'vue-router'
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.logo-at {
+  font-style: italic;
+  font-weight: 900;
 }
 
 .nav-tabs {

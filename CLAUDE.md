@@ -51,6 +51,25 @@ Each layer has a corresponding `.Tests` project using xUnit.
 
 Data flow: Controller → View Service → Command → Repository → MongoDbContext
 
+## Color Palette
+
+Defined as CSS custom properties in `src/frontend/src/assets/main.css`.
+
+| Role | Hex |
+|---|---|
+| Background (primary) | `#0a0a0f` |
+| Background (nav/sidebar) | `#0d0d14` |
+| Background (card) | `#111118` |
+| Brand purple | `#a855f7` |
+| Brand purple (light) | `#c084fc` |
+| Brand pink | `#ec4899` |
+| Brand pink (light) | `#f472b6` |
+| Text (primary) | `#f1f0f5` |
+| Text (secondary) | `#b8b4c8` |
+| Text (muted) | `#7a7590` |
+| Text (dim) | `#524e65` |
+| Brand gradient | `#a855f7` → `#ec4899` (135°) |
+
 ## Key Configuration
 
 | Setting | Value |
