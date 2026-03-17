@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Apotheca is a full-stack web application. The active frontend is a Vue 3 + PrimeVue SPA (`src/frontend/`). The backend is a .NET 6 ASP.NET Core API with MongoDB (`src/web-api/`). `src/web-frontend/` is deprecated and should be ignored.
 
+## Documentation 
+
+- See @docs/architecture.md for architectural overview.
+
 ## Commands
 
 ### Frontend (Vue 3 — `src/frontend/`)
