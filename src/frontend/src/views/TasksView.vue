@@ -1,12 +1,20 @@
 <template>
   <div class="page-layout">
+    <!-- Mobile backdrop -->
+    <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
+
     <!-- Left Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-header">
         <span>Task Lists</span>
-        <button class="icon-btn" title="New list">
-          <i class="pi pi-plus"></i>
-        </button>
+        <div class="sidebar-header-actions">
+          <button class="icon-btn" title="New list">
+            <i class="pi pi-plus"></i>
+          </button>
+          <button class="icon-btn" title="Close menu" @click="sidebarOpen = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
       </div>
       <div class="sidebar-search">
         <i class="pi pi-search search-icon"></i>
@@ -19,7 +27,7 @@
           :key="view.id"
           class="sidebar-item"
           :class="{ active: activeView === view.id }"
-          @click="activeView = view.id"
+          @click="activeView = view.id; closeSidebarOnMobile()"
         >
           <i :class="`pi ${view.icon}`"></i>
           <span>{{ view.name }}</span>
@@ -31,7 +39,7 @@
           :key="project.id"
           class="sidebar-item"
           :class="{ active: activeProject === project.id }"
-          @click="activeProject = project.id"
+          @click="activeProject = project.id; closeSidebarOnMobile()"
         >
           <span class="project-dot" :style="{ background: project.color }"></span>
           <span>{{ project.name }}</span>
@@ -42,7 +50,12 @@
     <!-- Main Content -->
     <div class="main-body">
       <div class="content-header">
-        <h1 class="content-title">{{ currentViewName }}</h1>
+        <div class="content-header-left">
+          <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
+            <i class="pi pi-bars"></i>
+          </button>
+          <h1 class="content-title">{{ currentViewName }}</h1>
+        </div>
         <button class="primary-btn">
           <i class="pi pi-plus"></i> New Task
         </button>
@@ -77,8 +90,13 @@
 <script setup>
 import { ref, computed } from 'vue'
 
+const sidebarOpen = ref(window.innerWidth >= 768)
 const activeView = ref('today')
 const activeProject = ref(null)
+
+function closeSidebarOnMobile() {
+  if (window.innerWidth < 768) sidebarOpen.value = false
+}
 
 const views = [
   { id: 'today', name: 'Today', icon: 'pi-sun', count: 4 },
@@ -116,6 +134,7 @@ const currentViewName = computed(() => {
   height: calc(100vh - 60px);
 }
 
+/* ── Sidebar ── */
 .sidebar {
   width: 240px;
   min-width: 240px;
@@ -125,6 +144,7 @@ const currentViewName = computed(() => {
   flex-direction: column;
   overflow-y: auto;
   padding: 1rem 0;
+  transition: transform 0.25s ease;
 }
 
 .sidebar-header {
@@ -137,6 +157,12 @@ const currentViewName = computed(() => {
   color: var(--text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .icon-btn {
@@ -224,6 +250,7 @@ const currentViewName = computed(() => {
   flex-shrink: 0;
 }
 
+/* ── Main Content ── */
 .main-body {
   flex: 1;
   overflow-y: auto;
@@ -237,6 +264,26 @@ const currentViewName = computed(() => {
   justify-content: space-between;
   margin-bottom: 1.5rem;
 }
+
+.content-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hamburger-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.25rem;
+  border-radius: 6px;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+.hamburger-btn:hover { color: var(--color-purple); }
 
 .content-title {
   font-size: 1.4rem;
@@ -338,5 +385,50 @@ const currentViewName = computed(() => {
 .task-project {
   font-size: 0.75rem;
   color: var(--text-dim);
+}
+
+/* ── Mobile ── */
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    width: 280px;
+    min-width: 0;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: 60px;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+  }
+  .main-body {
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .sidebar {
+    transform: translateX(0);
+  }
+  .sidebar:not(.open) {
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border-right: none;
+  }
 }
 </style>
