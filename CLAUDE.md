@@ -4,15 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Apotheca is a full-stack web application. The active frontend is a Vue 3 + PrimeVue SPA (`src/frontend/`). The backend is a .NET 6 ASP.NET Core API with MongoDB (`src/web-api/`). `src/web-frontend/` is deprecated and should be ignored.
-
-## Documentation 
-
-- See @docs/architecture.md for architectural overview.
+Apotheca is a full-stack web application. The active frontend is a Vue 3 + PrimeVue SPA (`source/web-frontend-app/`).
+The backend is a .NET 10 Web API (`source/web-api/`) targeting Google Cloud Run.
 
 ## Commands
 
-### Frontend (Vue 3 — `src/frontend/`)
+### Backend (.NET 10 — `source/web-api/`)
+
+```bash
+dotnet build          # Build the project
+dotnet run            # Run on https://localhost:6060
+dotnet watch          # Run with hot reload
+```
+
+### Frontend (Vue 3 — `source/web-frontend-app/`)
 
 ```bash
 npm install        # Install dependencies
@@ -21,43 +26,30 @@ npm run build      # Production build
 npm run preview    # Preview production build
 ```
 
-### Backend (.NET — `src/web-api/`)
-
-```bash
-dotnet build                                      # Build solution
-dotnet test                                       # Run all tests
-dotnet test --filter "Name=MyTest"                # Run a single test
-dotnet run --project Apotheca.Web.Api             # Run the API (HTTPS on port 6060)
-```
-
 ## Architecture
 
-### Frontend (`src/frontend/`)
+- See @docs/architecture.md for more architectural detail.
 
-Vue 3 SPA built with Vite. PrimeVue (Aura preset) provides the component library, styled with a custom dark theme (black background, purple/pink brand colors via CSS custom properties in `src/assets/main.css`). Dark mode is activated via the `.app-dark` class on the root element.
+### Backend (`source/web-api/`)
 
-- **`src/App.vue`** — Root layout: top nav bar (logo + Notes/Tasks tabs) and `<RouterView>`
-- **`src/router/index.js`** — `/` redirects to `/notes`; routes for `/notes` and `/tasks`
-- **`src/views/NotesView.vue`** — Left sidebar (folders, tags) + right notes card grid
-- **`src/views/TasksView.vue`** — Left sidebar (view filters, projects) + right task list
-- **`src/assets/main.css`** — Global CSS custom properties for all colors, backgrounds, glows, and gradients
+.NET 10 Web API using **vertical slice architecture** — features are self-contained under `Features/DomainArea/<FeatureName>/` with their own controller and models, rather than a layered Controllers/Services/Models split.
 
-### Backend (`src/web-api/`)
+- **`Features/Ping/PingController.cs`** — `GET /api/ping` returns status and UTC timestamp
+- **`Program.cs`** — Minimal host setup: controllers only, no OpenAPI
 
-Layered architecture:
+### Frontend (`source/web-frontend-app/`)
 
-- **`Apotheca.Web.Api`** — ASP.NET Core controllers, DI wiring (`ServiceCollectionExtensions.cs`), JWT/Auth0 setup, CORS, Swagger
-- **`Apotheca.BLL.Commands`** — Command pattern for business operations
-- **`Apotheca.BLL.Repositories`** — Repository pattern over MongoDB (`UserRepository`, `WorkspaceRepository`)
-- **`Apotheca.Db`** — `MongoDbContext`, `MongoDbMigrator`; DB models inherit from `DbModel` with BSON attributes
+Vue 3 SPA built with Vite. PrimeVue (Aura preset) provides the component library, styled with a custom dark theme (black background, purple/pink brand colors via CSS custom properties in `source/assets/main.css`). Dark mode is activated via the `.app-dark` class on the root element.
 
-Each layer has a corresponding `.Tests` project using xUnit.
-
-Data flow: Controller → View Service → Command → Repository → MongoDbContext
+- **`source/App.vue`** — Root layout: top nav bar (logo + Notes/Tasks tabs) and `<RouterView>`
+- **`source/router/index.js`** — `/` redirects to `/notes`; routes for `/notes` and `/tasks`
+- **`source/views/NotesView.vue`** — Left sidebar (folders, tags) + right notes card grid
+- **`source/views/TasksView.vue`** — Left sidebar (view filters, projects) + right task list
+- **`source/assets/main.css`** — Global CSS custom properties for all colors, backgrounds, glows, and gradients
 
 ## Color Palette
 
-Defined as CSS custom properties in `src/frontend/src/assets/main.css`.
+Defined as CSS custom properties in `source/web-frontend-app/source/assets/main.css`.
 
 | Role | Hex |
 |---|---|
