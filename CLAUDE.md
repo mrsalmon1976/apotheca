@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Apotheca is a full-stack web application. The active frontend is a Vue 3 + PrimeVue SPA (`source/web-frontend-app/`).
+Apotheca is a full-stack web application. The active frontend is a Vue 3 + PrimeVue SPA (`source/web-frontend/`).
 The backend is a .NET 10 Web API (`source/web-api/`) targeting Google Cloud Run.
 
 ## Commands
@@ -17,7 +17,7 @@ dotnet run            # Run on https://localhost:6060
 dotnet watch          # Run with hot reload
 ```
 
-### Frontend (Vue 3 — `source/web-frontend-app/`)
+### Frontend (Vue 3 — `source/web-frontend/`)
 
 ```bash
 npm install        # Install dependencies
@@ -37,7 +37,7 @@ npm run preview    # Preview production build
 - **`Features/Ping/PingController.cs`** — `GET /api/ping` returns status and UTC timestamp
 - **`Program.cs`** — Minimal host setup: controllers only, no OpenAPI
 
-### Frontend (`source/web-frontend-app/`)
+### Frontend (`source/web-frontend/`)
 
 Vue 3 SPA built with Vite. PrimeVue (Aura preset) provides the component library, styled with a custom dark theme (black background, purple/pink brand colors via CSS custom properties in `source/assets/main.css`). Dark mode is activated via the `.app-dark` class on the root element.
 
@@ -49,7 +49,7 @@ Vue 3 SPA built with Vite. PrimeVue (Aura preset) provides the component library
 
 ## Color Palette
 
-Defined as CSS custom properties in `source/web-frontend-app/source/assets/main.css`.
+Defined as CSS custom properties in `source/web-frontend/source/assets/main.css`.
 
 | Role | Hex |
 |---|---|
