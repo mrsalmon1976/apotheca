@@ -15,6 +15,14 @@
         </button>
         <button
           class="nav-tab"
+          :class="{ active: $route.path === '/features' }"
+          @click="$router.push('/features')"
+        >
+          <i class="pi pi-star"></i>
+          Features
+        </button>
+        <button
+          class="nav-tab"
           :class="{ active: $route.path === '/about' }"
           @click="$router.push('/about')"
         >

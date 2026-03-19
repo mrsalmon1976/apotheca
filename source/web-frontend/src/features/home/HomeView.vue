@@ -5,12 +5,12 @@
         <span class="logo-at">@</span>potheca
       </h1>
       <p class="hero-subtitle">
-        Your personal knowledge base. Notes, tasks, and everything in between —
-        organised and always within reach.
+        Your personal knowledge base and project management tool. Notes, tasks, projects, documents, and everything in between —
+        organised and always within reach.  Form teams to collaborate on projects, share notes, and track work together.
       </p>
       <div class="hero-actions">
         <button class="cta-btn cta-btn--primary">Get Started</button>
-        <button class="cta-btn cta-btn--ghost">Learn More</button>
+        <button class="cta-btn cta-btn--ghost" @click="$router.push('/features')">Learn More</button>
       </div>
     </div>
 

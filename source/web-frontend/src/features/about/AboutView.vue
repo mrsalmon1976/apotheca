@@ -3,7 +3,7 @@
     <div class="about-content">
       <h1 class="about-title">About <span class="gradient-text"><span class="logo-at">@</span>potheca</span></h1>
       <p class="about-lead">
-        Apotheca is a personal productivity application designed to keep your notes, tasks,
+        Apotheca is a productivity application for individuals or small teams, designed to keep your notes, tasks,
         and ideas in one place — clean, fast, and always available.
       </p>
 
@@ -13,14 +13,6 @@
           <p>
             A focused note-taking and task management tool built for people who value clarity.
             No bloat, no distractions — just a well-organised space for your work and thoughts.
-          </p>
-        </div>
-
-        <div class="about-section">
-          <h2><i class="pi pi-wrench"></i> How it's built</h2>
-          <p>
-            Apotheca is a full-stack web application. The frontend is built with Vue 3 and PrimeVue.
-            The backend is a .NET 10 API hosted on Google Cloud Run, with PostgreSQL for persistence.
           </p>
         </div>
 

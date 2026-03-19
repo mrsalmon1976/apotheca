@@ -3,6 +3,7 @@ import PublicLayout from '../layouts/PublicLayout.vue'
 import AppLayout from '../layouts/AppLayout.vue'
 import HomeView from '../features/home/HomeView.vue'
 import AboutView from '../features/about/AboutView.vue'
+import FeaturesView from '../features/features/FeaturesView.vue'
 import NotesView from '../features/notes/NotesView.vue'
 import TasksView from '../features/tasks/TasksView.vue'
 
@@ -16,6 +17,7 @@ const routes = [
     component: PublicLayout,
     children: [
       { path: 'home', component: HomeView },
+      { path: 'features', component: FeaturesView },
       { path: 'about', component: AboutView }
     ]
   },
