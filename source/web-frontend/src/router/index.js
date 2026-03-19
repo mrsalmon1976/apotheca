@@ -1,11 +1,32 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import NotesView from '../views/NotesView.vue'
-import TasksView from '../views/TasksView.vue'
+import PublicLayout from '../layouts/PublicLayout.vue'
+import AppLayout from '../layouts/AppLayout.vue'
+import HomeView from '../features/home/HomeView.vue'
+import AboutView from '../features/about/AboutView.vue'
+import NotesView from '../features/notes/NotesView.vue'
+import TasksView from '../features/tasks/TasksView.vue'
 
 const routes = [
-  { path: '/', redirect: '/notes' },
-  { path: '/notes', component: NotesView },
-  { path: '/tasks', component: TasksView }
+  {
+    path: '/',
+    redirect: '/home'
+  },
+  {
+    path: '/',
+    component: PublicLayout,
+    children: [
+      { path: 'home', component: HomeView },
+      { path: 'about', component: AboutView }
+    ]
+  },
+  {
+    path: '/',
+    component: AppLayout,
+    children: [
+      { path: 'notes', component: NotesView },
+      { path: 'tasks', component: TasksView }
+    ]
+  }
 ]
 
 export default createRouter({
