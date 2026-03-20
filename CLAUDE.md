@@ -47,6 +47,17 @@ Vue 3 SPA built with Vite. PrimeVue (Aura preset) provides the component library
 - **`source/views/TasksView.vue`** — Left sidebar (view filters, projects) + right task list
 - **`source/assets/main.css`** — Global CSS custom properties for all colors, backgrounds, glows, and gradients
 
+### Authentication
+
+Firebase Authentication handles all auth. The Firebase client is initialised in `src/firebase.js` and all auth logic lives in `src/composables/useAuth.js`.
+
+Supported providers:
+- **Google** — OAuth via `GoogleAuthProvider`
+- **Microsoft** — OAuth via `OAuthProvider('microsoft.com')`
+- **Email/Password** — `signInWithEmailAndPassword` / `createUserWithEmailAndPassword`, with `sendPasswordResetEmail` for password reset
+
+Auth state is tracked via `onAuthStateChanged` as a module-level singleton so it is shared across all callers of `useAuth()`. Errors are surfaced to the user via PrimeVue Toast with Firebase error codes mapped to friendly messages in `EMAIL_ERRORS`.
+
 ## Color Palette
 
 Defined as CSS custom properties in `source/web-frontend/source/assets/main.css`.
@@ -72,6 +83,5 @@ Defined as CSS custom properties in `source/web-frontend/source/assets/main.css`
 |---|---|
 | Frontend dev port | `5173` (Vite) |
 | API URL | `https://localhost:6060` |
-| Auth0 domain | `apotheca-dev.eu.auth0.com` |
-| Auth0 audience | `https://apotheca-dev.com/api` |
+| Firebase project | `apotheca-dev` |
 | MongoDB | `mongodb://localhost` |
