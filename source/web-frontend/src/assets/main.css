@@ -64,3 +64,71 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-purple);
 }
+
+/* ── PrimeVue Toast – Apotheca branding ── */
+.p-toast {
+  opacity: 1;
+}
+
+.p-toast-message {
+  background: var(--bg-card) !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--border-purple) !important;
+  box-shadow: 0 0 24px var(--glow-purple), 0 4px 24px rgba(0, 0, 0, 0.6) !important;
+  color: var(--text-primary) !important;
+  backdrop-filter: blur(8px);
+}
+
+.p-toast-message-content {
+  padding: 1rem 1.25rem !important;
+  gap: 0.75rem !important;
+}
+
+.p-toast-summary {
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+}
+
+.p-toast-detail {
+  color: var(--text-secondary) !important;
+  font-size: 0.875rem !important;
+}
+
+/* Error severity */
+.p-toast-message-error {
+  border-color: rgba(236, 72, 153, 0.4) !important;
+  box-shadow: 0 0 24px var(--glow-pink), 0 4px 24px rgba(0, 0, 0, 0.6) !important;
+}
+
+.p-toast-message-error .p-toast-message-icon,
+.p-toast-message-error .p-toast-summary {
+  color: var(--color-pink-light) !important;
+}
+
+/* Success severity */
+.p-toast-message-success {
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+.p-toast-message-success .p-toast-message-icon,
+.p-toast-message-success .p-toast-summary {
+  color: var(--color-purple-light) !important;
+}
+
+/* Info / warn severities */
+.p-toast-message-info .p-toast-message-icon,
+.p-toast-message-info .p-toast-summary,
+.p-toast-message-warn .p-toast-message-icon,
+.p-toast-message-warn .p-toast-summary {
+  color: var(--color-purple-light) !important;
+}
+
+/* Close button */
+.p-toast-close-button {
+  color: var(--text-muted) !important;
+}
+
+.p-toast-close-button:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-hover) !important;
+}

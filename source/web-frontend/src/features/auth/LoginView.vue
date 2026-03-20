@@ -28,7 +28,64 @@
         </button>
       </div>
 
-      <p v-if="error" class="login-error">{{ error }}</p>
+      <div class="divider"><span>or</span></div>
+
+      <form v-if="!isForgotPassword" class="email-form" @submit.prevent="handleEmail">
+        <input
+          v-model="email"
+          type="email"
+          placeholder="Email address"
+          class="email-input"
+          autocomplete="email"
+          :disabled="busy"
+          required
+        />
+        <input
+          v-model="password"
+          type="password"
+          placeholder="Password"
+          class="email-input"
+          :autocomplete="isRegistering ? 'new-password' : 'current-password'"
+          :disabled="busy"
+          required
+        />
+        <button
+          v-if="!isRegistering"
+          type="button"
+          class="forgot-link"
+          @click="isForgotPassword = true"
+          :disabled="busy"
+        >Forgot password?</button>
+        <button type="submit" class="provider-btn email-submit-btn" :disabled="busy">
+          {{ isRegistering ? 'Create account' : 'Sign in with Email' }}
+        </button>
+      </form>
+
+      <form v-else class="email-form" @submit.prevent="handleForgotPassword">
+        <p class="forgot-instructions">Enter your email and we'll send you a reset link.</p>
+        <input
+          v-model="email"
+          type="email"
+          placeholder="Email address"
+          class="email-input"
+          autocomplete="email"
+          :disabled="busy"
+          required
+        />
+        <button type="submit" class="provider-btn email-submit-btn" :disabled="busy">
+          Send reset email
+        </button>
+        <button type="button" class="toggle-link back-link" @click="isForgotPassword = false" :disabled="busy">
+          ← Back to sign in
+        </button>
+      </form>
+
+      <p v-if="!isForgotPassword" class="toggle-mode">
+        {{ isRegistering ? 'Already have an account?' : "Don't have an account?" }}
+        <button class="toggle-link" @click="isRegistering = !isRegistering" :disabled="busy">
+          {{ isRegistering ? 'Sign in' : 'Create one' }}
+        </button>
+      </p>
     </div>
   </div>
 </template>
@@ -38,19 +95,21 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../../composables/useAuth'
 
-const { loginWithGoogle, loginWithMicrosoft } = useAuth()
+const { loginWithGoogle, loginWithMicrosoft, loginWithEmail, registerWithEmail, sendPasswordReset } = useAuth()
 const router = useRouter()
 const busy = ref(false)
-const error = ref(null)
+const email = ref('')
+const password = ref('')
+const isRegistering = ref(false)
+const isForgotPassword = ref(false)
 
 async function handleGoogle() {
   busy.value = true
-  error.value = null
   try {
     await loginWithGoogle()
     router.push('/notes')
-  } catch (e) {
-    error.value = 'Google sign-in failed. Please try again.'
+  } catch {
+    // error already shown via toast
   } finally {
     busy.value = false
   }
@@ -58,13 +117,39 @@ async function handleGoogle() {
 
 async function handleMicrosoft() {
   busy.value = true
-  error.value = null
   try {
     await loginWithMicrosoft()
     router.push('/notes')
-  } catch (e) {
-    error.value = e.message || 'Microsoft sign-in failed. Please try again.'
-    console.error(e)
+  } catch {
+    // error already shown via toast
+  } finally {
+    busy.value = false
+  }
+}
+
+async function handleEmail() {
+  busy.value = true
+  try {
+    if (isRegistering.value) {
+      await registerWithEmail(email.value, password.value)
+    } else {
+      await loginWithEmail(email.value, password.value)
+    }
+    router.push('/notes')
+  } catch {
+    // error already shown via toast
+  } finally {
+    busy.value = false
+  }
+}
+
+async function handleForgotPassword() {
+  busy.value = true
+  try {
+    await sendPasswordReset(email.value)
+    isForgotPassword.value = false
+  } catch {
+    // error already shown via toast
   } finally {
     busy.value = false
   }
@@ -160,10 +245,115 @@ async function handleMicrosoft() {
   flex-shrink: 0;
 }
 
-.login-error {
-  color: var(--color-pink);
-  font-size: 0.875rem;
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.email-input {
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.email-input::placeholder {
+  color: var(--text-muted);
+}
+
+.email-input:focus {
+  border-color: var(--border-purple);
+}
+
+.email-input:disabled {
+  opacity: 0.5;
+}
+
+.email-submit-btn {
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+.toggle-mode {
   text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
   margin: 0;
+}
+
+.toggle-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-purple, #a855f7);
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.toggle-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.forgot-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: right;
+  align-self: flex-end;
+}
+
+.forgot-link:hover {
+  color: var(--text-secondary);
+}
+
+.forgot-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.forgot-instructions {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.back-link {
+  text-align: center;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.back-link:hover {
+  color: var(--text-secondary);
 }
 </style>
