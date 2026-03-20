@@ -3,7 +3,6 @@ using DbUp;
 using Microsoft.Extensions.Configuration;
 
 var config = new ConfigurationBuilder()
-    .AddJsonFile("appsettings.json", optional: true)
     .AddEnvironmentVariables()
     .Build();
 
