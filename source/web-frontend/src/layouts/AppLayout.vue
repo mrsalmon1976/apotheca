@@ -22,6 +22,13 @@
           Tasks
         </button>
       </div>
+      <div class="nav-user">
+        <span class="user-name">{{ user?.displayName || user?.email }}</span>
+        <button class="logout-btn" @click="handleLogout">
+          <i class="pi pi-sign-out"></i>
+          Logout
+        </button>
+      </div>
     </nav>
     <main class="page-content">
       <RouterView />
@@ -30,7 +37,16 @@
 </template>
 
 <script setup>
-import { RouterView } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
+
+const { user, logout } = useAuth()
+const router = useRouter()
+
+async function handleLogout() {
+  await logout()
+  router.push('/home')
+}
 </script>
 
 <style scoped>
@@ -77,6 +93,7 @@ import { RouterView } from 'vue-router'
 .nav-tabs {
   display: flex;
   gap: 0.25rem;
+  flex: 1;
 }
 
 .nav-tab {
@@ -104,6 +121,41 @@ import { RouterView } from 'vue-router'
   background: var(--bg-active);
   color: var(--color-pink);
   box-shadow: 0 0 12px var(--glow-pink);
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  border-color: var(--border-purple);
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .page-content {

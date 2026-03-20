@@ -31,8 +31,13 @@
         </button>
       </div>
       <div class="nav-actions">
-        <button class="action-btn action-btn--ghost">Login</button>
-        <button class="action-btn action-btn--primary">Register</button>
+        <template v-if="user">
+          <span class="user-name">{{ user.displayName || user.email }}</span>
+          <button class="action-btn action-btn--ghost" @click="logout">Logout</button>
+        </template>
+        <template v-else>
+          <button class="action-btn action-btn--primary" @click="$router.push('/login')">Sign In</button>
+        </template>
       </div>
     </nav>
     <main class="page-content">
@@ -43,6 +48,9 @@
 
 <script setup>
 import { RouterView } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
+
+const { user, logout } = useAuth()
 </script>
 
 <style scoped>
@@ -156,6 +164,15 @@ import { RouterView } from 'vue-router'
 .action-btn--primary:hover {
   box-shadow: 0 0 20px var(--glow-purple);
   opacity: 0.9;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .page-content {
