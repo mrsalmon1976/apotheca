@@ -1,5 +1,6 @@
 using Apotheca.Migrations;
 using DbUp;
+using DbUp.Helpers;
 using Microsoft.Extensions.Configuration;
 
 var config = new ConfigurationBuilder()
@@ -18,6 +19,7 @@ var upgrader = DeployChanges.To
     .PostgresqlDatabase(settings.ConnectionString)
     .WithScriptsEmbeddedInAssembly(typeof(Program).Assembly)
     .WithTransactionPerScript()
+    .JournalTo(new NullJournal())   // no record will be kept of which scripts have been run, so all scripts will run every time
     .LogToConsole()
     .Build();
 
