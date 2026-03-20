@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "Apotheca.Migrations": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ConnectionString": "Host=localhost;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca"
+      }
+    }
+  }
+}

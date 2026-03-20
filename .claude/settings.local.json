@@ -6,7 +6,10 @@
       "Bash(npm install:*)",
       "Bash(timeout 20 npm run:*)",
       "Bash(dotnet new:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet build:*)"
     ]
   }
 }
