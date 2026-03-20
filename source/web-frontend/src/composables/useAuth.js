@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { useToast } from 'primevue/usetoast'
 import {
   GoogleAuthProvider,
   OAuthProvider,
@@ -17,9 +18,17 @@ onAuthStateChanged(auth, (u) => {
 })
 
 export function useAuth() {
+  const toast = useToast()
+
   async function loginWithGoogle() {
     const provider = new GoogleAuthProvider()
+    provider.addScope('email')
+    provider.addScope('profile')
     await signInWithPopup(auth, provider)
+      .catch((error) => {
+        console.error("Firebase Auth Error:", error.code, error.message)
+        toast.add({ severity: 'error', summary: 'Sign-in failed', detail: error.message, life: 15000 })
+      })
   }
 
   async function loginWithMicrosoft() {
