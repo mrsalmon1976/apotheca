@@ -1,2 +1,0 @@
--- Initial schema placeholder.
--- Add your CREATE TABLE statements here.

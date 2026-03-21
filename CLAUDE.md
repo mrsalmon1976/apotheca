@@ -26,6 +26,12 @@ npm run build      # Production build
 npm run preview    # Preview production build
 ```
 
+### Database
+
+```base
+docker compose up -d		# Start up the database and pgAdmin (http://localhost:5050)
+```
+
 ## Architecture
 
 - See @docs/architecture.md for more architectural detail.
