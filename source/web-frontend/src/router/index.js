@@ -8,6 +8,7 @@ import FeaturesView from '../features/features/FeaturesView.vue'
 import NotesView from '../features/notes/NotesView.vue'
 import TasksView from '../features/tasks/TasksView.vue'
 import LoginView from '../features/auth/LoginView.vue'
+import LoggingInView from '../features/auth/LoggingInView.vue'
 
 const routes = [
   {
@@ -21,7 +22,8 @@ const routes = [
       { path: 'home', component: HomeView },
       { path: 'features', component: FeaturesView },
       { path: 'about', component: AboutView },
-      { path: 'login', component: LoginView },
+      { path: 'auth/login', component: LoginView },
+      { path: 'logging-in', component: LoggingInView },
     ]
   },
   {
@@ -49,7 +51,7 @@ router.beforeEach((to, from, next) => {
     if (user) {
       next()
     } else {
-      next('/login')
+      next('/auth/login')
     }
   })
 })

@@ -36,7 +36,7 @@
           <button class="action-btn action-btn--ghost" @click="logout">Logout</button>
         </template>
         <template v-else>
-          <button class="action-btn action-btn--primary" @click="$router.push('/login')">Sign In</button>
+          <button class="action-btn action-btn--primary" @click="$router.push('/auth/login')">Sign In</button>
         </template>
       </div>
     </nav>

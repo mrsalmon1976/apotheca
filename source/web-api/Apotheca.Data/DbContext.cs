@@ -37,10 +37,22 @@ public class DbContext : IDbContext
         _transaction = null;
     }
 
+    public Task<int> ExecuteAsync(string sql, object? param = null, CancellationToken cancellationToken = default)
+    {
+        var command = new CommandDefinition(sql, param, _transaction, cancellationToken: cancellationToken);
+        return _connection.ExecuteAsync(command);
+    }
+
     public Task<IEnumerable<T>> QueryAsync<T>(string sql, object? param = null, CancellationToken cancellationToken = default)
     {
         var command = new CommandDefinition(sql, param, _transaction, cancellationToken: cancellationToken);
         return _connection.QueryAsync<T>(command);
+    }
+
+    public Task<T?> QueryFirstOrDefaultAsync<T>(string sql, object? param = null, CancellationToken cancellationToken = default)
+    {
+        var command = new CommandDefinition(sql, param, _transaction, cancellationToken: cancellationToken);
+        return _connection.QueryFirstOrDefaultAsync<T>(command);
     }
 
     public async Task RollbackAsync(CancellationToken cancellationToken = default)

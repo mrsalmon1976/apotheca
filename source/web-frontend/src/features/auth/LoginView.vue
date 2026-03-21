@@ -107,7 +107,7 @@ async function handleGoogle() {
   busy.value = true
   try {
     await loginWithGoogle()
-    router.push('/notes')
+    router.push('/logging-in')
   } catch {
     // error already shown via toast
   } finally {
@@ -119,7 +119,7 @@ async function handleMicrosoft() {
   busy.value = true
   try {
     await loginWithMicrosoft()
-    router.push('/notes')
+    router.push('/logging-in')
   } catch {
     // error already shown via toast
   } finally {
@@ -135,7 +135,7 @@ async function handleEmail() {
     } else {
       await loginWithEmail(email.value, password.value)
     }
-    router.push('/notes')
+    router.push('/logging-in')
   } catch {
     // error already shown via toast
   } finally {
