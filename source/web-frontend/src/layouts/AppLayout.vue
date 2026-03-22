@@ -86,6 +86,14 @@ watch(isProjectRoute, (onProject) => {
   if (!onProject) selectedProject.value = null
 })
 
+watch(
+  [() => route.params.id, projects],
+  ([id]) => {
+    if (id) selectedProject.value = projects.value.find(p => p.id === id) ?? null
+  },
+  { immediate: true }
+)
+
 onMounted(loadProjects)
 
 function navigateToProject(project) {
