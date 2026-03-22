@@ -3,49 +3,7 @@
     <!-- Mobile backdrop -->
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
-    <!-- Left Sidebar -->
-    <aside class="sidebar" :class="{ open: sidebarOpen }">
-      <div class="sidebar-header">
-        <span>Task Lists</span>
-        <div class="sidebar-header-actions">
-          <button class="icon-btn" title="New list">
-            <i class="pi pi-plus"></i>
-          </button>
-          <button class="icon-btn" title="Close menu" @click="sidebarOpen = false">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-      </div>
-      <div class="sidebar-search">
-        <i class="pi pi-search search-icon"></i>
-        <input class="search-input" placeholder="Search tasks..." />
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-group-label">Views</div>
-        <button
-          v-for="view in views"
-          :key="view.id"
-          class="sidebar-item"
-          :class="{ active: activeView === view.id }"
-          @click="activeView = view.id; closeSidebarOnMobile()"
-        >
-          <i :class="`pi ${view.icon}`"></i>
-          <span>{{ view.name }}</span>
-          <span v-if="view.count" class="item-count">{{ view.count }}</span>
-        </button>
-        <div class="nav-group-label" style="margin-top:1rem">Projects</div>
-        <button
-          v-for="project in projects"
-          :key="project.id"
-          class="sidebar-item"
-          :class="{ active: activeProject === project.id }"
-          @click="activeProject = project.id; closeSidebarOnMobile()"
-        >
-          <span class="project-dot" :style="{ background: project.color }"></span>
-          <span>{{ project.name }}</span>
-        </button>
-      </nav>
-    </aside>
+    <ProjectSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
 
     <!-- Main Content -->
     <div class="main-body">
@@ -89,41 +47,32 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import ProjectSidebar from '../../components/ProjectSidebar.vue'
 
+const route = useRoute()
+
+const activeFilter = computed(() => route.params.filter ?? 'all')
 const sidebarOpen = ref(window.innerWidth >= 768)
-const activeView = ref('today')
-const activeProject = ref(null)
-
-function closeSidebarOnMobile() {
-  if (window.innerWidth < 768) sidebarOpen.value = false
-}
 
 const views = [
-  { id: 'today', name: 'Today', icon: 'pi-sun', count: 4 },
-  { id: 'upcoming', name: 'Upcoming', icon: 'pi-calendar', count: 9 },
-  { id: 'all', name: 'All Tasks', icon: 'pi-list', count: 15 },
-  { id: 'completed', name: 'Completed', icon: 'pi-check-circle', count: null },
-]
-
-const projects = [
-  { id: 'apotheca', name: 'Apotheca', color: '#a855f7' },
-  { id: 'personal', name: 'Personal', color: '#ec4899' },
-  { id: 'learning', name: 'Learning', color: '#8b5cf6' },
+  { id: 'today',     name: 'Today' },
+  { id: 'upcoming',  name: 'Upcoming' },
+  { id: 'all',       name: 'All Tasks' },
+  { id: 'completed', name: 'Completed' },
 ]
 
 const tasks = ref([
-  { id: 1, title: 'Design new dashboard layout', done: false, due: 'Today', priority: 'high', project: 'Apotheca' },
-  { id: 2, title: 'Set up MongoDB indexes', done: true, due: 'Yesterday', priority: 'medium', project: 'Apotheca' },
-  { id: 3, title: 'Write unit tests for UserRepository', done: false, due: 'Mar 15', priority: 'medium', project: 'Apotheca' },
-  { id: 4, title: 'Read Clean Architecture book', done: false, due: 'Mar 20', priority: 'low', project: 'Learning' },
-  { id: 5, title: 'Weekly grocery shopping', done: false, due: 'Today', priority: 'low', project: 'Personal' },
-  { id: 6, title: 'Review pull request #42', done: true, due: 'Mar 11', priority: 'high', project: 'Apotheca' },
-  { id: 7, title: 'Update API documentation', done: false, due: 'Mar 16', priority: 'medium', project: 'Apotheca' },
+  { id: 1, title: 'Design new dashboard layout',          done: false, due: 'Today',     priority: 'high',   project: 'Apotheca' },
+  { id: 2, title: 'Set up MongoDB indexes',               done: true,  due: 'Yesterday', priority: 'medium', project: 'Apotheca' },
+  { id: 3, title: 'Write unit tests for UserRepository',  done: false, due: 'Mar 15',    priority: 'medium', project: 'Apotheca' },
+  { id: 4, title: 'Read Clean Architecture book',         done: false, due: 'Mar 20',    priority: 'low',    project: 'Learning' },
+  { id: 5, title: 'Weekly grocery shopping',              done: false, due: 'Today',     priority: 'low',    project: 'Personal' },
+  { id: 6, title: 'Review pull request #42',              done: true,  due: 'Mar 11',    priority: 'high',   project: 'Apotheca' },
+  { id: 7, title: 'Update API documentation',             done: false, due: 'Mar 16',    priority: 'medium', project: 'Apotheca' },
 ])
 
-const currentViewName = computed(() => {
-  return views.find(v => v.id === activeView.value)?.name || 'Tasks'
-})
+const currentViewName = computed(() => views.find(v => v.id === activeFilter.value)?.name ?? 'Tasks')
 </script>
 
 <style scoped>
@@ -132,122 +81,6 @@ const currentViewName = computed(() => {
   flex: 1;
   overflow: hidden;
   height: calc(100vh - 60px);
-}
-
-/* ── Sidebar ── */
-.sidebar {
-  width: 240px;
-  min-width: 240px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding: 1rem 0;
-  transition: transform 0.25s ease;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.25rem 1rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.sidebar-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.icon-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: color 0.2s;
-}
-.icon-btn:hover { color: var(--color-purple); }
-
-.sidebar-search {
-  position: relative;
-  padding: 0 0.75rem 0.75rem;
-}
-.search-icon {
-  position: absolute;
-  left: 1.25rem;
-  top: 50%;
-  transform: translateY(-60%);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-.search-input {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.4rem 0.75rem 0.4rem 2rem;
-  color: var(--text-primary);
-  font-size: 0.8rem;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-.search-input:focus { border-color: var(--color-purple); }
-
-.sidebar-nav { padding: 0 0.5rem; }
-
-.nav-group-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  padding: 0 0.5rem 0.4rem;
-}
-
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: left;
-}
-.sidebar-item:hover { background: var(--bg-hover); color: var(--text-primary); }
-.sidebar-item.active {
-  background: var(--bg-active);
-  color: var(--color-pink);
-}
-
-.item-count {
-  margin-left: auto;
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  background: var(--bg-badge);
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-}
-
-.project-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 /* ── Main Content ── */
@@ -378,9 +211,9 @@ const currentViewName = computed(() => {
   font-weight: 600;
   text-transform: capitalize;
 }
-.priority-badge.high { background: rgba(236, 72, 153, 0.15); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3); }
+.priority-badge.high   { background: rgba(236, 72, 153, 0.15); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3); }
 .priority-badge.medium { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); }
-.priority-badge.low { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.25); }
+.priority-badge.low    { background: rgba(139, 92, 246, 0.1);  color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.25); }
 
 .task-project {
   font-size: 0.75rem;
@@ -388,24 +221,9 @@ const currentViewName = computed(() => {
 }
 
 /* ── Mobile ── */
-.sidebar-backdrop {
-  display: none;
-}
+.sidebar-backdrop { display: none; }
 
 @media (max-width: 767px) {
-  .sidebar {
-    position: fixed;
-    top: 60px;
-    left: 0;
-    bottom: 0;
-    z-index: 100;
-    transform: translateX(-100%);
-    width: 280px;
-    min-width: 0;
-  }
-  .sidebar.open {
-    transform: translateX(0);
-  }
   .sidebar-backdrop {
     display: block;
     position: fixed;
@@ -414,21 +232,6 @@ const currentViewName = computed(() => {
     background: rgba(0, 0, 0, 0.6);
     z-index: 99;
   }
-  .main-body {
-    padding: 1rem;
-  }
-}
-
-@media (min-width: 768px) {
-  .sidebar {
-    transform: translateX(0);
-  }
-  .sidebar:not(.open) {
-    width: 0;
-    min-width: 0;
-    padding: 0;
-    overflow: hidden;
-    border-right: none;
-  }
+  .main-body { padding: 1rem; }
 }
 </style>
