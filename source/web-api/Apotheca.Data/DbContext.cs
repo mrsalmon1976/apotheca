@@ -12,14 +12,9 @@ public class DbContext : IDbContext
     public IDbConnection Connection => _connection;
     public IDbTransaction? Transaction => _transaction;
 
-    public DbContext(string connectionString)
+    internal DbContext(NpgsqlConnection connection)
     {
-        _connection = new NpgsqlConnection(connectionString);
-    }
-
-    internal async Task OpenAsync(CancellationToken cancellationToken = default)
-    {
-        await _connection.OpenAsync(cancellationToken);
+        _connection = connection;
     }
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)

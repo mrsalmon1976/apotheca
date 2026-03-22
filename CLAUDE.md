@@ -28,7 +28,7 @@ npm run preview    # Preview production build
 
 ### Database
 
-```base
+```bash
 docker compose up -d		# Start up the database and pgAdmin (http://localhost:5050)
 ```
 
@@ -41,19 +41,48 @@ docker compose up -d		# Start up the database and pgAdmin (http://localhost:5050
 .NET 10 Web API using **vertical slice architecture** — features are self-contained under `Features/DomainArea/<FeatureName>/` with their own controller and models, rather than a layered Controllers/Services/Models split.
 
 - **`Features/Ping/PingController.cs`** — `GET /api/ping` returns status and UTC timestamp
-- **`Program.cs`** — Minimal host setup: controllers only, no OpenAPI
+- **`Program.cs`** — Minimal host setup: controllers, Firebase JWT Bearer auth middleware, CORS
+
+#### Authentication (backend)
+
+All API endpoints requiring auth inherit from `Features/AuthenticatedBaseController.cs`, which carries `[Authorize]` and `[ApiController]` and exposes `GetFirebaseUid()` (reads the `sub` claim).
+
+JWT Bearer middleware is configured in `Program.cs` for Firebase OIDC (`securetoken.google.com/{projectId}`), with `MapInboundClaims = false` so claim names are preserved as-is (e.g. `sub` rather than the Microsoft URI equivalent).
+
+#### Data access
+
+All database access uses **Dapper** via `IDbContext`/`IDbContextFactory` in `Apotheca.Data`. `DbContextFactory` uses `NpgsqlDataSourceBuilder` to create a `NpgsqlDataSource` (singleton), which enforces UTC timestamp handling — all `TIMESTAMPTZ` columns are read/written as UTC. See @docs/architecture.md for query patterns.
 
 ### Frontend (`source/web-frontend/`)
 
-Vue 3 SPA built with Vite. PrimeVue (Aura preset) provides the component library, styled with a custom dark theme (black background, purple/pink brand colors via CSS custom properties in `source/assets/main.css`). Dark mode is activated via the `.app-dark` class on the root element.
+Vue 3 SPA built with Vite. PrimeVue (Aura preset) provides the component library, styled with a custom dark theme (black background, purple/pink brand colors via CSS custom properties in `src/assets/main.css`). Dark mode is activated via the `.app-dark` class on the root element.
 
-- **`source/App.vue`** — Root layout: top nav bar (logo + Notes/Tasks tabs) and `<RouterView>`
-- **`source/router/index.js`** — `/` redirects to `/notes`; routes for `/notes` and `/tasks`
-- **`source/views/NotesView.vue`** — Left sidebar (folders, tags) + right notes card grid
-- **`source/views/TasksView.vue`** — Left sidebar (view filters, projects) + right task list
-- **`source/assets/main.css`** — Global CSS custom properties for all colors, backgrounds, glows, and gradients
+#### Layouts
 
-### Authentication
+- **`src/layouts/PublicLayout.vue`** — Nav bar for unauthenticated pages (Home, Features, About, Login). Shows a Dashboard button and Logout when logged in.
+- **`src/layouts/AppLayout.vue`** — Nav bar for authenticated pages. Includes Dashboard/Notes/Tasks nav tabs, a project jump dropdown (loaded from API), and a Logout button with the username as a tooltip.
+
+#### Router (`src/router/index.js`)
+
+- `/` → redirects to `/home`
+- Public (PublicLayout): `/home`, `/features`, `/about`, `/auth/login`, `/logging-in`
+- Authenticated (AppLayout, `requiresAuth: true`): `/dashboard`, `/notes`, `/tasks`, `/project/:id`
+
+Post-login redirect goes to `/dashboard`.
+
+#### Key views
+
+- **`src/features/dashboard/DashboardView.vue`** — Default post-login page; stat cards and activity overview
+- **`src/features/notes/NotesView.vue`** — Left sidebar (folders, tags) + right notes card grid
+- **`src/features/tasks/TasksView.vue`** — Left sidebar (view filters, projects) + right task list
+- **`src/features/projects/ProjectView.vue`** — Per-project page; sidebar with sections (Notes, Tasks, Activity) and members; URL includes project ID (`/project/:id`)
+
+#### Composables
+
+- **`src/composables/useAuth.js`** — Firebase auth singleton; supports Google, Microsoft, email/password. Errors shown via PrimeVue Toast.
+- **`src/composables/useProjects.js`** — Fetches the user's projects from the API; surfaces load errors via PrimeVue Toast.
+
+### Authentication (frontend)
 
 Firebase Authentication handles all auth. The Firebase client is initialised in `src/firebase.js` and all auth logic lives in `src/composables/useAuth.js`.
 
@@ -66,7 +95,7 @@ Auth state is tracked via `onAuthStateChanged` as a module-level singleton so it
 
 ## Color Palette
 
-Defined as CSS custom properties in `source/web-frontend/source/assets/main.css`.
+Defined as CSS custom properties in `source/web-frontend/src/assets/main.css`.
 
 | Role | Hex |
 |---|---|
@@ -90,4 +119,4 @@ Defined as CSS custom properties in `source/web-frontend/source/assets/main.css`
 | Frontend dev port | `5173` (Vite) |
 | API URL | `https://localhost:6060` |
 | Firebase project | `apotheca-dev` |
-| MongoDB | `mongodb://localhost` |
+| PostgreSQL | `Host=localhost;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca` |

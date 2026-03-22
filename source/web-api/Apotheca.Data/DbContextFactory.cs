@@ -1,21 +1,28 @@
 using Microsoft.Extensions.Configuration;
+using Npgsql;
 
 namespace Apotheca.Data;
 
-public class DbContextFactory : IDbContextFactory
+public class DbContextFactory : IDbContextFactory, IAsyncDisposable
 {
-    private readonly string _connectionString;
+    private readonly NpgsqlDataSource _dataSource;
 
     public DbContextFactory(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("Postgres")
+        var connectionString = configuration.GetConnectionString("Postgres")
             ?? throw new InvalidOperationException("Connection string 'Postgres' is not configured.");
+
+        _dataSource = new NpgsqlDataSourceBuilder(connectionString).Build();
     }
 
     public async Task<IDbContext> CreateAsync(CancellationToken cancellationToken = default)
     {
-        var context = new DbContext(_connectionString);
-        await context.OpenAsync(cancellationToken);
-        return context;
+        var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        return new DbContext(connection);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _dataSource.DisposeAsync();
     }
 }
