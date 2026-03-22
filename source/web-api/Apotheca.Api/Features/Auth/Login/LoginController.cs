@@ -43,6 +43,10 @@ public class LoginController(IDbContextFactory dbContextFactory
                 if (userId is null)
                 {
                     userId = await loginRepo.CreateUserAsync(db, user);
+
+                    var projectId = await loginRepo.CreateProjectAsync(db, DataConstants.DefaultProjectName);
+                    await loginRepo.CreateUserProjectAsync(db, userId, projectId, DataConstants.ProjectRole.Owner);
+                    await loginRepo.CreateProjectAuditLogAsync(db, projectId, userId);
                 }
 
                 await loginRepo.CreateUserIdentityAsync(db, user, userId);

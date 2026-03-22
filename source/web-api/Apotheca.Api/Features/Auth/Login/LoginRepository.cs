@@ -1,9 +1,28 @@
-﻿using Apotheca.Data;
+﻿using System.Text.Json;
+using Apotheca.Data;
 
 namespace Apotheca.Api.Features.Auth.Login
 {
     public class LoginRepository
     {
+
+        public virtual async Task<string> CreateProjectAsync(IDbContext db, string name)
+        {
+            string projectId = Guid.NewGuid().ToString();
+            await db.ExecuteAsync(
+                "INSERT INTO projects (id, name) VALUES (@Id, @Name)",
+                new { Id = projectId, Name = name });
+
+            return projectId;
+        }
+
+        public virtual async Task CreateProjectAuditLogAsync(IDbContext db, string projectId, string userId)
+        {
+            var newData = JsonSerializer.Serialize(new { id = projectId });
+            await db.ExecuteAsync(
+                "INSERT INTO audit.project_logs (project_id, changed_by, operation, log_message, new_data) VALUES (@ProjectId, @ChangedBy, @Operation, @LogMessage, @NewData::jsonb)",
+                new { ProjectId = projectId, ChangedBy = userId, Operation = "INSERT", LogMessage = $"Project '{DataConstants.DefaultProjectName}' created", NewData = newData });
+        }
 
         public virtual async Task<string> CreateUserAsync(IDbContext db, User user)
         {
@@ -20,6 +39,13 @@ namespace Apotheca.Api.Features.Auth.Login
             await db.ExecuteAsync(
                 "INSERT INTO user_firebase_identities (firebase_uid, user_id, provider_id) VALUES (@Uid, @UserId, @ProviderId)",
                 new { Uid = user.Uid, UserId = userId, ProviderId = user.ProviderId });
+        }
+
+        public virtual async Task CreateUserProjectAsync(IDbContext db, string userId, string projectId, string role)
+        {
+            await db.ExecuteAsync(
+                "INSERT INTO user_projects (user_id, project_id, project_role) VALUES (@UserId, @ProjectId, @Role)",
+                new { UserId = userId, ProjectId = projectId, Role = role });
         }
 
 

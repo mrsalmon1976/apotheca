@@ -67,6 +67,8 @@ public class LoginControllerTests
             .Returns(Task.FromResult<string?>(null));
         _loginRepository.CreateUserAsync(_dbContext, user)
             .Returns(Task.FromResult("new-user-id"));
+        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult("new-project-id"));
 
         var result = await _controller.Login(loginRequest, CancellationToken.None);
 
@@ -147,6 +149,8 @@ public class LoginControllerTests
             .Returns(Task.FromResult<string?>(null));
         _loginRepository.CreateUserAsync(_dbContext, user)
             .Returns(Task.FromResult("new-user-id"));
+        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult("new-project-id"));
 
         await _controller.Login(loginRequest, CancellationToken.None);
 
@@ -255,5 +259,127 @@ public class LoginControllerTests
         Assert.ThrowsAsync<Exception>(() => _controller.Login(loginRequest, CancellationToken.None));
 
         await _dbContext.Received(1).RollbackAsync(Arg.Any<CancellationToken>());
+    }
+
+    // --- Project creation ---
+
+    [Test]
+    public async Task Login_CreatesProject_WhenNewUserCreated()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>(null));
+        _loginRepository.CreateUserAsync(_dbContext, user)
+            .Returns(Task.FromResult("new-user-id"));
+        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult("new-project-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateProjectAsync(_dbContext, Arg.Any<string>());
+    }
+
+    [Test]
+    public async Task Login_DoesNotCreateProject_WhenUserAlreadyExistsByEmail()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>("existing-user-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.DidNotReceive().CreateProjectAsync(Arg.Any<IDbContext>(), Arg.Any<string>());
+    }
+
+    [Test]
+    public async Task Login_CreatesUserProject_WhenNewUserCreated()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>(null));
+        _loginRepository.CreateUserAsync(_dbContext, user)
+            .Returns(Task.FromResult("new-user-id"));
+        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult("new-project-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateUserProjectAsync(_dbContext, "new-user-id", "new-project-id", DataConstants.ProjectRole.Owner);
+    }
+
+    [Test]
+    public async Task Login_DoesNotCreateUserProject_WhenUserAlreadyExistsByEmail()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>("existing-user-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.DidNotReceive().CreateUserProjectAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Test]
+    public async Task Login_CreatesProjectAuditLog_WhenNewUserCreated()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>(null));
+        _loginRepository.CreateUserAsync(_dbContext, user)
+            .Returns(Task.FromResult("new-user-id"));
+        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult("new-project-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateProjectAuditLogAsync(_dbContext, "new-project-id", "new-user-id");
+    }
+
+    [Test]
+    public async Task Login_DoesNotCreateProjectAuditLog_WhenUserAlreadyExistsByEmail()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>("existing-user-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.DidNotReceive().CreateProjectAuditLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>());
     }
 }
