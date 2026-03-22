@@ -18,11 +18,25 @@ namespace Apotheca.Data
 
         public static class ProjectRole
         {
-            public static string Owner = "Owner";
+            public static string Owner = "OWNER";
 
-            public static string User = "User";
+            public static string User = "USER";
 
-            public static string Viewer = "Viewer";
-        } 
+            public static string Viewer = "VIEWER";
+        }
+
+        public static class TaskPriority
+        {
+            public static string None = "NONE";
+
+            public static string Low = "LOW";
+
+            public static string Medium = "MEDIUM";
+            
+            public static string High = "HIGH";
+            
+            public static string Urgent = "URGENT";
+        }
+
     }
 }
