@@ -8,6 +8,7 @@ import FeaturesView from '../features/features/FeaturesView.vue'
 import DashboardView from '../features/dashboard/DashboardView.vue'
 import NotesView from '../features/notes/NotesView.vue'
 import TasksView from '../features/tasks/TasksView.vue'
+import ProjectView from '../features/projects/ProjectView.vue'
 import LoginView from '../features/auth/LoginView.vue'
 import LoggingInView from '../features/auth/LoggingInView.vue'
 
@@ -34,7 +35,8 @@ const routes = [
     children: [
       { path: 'dashboard', component: DashboardView },
       { path: 'notes', component: NotesView },
-      { path: 'tasks', component: TasksView }
+      { path: 'tasks', component: TasksView },
+      { path: 'project/:id', component: ProjectView }
     ]
   }
 ]

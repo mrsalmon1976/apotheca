@@ -123,6 +123,38 @@ html, body {
   color: var(--color-purple-light) !important;
 }
 
+/* ── PrimeVue Select – Apotheca branding ── */
+.p-select-overlay {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-purple) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 24px var(--glow-purple), 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  margin-top: 4px;
+}
+
+.p-select-list {
+  padding: 0.35rem !important;
+}
+
+.p-select-option {
+  font-size: 0.875rem !important;
+  color: var(--text-secondary) !important;
+  border-radius: 6px !important;
+  padding: 0.5rem 0.75rem !important;
+  transition: background 0.15s, color 0.15s !important;
+}
+
+.p-select-option:hover,
+.p-select-option.p-focus {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.p-select-option.p-select-option-selected {
+  background: var(--bg-active) !important;
+  color: var(--color-purple) !important;
+}
+
 /* Close button */
 .p-toast-close-button {
   color: var(--text-muted) !important;

@@ -1,9 +1,8 @@
-namespace Apotheca.Data.DbEntities;
+namespace Apotheca.Api.Features.Projects.GetUserProjects;
 
-public class ProjectDbEntity
+public class UserProjectsResponse
 {
     public string Id { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
-    public string ProjectRole { get; init; } = string.Empty;
     public DateTimeOffset CreatedAt { get; init; }
 }

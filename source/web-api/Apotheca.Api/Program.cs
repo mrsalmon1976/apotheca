@@ -1,8 +1,11 @@
 using Apotheca.Api.Configuration;
 using Apotheca.Api.Features.Auth.Login;
+using Apotheca.Api.Features.Projects.GetUserProjects;
 using Apotheca.Data;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettings = new AppSettings(builder.Configuration);
@@ -12,7 +15,20 @@ builder.Services.AddControllers();
 builder.Services.AddSingleton<IDbContextFactory, DbContextFactory>();
 
 builder.Services.AddTransient<FirebaseService>();
+builder.Services.AddTransient<GetUserProjectsRepository>();
 builder.Services.AddTransient<LoginRepository>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = $"https://securetoken.google.com/{appSettings.FirebaseProjectId}";
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = $"https://securetoken.google.com/{appSettings.FirebaseProjectId}",
+            ValidAudience = appSettings.FirebaseProjectId,
+        };
+    });
 
 builder.Services.AddCors(options =>
 {
@@ -45,6 +61,8 @@ var app = builder.Build();
 
 app.UseHttpsRedirection();
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
