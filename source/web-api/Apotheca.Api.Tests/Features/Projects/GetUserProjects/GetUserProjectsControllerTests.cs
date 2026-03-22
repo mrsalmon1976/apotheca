@@ -87,7 +87,7 @@ public class GetUserProjectsControllerTests
             .Returns(Task.FromResult(Enumerable.Empty<ProjectDbEntity>()));
 
         var result = (OkObjectResult)await _controller.GetUserProjects(CancellationToken.None);
-        var projects = result.Value as IEnumerable<UserProjectsResponse>;
+        var projects = result.Value as IEnumerable<GetUserProjectsResponse>;
 
         Assert.That(projects, Is.Empty);
     }
@@ -118,7 +118,7 @@ public class GetUserProjectsControllerTests
             .Returns(Task.FromResult<IEnumerable<ProjectDbEntity>>(dbResults));
 
         var result = (OkObjectResult)await _controller.GetUserProjects(CancellationToken.None);
-        var projects = (result.Value as IEnumerable<UserProjectsResponse>)!.ToList();
+        var projects = (result.Value as IEnumerable<GetUserProjectsResponse>)!.ToList();
 
         Assert.That(projects, Has.Count.EqualTo(2));
         Assert.That(projects[0].Id, Is.EqualTo("p1"));

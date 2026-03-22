@@ -19,25 +19,41 @@
         </button>
       </div>
 
-      <div class="task-list">
+      <div v-if="loading" class="loading-state">
+        <i class="pi pi-spin pi-spinner"></i> Loading tasks...
+      </div>
+
+      <div v-else-if="error" class="error-state">
+        <i class="pi pi-lock error-state-icon"></i>
+        <p class="error-state-title">{{ error.title }}</p>
+        <p class="error-state-message">{{ error.message }}</p>
+      </div>
+
+      <div v-else-if="tasks.length === 0" class="empty-state">
+        <i class="pi pi-sun empty-state-icon"></i>
+        <p class="empty-state-title">You're all caught up!</p>
+        <p class="empty-state-message">There are no tasks open for you on this project. Have a great day!</p>
+      </div>
+
+      <div v-else class="task-list">
         <div
           v-for="task in tasks"
           :key="task.id"
           class="task-item"
-          :class="{ completed: task.done }"
         >
-          <button class="task-check" @click="task.done = !task.done">
-            <i :class="task.done ? 'pi pi-check-circle' : 'pi pi-circle'"></i>
-          </button>
+          <div class="task-check">
+            <i class="pi pi-circle"></i>
+          </div>
           <div class="task-info">
             <span class="task-title">{{ task.title }}</span>
-            <span v-if="task.due" class="task-due">
-              <i class="pi pi-calendar"></i> {{ task.due }}
+            <span v-if="task.dueAt" class="task-due">
+              <i class="pi pi-calendar"></i> {{ formatDate(task.dueAt) }}
             </span>
           </div>
           <div class="task-meta">
-            <span class="priority-badge" :class="task.priority">{{ task.priority }}</span>
-            <span class="task-project">{{ task.project }}</span>
+            <span v-if="task.priority !== 'NONE'" class="priority-badge" :class="task.priority.toLowerCase()">
+              {{ task.priority.toLowerCase() }}
+            </span>
           </div>
         </div>
       </div>
@@ -46,33 +62,34 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
+import { useProjectTasks } from '../../composables/useProjectTasks'
 
 const route = useRoute()
+const { tasks, loading, error, loadTasks } = useProjectTasks()
 
+const projectId = computed(() => route.params.id)
 const activeFilter = computed(() => route.params.filter ?? 'all')
 const sidebarOpen = ref(window.innerWidth >= 768)
 
 const views = [
-  { id: 'today',     name: 'Today' },
-  { id: 'upcoming',  name: 'Upcoming' },
-  { id: 'all',       name: 'All Tasks' },
-  { id: 'completed', name: 'Completed' },
+  { id: 'today',    name: 'Today' },
+  { id: 'upcoming', name: 'Upcoming' },
+  { id: 'all',      name: 'All Tasks' },
 ]
 
-const tasks = ref([
-  { id: 1, title: 'Design new dashboard layout',          done: false, due: 'Today',     priority: 'high',   project: 'Apotheca' },
-  { id: 2, title: 'Set up MongoDB indexes',               done: true,  due: 'Yesterday', priority: 'medium', project: 'Apotheca' },
-  { id: 3, title: 'Write unit tests for UserRepository',  done: false, due: 'Mar 15',    priority: 'medium', project: 'Apotheca' },
-  { id: 4, title: 'Read Clean Architecture book',         done: false, due: 'Mar 20',    priority: 'low',    project: 'Learning' },
-  { id: 5, title: 'Weekly grocery shopping',              done: false, due: 'Today',     priority: 'low',    project: 'Personal' },
-  { id: 6, title: 'Review pull request #42',              done: true,  due: 'Mar 11',    priority: 'high',   project: 'Apotheca' },
-  { id: 7, title: 'Update API documentation',             done: false, due: 'Mar 16',    priority: 'medium', project: 'Apotheca' },
-])
-
 const currentViewName = computed(() => views.find(v => v.id === activeFilter.value)?.name ?? 'Tasks')
+
+function formatDate(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+watch([projectId, activeFilter], ([pid, filter]) => {
+  loadTasks(pid, filter)
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -141,6 +158,80 @@ const currentViewName = computed(() => views.find(v => v.id === activeFilter.val
   box-shadow: 0 0 16px var(--glow-purple);
 }
 .primary-btn:hover { opacity: 0.9; box-shadow: 0 0 24px var(--glow-purple); }
+
+.loading-state {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 2rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.error-state-icon {
+  font-size: 3rem;
+  color: var(--color-pink);
+  margin-bottom: 0.5rem;
+}
+
+.error-state-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.error-state-message {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 360px;
+  line-height: 1.6;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.empty-state-message {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 360px;
+  line-height: 1.6;
+}
 
 .task-list {
   display: flex;
