@@ -9,11 +9,13 @@
         v-for="item in mainNav"
         :key="item.id"
         class="sidebar-item"
-        :class="{ active: $route.path === `/project/${projectId}/${item.id}` }"
-        @click="router.push(`/project/${projectId}/${item.id}`); closeSidebarOnMobile()"
+        :class="{ active: $route.path === item.to.value, disabled: item.disabled }"
+        :disabled="item.disabled"
+        @click="!item.disabled && router.push(item.to.value); !item.disabled && closeSidebarOnMobile()"
       >
         <i :class="`pi ${item.icon}`"></i>
         <span>{{ item.label }}</span>
+        <span v-if="item.disabled" class="coming-soon">Soon</span>
       </button>
 
       <div class="nav-group-label" style="margin-top:1rem">Workspace</div>
@@ -25,9 +27,10 @@
         <i class="pi pi-file-edit"></i>
         <span>Notes</span>
       </button>
-      <button class="sidebar-item">
+      <button class="sidebar-item disabled" disabled>
         <i class="pi pi-folder-open"></i>
         <span>Documents</span>
+        <span class="coming-soon">Soon</span>
       </button>
 
       <div class="nav-group-label" style="margin-top:1rem">Tasks</div>
@@ -41,7 +44,6 @@
         <i :class="`pi ${tf.icon}`"></i>
         <span>{{ tf.label }}</span>
       </button>
-
     </nav>
   </aside>
 </template>
@@ -65,11 +67,11 @@ function closeSidebarOnMobile() {
 }
 
 const mainNav = [
-  { id: 'overview',  label: 'Overview', icon: 'pi-home' },
-  { id: 'kanban',    label: 'Kanban',   icon: 'pi-objects-column' },
-  { id: 'backlog',   label: 'Backlog',  icon: 'pi-inbox' },
-  { id: 'reports',   label: 'Reports',  icon: 'pi-chart-bar' },
-  { id: 'settings',  label: 'Settings', icon: 'pi-cog' },
+  { id: 'overview', label: 'Overview', icon: 'pi-home',           disabled: false, to: computed(() => `/project/${projectId.value}`) },
+  { id: 'kanban',   label: 'Kanban',   icon: 'pi-objects-column', disabled: true,  to: computed(() => `/project/${projectId.value}/kanban`) },
+  { id: 'backlog',  label: 'Backlog',  icon: 'pi-inbox',          disabled: true,  to: computed(() => `/project/${projectId.value}/backlog`) },
+  { id: 'reports',  label: 'Reports',  icon: 'pi-chart-bar',      disabled: true,  to: computed(() => `/project/${projectId.value}/reports`) },
+  { id: 'settings', label: 'Settings', icon: 'pi-cog',            disabled: true,  to: computed(() => `/project/${projectId.value}/settings`) },
 ]
 
 const taskFilters = [
@@ -77,7 +79,6 @@ const taskFilters = [
   { filter: 'upcoming', label: 'Upcoming',  icon: 'pi-calendar' },
   { filter: 'all',      label: 'All Tasks', icon: 'pi-list' },
 ]
-
 </script>
 
 <style scoped>
@@ -131,13 +132,30 @@ const taskFilters = [
   transition: all 0.15s;
   text-align: left;
 }
-.sidebar-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.sidebar-item:hover:not(.disabled) { background: var(--bg-hover); color: var(--text-primary); }
 .sidebar-item.active {
   background: var(--bg-active);
   color: var(--color-pink);
 }
 .sidebar-item.active i { color: var(--color-purple); }
 
+.sidebar-item.disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.coming-soon {
+  margin-left: auto;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-purple);
+  background: var(--bg-badge);
+  border: 1px solid var(--border-purple);
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+}
 
 @media (max-width: 767px) {
   .sidebar {
