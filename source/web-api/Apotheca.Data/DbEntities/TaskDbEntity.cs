@@ -13,4 +13,5 @@ public class TaskDbEntity
     public DateTimeOffset? DueAt { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
+    public DateTimeOffset? CompletedAt { get; init; }
 }

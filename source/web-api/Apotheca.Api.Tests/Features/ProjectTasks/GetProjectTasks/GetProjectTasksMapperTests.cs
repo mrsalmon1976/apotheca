@@ -130,6 +130,23 @@ public class GetProjectTasksMapperTests
     }
 
     [Test]
+    public void ToResponse_MapsCompletedAt_WhenSet()
+    {
+        var completedAt = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+        var entity = new TaskDbEntity { CompletedAt = completedAt };
+
+        Assert.That(entity.ToResponse().CompletedAt, Is.EqualTo(completedAt));
+    }
+
+    [Test]
+    public void ToResponse_MapsCompletedAt_WhenNull()
+    {
+        var entity = new TaskDbEntity { CompletedAt = null };
+
+        Assert.That(entity.ToResponse().CompletedAt, Is.Null);
+    }
+
+    [Test]
     public void ToResponse_Collection_MapsAllItems()
     {
         var entities = new[]

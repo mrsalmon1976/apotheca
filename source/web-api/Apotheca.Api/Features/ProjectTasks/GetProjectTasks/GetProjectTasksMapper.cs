@@ -17,6 +17,7 @@ public static class GetProjectTasksMapper
         DueAt        = entity.DueAt,
         CreatedAt    = entity.CreatedAt,
         UpdatedAt    = entity.UpdatedAt,
+        CompletedAt  = entity.CompletedAt,
     };
 
     public static IEnumerable<GetProjectTasksResponse> ToResponse(this IEnumerable<TaskDbEntity> entities) =>

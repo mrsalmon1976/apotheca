@@ -1,6 +1,7 @@
 using Apotheca.Api.Configuration;
 using Apotheca.Api.Features.Auth.Login;
 using Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
+using Apotheca.Api.Features.ProjectTasks.SaveProjectTask;
 using Apotheca.Api.Features.Projects.GetUserProjects;
 using Apotheca.Data;
 using FirebaseAdmin;
@@ -17,6 +18,8 @@ builder.Services.AddSingleton<IDbContextFactory, DbContextFactory>();
 
 builder.Services.AddTransient<FirebaseService>();
 builder.Services.AddTransient<GetProjectTasksRepository>();
+builder.Services.AddTransient<SaveProjectTaskRepository>();
+builder.Services.AddTransient<SaveProjectTaskValidator>();
 builder.Services.AddTransient<GetUserProjectsRepository>();
 builder.Services.AddTransient<LoginRepository>();
 

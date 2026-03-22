@@ -5,6 +5,14 @@
 
     <ProjectSidebar :open="sidebarOpen" />
 
+    <NewTaskDialog
+      :visible="showNewTaskDialog"
+      :project-id="projectId"
+      :task="selectedTask"
+      @close="showNewTaskDialog = false; selectedTask = null"
+      @saved="onTaskSaved"
+    />
+
     <!-- Main Content -->
     <div class="main-body">
       <div class="content-header">
@@ -14,7 +22,7 @@
           </button>
           <h1 class="content-title">{{ currentViewName }}</h1>
         </div>
-        <button class="primary-btn">
+        <button class="primary-btn" @click="showNewTaskDialog = true">
           <i class="pi pi-plus"></i> New Task
         </button>
       </div>
@@ -45,10 +53,10 @@
             <i class="pi pi-circle"></i>
           </div>
           <div class="task-info">
-            <span class="task-title">{{ task.title }}</span>
-            <span v-if="task.dueAt" class="task-due">
+            <span v-if="task.dueAt" class="task-due" :class="{ overdue: isOverdue(task.dueAt) }">
               <i class="pi pi-calendar"></i> {{ formatDate(task.dueAt) }}
             </span>
+            <span class="task-title" @click="openTask(task)">{{ task.title }}</span>
           </div>
           <div class="task-meta">
             <span v-if="task.priority !== 'NONE'" class="priority-badge" :class="task.priority.toLowerCase()">
@@ -62,13 +70,26 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
+import NewTaskDialog from './NewTaskDialog.vue'
 import { useProjectTasks } from '../../composables/useProjectTasks'
 
 const route = useRoute()
 const { tasks, loading, error, loadTasks } = useProjectTasks()
+
+const showNewTaskDialog = ref(false)
+const selectedTask = ref(null)
+
+function openTask(task) {
+  selectedTask.value = task
+  showNewTaskDialog.value = true
+}
+
+function onTaskSaved() {
+  loadTasks(projectId.value, activeFilter.value)
+}
 
 const projectId = computed(() => route.params.id)
 const activeFilter = computed(() => route.params.filter ?? 'all')
@@ -85,6 +106,14 @@ const currentViewName = computed(() => views.find(v => v.id === activeFilter.val
 function formatDate(value) {
   if (!value) return ''
   return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function isOverdue(value) {
+  if (!value) return false
+  const due = new Date(value)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return due < today
 }
 
 watch([projectId, activeFilter], ([pid, filter]) => {
@@ -271,15 +300,23 @@ watch([projectId, activeFilter], ([pid, filter]) => {
 .task-info {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .task-title {
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color 0.2s;
 }
+.task-title:hover { color: var(--color-purple-light); }
 
 .task-due {
   font-size: 0.75rem;
@@ -287,6 +324,15 @@ watch([projectId, activeFilter], ([pid, filter]) => {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--border-color);
+}
+
+.task-due.overdue {
+  color: var(--color-pink);
+  border-right-color: rgba(236, 72, 153, 0.25);
 }
 
 .task-meta {
@@ -302,9 +348,10 @@ watch([projectId, activeFilter], ([pid, filter]) => {
   font-weight: 600;
   text-transform: capitalize;
 }
-.priority-badge.high   { background: rgba(236, 72, 153, 0.15); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3); }
-.priority-badge.medium { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); }
 .priority-badge.low    { background: rgba(139, 92, 246, 0.1);  color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.25); }
+.priority-badge.medium { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); }
+.priority-badge.high   { background: rgba(236, 72, 153, 0.15); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3); }
+.priority-badge.urgent { background: rgba(239, 68,  68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
 
 .task-project {
   font-size: 0.75rem;

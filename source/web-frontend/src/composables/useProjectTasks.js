@@ -42,5 +42,17 @@ export function useProjectTasks() {
     }
   }
 
-  return { tasks, loading, error, loadTasks }
+  async function saveTask(projectId, taskData) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/tasks`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(taskData),
+    })
+  }
+
+  return { tasks, loading, error, loadTasks, saveTask }
 }

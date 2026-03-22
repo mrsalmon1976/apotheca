@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     due_at          TIMESTAMPTZ NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at    TIMESTAMPTZ NULL,
 
     CONSTRAINT pk_tasks                 PRIMARY KEY (id),
     CONSTRAINT fk_tasks_project         FOREIGN KEY (project_id)     REFERENCES projects (id),
