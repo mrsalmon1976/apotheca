@@ -3,7 +3,7 @@
     <!-- Mobile backdrop -->
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
-    <ProjectSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
+    <ProjectSidebar :open="sidebarOpen" />
 
     <!-- Main Content -->
     <div class="main-body">

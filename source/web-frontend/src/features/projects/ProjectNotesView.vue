@@ -2,7 +2,7 @@
   <div class="page-layout">
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
-    <ProjectSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
+    <ProjectSidebar :open="sidebarOpen" />
 
     <div class="main-body">
       <div class="content-header">

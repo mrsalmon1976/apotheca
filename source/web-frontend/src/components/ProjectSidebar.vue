@@ -2,9 +2,6 @@
   <aside class="sidebar" :class="{ open: open }">
     <div class="sidebar-header">
       <span>Project</span>
-      <button class="icon-btn" title="Close menu" @click="$emit('close')">
-        <i class="pi pi-times"></i>
-      </button>
     </div>
 
     <nav class="sidebar-nav">
@@ -57,7 +54,7 @@ const props = defineProps({
   open: { type: Boolean, required: true },
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits([])
 
 const route = useRoute()
 const router = useRouter()
@@ -107,17 +104,6 @@ const taskFilters = [
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-
-.icon-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: color 0.2s;
-}
-.icon-btn:hover { color: var(--color-purple); }
 
 .sidebar-nav { padding: 0 0.5rem; }
 
