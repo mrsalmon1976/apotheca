@@ -32,8 +32,8 @@
       </div>
       <div class="nav-actions">
         <template v-if="user">
-          <span class="user-name">{{ user.displayName || user.email }}</span>
-          <button class="action-btn action-btn--ghost" @click="logout">Logout</button>
+          <button class="action-btn action-btn--ghost" :title="`Logged in as: ${user.displayName || user.email}`" @click="logout">Logout</button>
+          <button class="action-btn action-btn--primary" @click="$router.push('/dashboard')">Dashboard</button>
         </template>
         <template v-else>
           <button class="action-btn action-btn--primary" @click="$router.push('/auth/login')">Sign In</button>
@@ -164,15 +164,6 @@ const { user, logout } = useAuth()
 .action-btn--primary:hover {
   box-shadow: 0 0 20px var(--glow-purple);
   opacity: 0.9;
-}
-
-.user-name {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .page-content {

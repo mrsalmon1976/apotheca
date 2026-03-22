@@ -54,8 +54,7 @@
         </Select>
       </div>
       <div class="nav-user">
-        <span class="user-name">{{ user?.displayName || user?.email }}</span>
-        <button class="logout-btn" @click="handleLogout">
+        <button class="logout-btn" :title="`Logged in as: ${user?.displayName || user?.email}`" @click="handleLogout">
           <i class="pi pi-sign-out"></i>
           Logout
         </button>
@@ -184,15 +183,6 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-.user-name {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .logout-btn {
