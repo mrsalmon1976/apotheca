@@ -9,6 +9,13 @@ namespace Apotheca.Data
     {
         public const string DefaultProjectName = "My Project";
 
+        public static class KeyDefinition
+        {
+            public const string ProjectAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+            public const int ProjectIdLength = 12;
+        }
+
         public static class ProjectRole
         {
             public static string Owner = "Owner";

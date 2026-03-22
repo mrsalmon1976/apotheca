@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Apotheca.Data;
+using NanoidDotNet;
 
 namespace Apotheca.Api.Features.Auth.Login
 {
@@ -8,7 +9,7 @@ namespace Apotheca.Api.Features.Auth.Login
 
         public virtual async Task<string> CreateProjectAsync(IDbContext db, string name)
         {
-            string projectId = Guid.NewGuid().ToString();
+            string projectId = Nanoid.Generate(DataConstants.KeyDefinition.ProjectAlphabet, DataConstants.KeyDefinition.ProjectIdLength);
             await db.ExecuteAsync(
                 "INSERT INTO projects (id, name) VALUES (@Id, @Name)",
                 new { Id = projectId, Name = name });
@@ -26,7 +27,7 @@ namespace Apotheca.Api.Features.Auth.Login
 
         public virtual async Task<string> CreateUserAsync(IDbContext db, User user)
         {
-            string userId = Guid.NewGuid().ToString();
+            string userId = Nanoid.Generate();
             await db.ExecuteAsync(
                 "INSERT INTO users (id, email, display_name, photo_url) VALUES (@Id, @Email, @DisplayName, @PhotoUrl)",
                 new { Id = userId, Email = user.Email, DisplayName = user.DisplayName, PhotoUrl = user.PhotoUrl });
