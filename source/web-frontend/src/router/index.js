@@ -5,6 +5,7 @@ import AppLayout from '../layouts/AppLayout.vue'
 import HomeView from '../features/home/HomeView.vue'
 import AboutView from '../features/about/AboutView.vue'
 import FeaturesView from '../features/features/FeaturesView.vue'
+import DashboardView from '../features/dashboard/DashboardView.vue'
 import NotesView from '../features/notes/NotesView.vue'
 import TasksView from '../features/tasks/TasksView.vue'
 import LoginView from '../features/auth/LoginView.vue'
@@ -31,6 +32,7 @@ const routes = [
     component: AppLayout,
     meta: { requiresAuth: true },
     children: [
+      { path: 'dashboard', component: DashboardView },
       { path: 'notes', component: NotesView },
       { path: 'tasks', component: TasksView }
     ]

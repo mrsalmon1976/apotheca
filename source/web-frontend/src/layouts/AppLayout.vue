@@ -7,6 +7,14 @@
       <div class="nav-tabs">
         <button
           class="nav-tab"
+          :class="{ active: $route.path === '/dashboard' }"
+          @click="$router.push('/dashboard')"
+        >
+          <i class="pi pi-th-large"></i>
+          Dashboard
+        </button>
+        <button
+          class="nav-tab"
           :class="{ active: $route.path === '/notes' }"
           @click="$router.push('/notes')"
         >

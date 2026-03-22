@@ -52,7 +52,7 @@ watch(
         throw new Error(data.error ?? 'Account verification failed. Please try again.')
       }
 
-      router.replace('/notes')
+      router.replace('/dashboard')
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Something went wrong. Please try again.'
       verifying.value = false
