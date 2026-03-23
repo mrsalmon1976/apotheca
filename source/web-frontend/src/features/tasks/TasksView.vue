@@ -48,10 +48,11 @@
           v-for="task in tasks"
           :key="task.id"
           class="task-item"
+          :class="{ completing: completingIds.has(task.id) }"
         >
-          <div class="task-check">
-            <i class="pi pi-circle"></i>
-          </div>
+          <button class="task-check" :disabled="completingIds.has(task.id)" @click="onCompleteTask(task)">
+            <i :class="completingIds.has(task.id) ? 'pi pi-check-circle' : 'pi pi-circle'"></i>
+          </button>
           <div class="task-info">
             <span v-if="task.dueAt" class="task-due" :class="{ overdue: isOverdue(task.dueAt) }">
               <i class="pi pi-calendar"></i> {{ formatDate(task.dueAt) }}
@@ -77,14 +78,22 @@ import NewTaskDialog from './NewTaskDialog.vue'
 import { useProjectTasks } from '../../composables/useProjectTasks'
 
 const route = useRoute()
-const { tasks, loading, error, loadTasks } = useProjectTasks()
+const { tasks, loading, error, loadTasks, completeTask } = useProjectTasks()
 
 const showNewTaskDialog = ref(false)
 const selectedTask = ref(null)
+const completingIds = ref(new Set())
 
 function openTask(task) {
   selectedTask.value = task
   showNewTaskDialog.value = true
+}
+
+async function onCompleteTask(task) {
+  if (completingIds.value.has(task.id)) return
+  completingIds.value = new Set([...completingIds.value, task.id])
+  await completeTask(projectId.value, task.id)
+  completingIds.value = new Set([...completingIds.value].filter(id => id !== task.id))
 }
 
 function onTaskSaved() {
@@ -284,6 +293,7 @@ watch([projectId, activeFilter], ([pid, filter]) => {
 }
 .task-item.completed { opacity: 0.45; }
 .task-item.completed .task-title { text-decoration: line-through; }
+.task-item.completing { opacity: 0.4; pointer-events: none; transition: opacity 0.3s; }
 
 .task-check {
   background: transparent;

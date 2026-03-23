@@ -54,5 +54,20 @@ export function useProjectTasks() {
     })
   }
 
-  return { tasks, loading, error, loadTasks, saveTask }
+  async function completeTask(projectId, taskId) {
+    const token = await user.value.getIdToken()
+    const response = await fetch(`${API_URL}/projects/${projectId}/tasks/${taskId}/complete`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (response.ok) {
+      const completed = tasks.value.find(t => t.id === taskId)
+      tasks.value = tasks.value.filter(t => t.id !== taskId)
+      toast.add({ severity: 'success', summary: 'Task completed', detail: completed?.title, life: 4000 })
+    } else {
+      toast.add({ severity: 'error', summary: 'Failed to complete task', detail: `Server error (${response.status})`, life: 10000 })
+    }
+  }
+
+  return { tasks, loading, error, loadTasks, saveTask, completeTask }
 }
