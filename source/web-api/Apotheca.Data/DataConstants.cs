@@ -38,5 +38,10 @@ namespace Apotheca.Data
             public static string Urgent = "URGENT";
         }
 
+        public static class UserLogEventType
+        {
+            public const string Login = "LOGIN";
+        }
+
     }
 }

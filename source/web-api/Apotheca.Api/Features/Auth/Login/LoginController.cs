@@ -1,3 +1,4 @@
+using Apotheca.Api.Utilities;
 using Apotheca.Data;
 using FirebaseAdmin.Auth;
 using Microsoft.AspNetCore.Mvc;
@@ -6,9 +7,11 @@ namespace Apotheca.Api.Features.Auth.Login;
 
 [ApiController]
 [Route("api/auth")]
-public class LoginController(IDbContextFactory dbContextFactory
-    , FirebaseService firebaseService
-    , LoginRepository loginRepo) : ControllerBase
+public class LoginController(
+    IDbContextFactory dbContextFactory,
+    FirebaseService firebaseService,
+    LoginRepository loginRepo,
+    INetworkProvider networkProvider) : ControllerBase
 {
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
@@ -31,6 +34,7 @@ public class LoginController(IDbContextFactory dbContextFactory
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
         var identityExists = await loginRepo.UserFirebaseIdentityExistsAsync(db, user.Uid);
+        string? userId;
 
         if (!identityExists)
         {
@@ -38,7 +42,7 @@ public class LoginController(IDbContextFactory dbContextFactory
 
             try
             {
-                var userId = await loginRepo.GetUserIdByEmailAsync(db, user.Email);
+                userId = await loginRepo.GetUserIdByEmailAsync(db, user.Email);
 
                 if (userId is null)
                 {
@@ -58,8 +62,14 @@ public class LoginController(IDbContextFactory dbContextFactory
                 await db.RollbackAsync(cancellationToken);
                 throw;
             }
-
         }
+        else
+        {
+            userId = await loginRepo.GetUserIdByFirebaseUidAsync(db, user.Uid);
+        }
+
+        if (userId is not null)
+            await loginRepo.CreateUserLoginLogAsync(db, userId, networkProvider.GetClientIpAddress());
 
         return Ok();
     }

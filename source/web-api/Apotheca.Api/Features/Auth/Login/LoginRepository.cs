@@ -60,6 +60,20 @@ namespace Apotheca.Api.Features.Auth.Login
         }
 
 
+        public virtual async Task CreateUserLoginLogAsync(IDbContext db, string userId, string? ipAddress)
+        {
+            await db.ExecuteAsync(
+                "INSERT INTO audit.user_logs (id, user_id, event_type, log_message, ip_address) VALUES (@Id, @UserId, @EventType, @LogMessage, @IpAddress)",
+                new { Id = Nanoid.Generate(), UserId = userId, EventType = DataConstants.UserLogEventType.Login, LogMessage = "User logged in.", IpAddress = ipAddress });
+        }
+
+        public virtual async Task<string?> GetUserIdByFirebaseUidAsync(IDbContext db, string firebaseUid)
+        {
+            return await db.QueryFirstOrDefaultAsync<string?>(
+                "SELECT user_id FROM user_firebase_identities WHERE firebase_uid = @FirebaseUid",
+                new { FirebaseUid = firebaseUid });
+        }
+
         public virtual async Task<bool> UserFirebaseIdentityExistsAsync(IDbContext db, string uid)
         {
             string? userId = await db.QueryFirstOrDefaultAsync<string>(

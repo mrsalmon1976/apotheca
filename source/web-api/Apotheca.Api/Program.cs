@@ -1,5 +1,6 @@
 using Apotheca.Api.Configuration;
 using Apotheca.Api.Features.Auth.Login;
+using Apotheca.Api.Utilities;
 using Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 using Apotheca.Api.Features.ProjectTasks.SaveProjectTask;
 using Apotheca.Api.Features.Projects.GetUserProjects;
@@ -14,7 +15,9 @@ var appSettings = new AppSettings(builder.Configuration);
 
 builder.Services.AddSingleton<IAppSettings>(appSettings);
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IDbContextFactory, DbContextFactory>();
+builder.Services.AddTransient<INetworkProvider, NetworkProvider>();
 
 builder.Services.AddTransient<FirebaseService>();
 builder.Services.AddTransient<GetProjectTasksRepository>();

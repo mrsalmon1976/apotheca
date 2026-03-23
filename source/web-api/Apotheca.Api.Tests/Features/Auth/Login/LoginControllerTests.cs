@@ -1,10 +1,10 @@
 using Apotheca.Api.Features.Auth.Login;
+using Apotheca.Api.Utilities;
 using Apotheca.Data;
 using Apotheca.Test.Common;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using NUnit.Framework;
 
 namespace Apotheca.Api.Tests.Features.Auth.Login;
 
@@ -15,6 +15,7 @@ public class LoginControllerTests
     private IDbContext _dbContext = null!;
     private FirebaseService _firebaseService = null!;
     private LoginRepository _loginRepository = null!;
+    private INetworkProvider _networkProvider = null!;
     private LoginController _controller = null!;
 
     [SetUp]
@@ -24,10 +25,11 @@ public class LoginControllerTests
         _dbContext = Substitute.For<IDbContext>();
         _firebaseService = Substitute.For<FirebaseService>();
         _loginRepository = Substitute.For<LoginRepository>();
+        _networkProvider = Substitute.For<INetworkProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
-        _controller = new LoginController(_dbContextFactory, _firebaseService, _loginRepository);
+        _controller = new LoginController(_dbContextFactory, _firebaseService, _loginRepository, _networkProvider);
     }
 
     [TearDown]
@@ -381,5 +383,70 @@ public class LoginControllerTests
         await _controller.Login(loginRequest, CancellationToken.None);
 
         await _loginRepository.DidNotReceive().CreateProjectAuditLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    // --- Login log ---
+
+    [Test]
+    public async Task Login_LogsUserLogin_WhenIdentityExists()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid).Returns(Task.FromResult(true));
+        _loginRepository.GetUserIdByFirebaseUidAsync(_dbContext, user.Uid).Returns(Task.FromResult<string?>("existing-user-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateUserLoginLogAsync(_dbContext, "existing-user-id", Arg.Any<string?>());
+    }
+
+    [Test]
+    public async Task Login_LogsUserLogin_WhenNewUserCreated()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid).Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email).Returns(Task.FromResult<string?>(null));
+        _loginRepository.CreateUserAsync(_dbContext, user).Returns(Task.FromResult("new-user-id"));
+        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>()).Returns(Task.FromResult("new-project-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateUserLoginLogAsync(_dbContext, "new-user-id", Arg.Any<string?>());
+    }
+
+    [Test]
+    public async Task Login_LogsUserLogin_WithIpAddressFromNetworkProvider()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid).Returns(Task.FromResult(true));
+        _loginRepository.GetUserIdByFirebaseUidAsync(_dbContext, user.Uid).Returns(Task.FromResult<string?>("existing-user-id"));
+        _networkProvider.GetClientIpAddress().Returns("1.2.3.4");
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateUserLoginLogAsync(_dbContext, "existing-user-id", "1.2.3.4");
+    }
+
+    [Test]
+    public async Task Login_DoesNotLogUserLogin_WhenUserIdNotFound()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid).Returns(Task.FromResult(true));
+        _loginRepository.GetUserIdByFirebaseUidAsync(_dbContext, user.Uid).Returns(Task.FromResult<string?>(null));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.DidNotReceive().CreateUserLoginLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string?>());
     }
 }
