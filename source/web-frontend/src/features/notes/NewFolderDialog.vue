@@ -446,12 +446,12 @@ async function save() {
   color: var(--color-purple);
   cursor: pointer;
   padding: 0;
-  font-size: 0.6rem;
   line-height: 1;
   opacity: 0.7;
   display: flex;
   align-items: center;
 }
+.chip-remove .pi { font-size: 0.7rem; }
 .chip-remove:hover { opacity: 1; }
 
 .label-text-input {
