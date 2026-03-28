@@ -60,6 +60,7 @@ import { useNoteFolders } from '../../composables/useNoteFolders'
 const props = defineProps({
   visible:   { type: Boolean, required: true },
   projectId: { type: String, required: true },
+  parentId:  { type: String, default: null },
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -72,7 +73,7 @@ const fieldError = ref(null)
 const saveError  = ref(null)
 const saving     = ref(false)
 
-const MIN_LENGTH = 5
+const MIN_LENGTH = 3
 
 watch(() => props.visible, (val) => {
   if (val) {
@@ -120,7 +121,7 @@ async function save() {
   saveError.value = null
 
   try {
-    const response = await createFolder(props.projectId, title)
+    const response = await createFolder(props.projectId, title, props.parentId)
 
     if (response.ok) {
       const body = await response.json()

@@ -26,18 +26,19 @@ public class SaveNoteFolderRepository
     }
 
     public virtual async Task<string> InsertNoteFolderAsync(
-        IDbContext db, string projectId, string userId, string title)
+        IDbContext db, string projectId, string userId, string title, string? parentNoteId)
     {
         var id = Nanoid.Generate();
         await db.ExecuteAsync(
             @"INSERT INTO notes (id, project_id, parent_note_id, is_folder, title, created_by)
-              VALUES (@Id, @ProjectId, NULL, TRUE, @Title, @CreatedBy)",
+              VALUES (@Id, @ProjectId, @ParentNoteId, TRUE, @Title, @CreatedBy)",
             new
             {
-                Id        = id,
-                ProjectId = projectId,
-                Title     = title,
-                CreatedBy = userId,
+                Id           = id,
+                ProjectId    = projectId,
+                ParentNoteId = parentNoteId,
+                Title        = title,
+                CreatedBy    = userId,
             });
         return id;
     }

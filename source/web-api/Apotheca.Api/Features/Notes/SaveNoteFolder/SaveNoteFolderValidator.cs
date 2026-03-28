@@ -2,7 +2,7 @@ namespace Apotheca.Api.Features.Notes.SaveNoteFolder;
 
 public class SaveNoteFolderValidator
 {
-    public const int MinTitleLength = 5;
+    public const int MinTitleLength = 3;
 
     public virtual IReadOnlyList<string> Validate(SaveNoteFolderRequest request)
     {

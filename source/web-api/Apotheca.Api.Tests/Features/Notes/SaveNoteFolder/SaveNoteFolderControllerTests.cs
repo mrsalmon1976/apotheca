@@ -162,7 +162,7 @@ public class SaveNoteFolderControllerTests
     {
         SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
-        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult("new-folder-id"));
 
         var result = await _controller.SaveNoteFolder("proj-1", ValidRequest(), CancellationToken.None);
@@ -175,7 +175,7 @@ public class SaveNoteFolderControllerTests
     {
         SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
-        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult("new-folder-id"));
 
         var result = (CreatedAtActionResult)await _controller.SaveNoteFolder("proj-1", ValidRequest(), CancellationToken.None);
@@ -189,12 +189,12 @@ public class SaveNoteFolderControllerTests
     {
         SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
-        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult("new-id"));
 
         await _controller.SaveNoteFolder("proj-xyz", ValidRequest(), CancellationToken.None);
 
-        await _repository.Received(1).InsertNoteFolderAsync(_dbContext, "proj-xyz", "user-id-xyz", Arg.Any<string>());
+        await _repository.Received(1).InsertNoteFolderAsync(_dbContext, "proj-xyz", "user-id-xyz", Arg.Any<string>(), Arg.Any<string?>());
     }
 
     [Test]
@@ -202,12 +202,26 @@ public class SaveNoteFolderControllerTests
     {
         SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
-        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult("new-id"));
 
         var request = new SaveNoteFolderRequest { Title = "  My Folder  " };
         await _controller.SaveNoteFolder("proj-1", request, CancellationToken.None);
 
-        await _repository.Received(1).InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), "My Folder");
+        await _repository.Received(1).InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), "My Folder", Arg.Any<string?>());
+    }
+
+    [Test]
+    public async Task SaveNoteFolder_ForwardsParentNoteId_ToRepository()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess();
+        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(Task.FromResult("new-id"));
+
+        var request = new SaveNoteFolderRequest { Title = "Sub Folder", ParentNoteId = "parent-folder-id" };
+        await _controller.SaveNoteFolder("proj-1", request, CancellationToken.None);
+
+        await _repository.Received(1).InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), "parent-folder-id");
     }
 }

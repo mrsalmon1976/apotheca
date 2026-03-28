@@ -2,69 +2,23 @@
   <div class="page-layout">
     <NewFolderDialog
       :visible="showNewFolderDialog"
-      :project-id="activeFolderProjectId"
+      :project-id="projectId"
+      :parent-id="currentFolderId"
       @close="showNewFolderDialog = false"
       @saved="onFolderSaved"
     />
 
-    <!-- Mobile backdrop -->
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
-    <!-- Left Sidebar -->
-    <aside class="sidebar" :class="{ open: sidebarOpen }">
-      <div class="sidebar-header">
-        <span>My Notes</span>
-        <div class="sidebar-header-actions">
-          <button class="icon-btn" title="New note">
-            <i class="pi pi-plus"></i>
-          </button>
-          <button class="icon-btn" title="New folder" @click="showNewFolderDialog = true">
-            <i class="pi pi-folder-plus"></i>
-          </button>
-          <button class="icon-btn" title="Close menu" @click="sidebarOpen = false">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-      </div>
-      <div class="sidebar-search">
-        <i class="pi pi-search search-icon"></i>
-        <input class="search-input" placeholder="Search notes..." />
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-group-label">Folders</div>
-        <button
-          v-for="folder in folders"
-          :key="folder.id"
-          class="sidebar-item"
-          :class="{ active: activeFolder === folder.id }"
-          @click="activeFolder = folder.id; closeSidebarOnMobile()"
-        >
-          <i :class="`pi ${folder.icon}`"></i>
-          <span>{{ folder.name }}</span>
-          <span class="item-count">{{ folder.count }}</span>
-        </button>
-        <div class="nav-group-label" style="margin-top:1rem">Tags</div>
-        <button
-          v-for="tag in tags"
-          :key="tag.id"
-          class="sidebar-item"
-          :class="{ active: activeTag === tag.id }"
-          @click="activeTag = tag.id; closeSidebarOnMobile()"
-        >
-          <span class="tag-dot" :style="{ background: tag.color }"></span>
-          <span>{{ tag.label }}</span>
-        </button>
-      </nav>
-    </aside>
+    <ProjectSidebar :open="sidebarOpen" />
 
-    <!-- Main Content -->
     <div class="main-body">
       <div class="content-header">
         <div class="content-header-left">
           <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
             <i class="pi pi-bars"></i>
           </button>
-          <h1 class="content-title">{{ currentFolderName }}</h1>
+          <h1 class="content-title">Notes</h1>
         </div>
         <div class="header-actions">
           <button class="secondary-btn" @click="showNewFolderDialog = true">
@@ -75,23 +29,78 @@
           </button>
         </div>
       </div>
-      <div class="notes-grid">
-        <div
-          v-for="note in notes"
-          :key="note.id"
-          class="note-card"
-        >
+
+      <!-- Breadcrumb -->
+      <nav v-if="breadcrumbs.length > 0" class="breadcrumbs">
+        <button class="breadcrumb-item" @click="navigateTo(-1)">Notes</button>
+        <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
+          <i class="pi pi-chevron-right breadcrumb-sep"></i>
+          <button
+            class="breadcrumb-item"
+            :class="{ 'breadcrumb-current': index === breadcrumbs.length - 1 }"
+            @click="navigateTo(index)"
+          >
+            {{ crumb.title }}
+          </button>
+        </template>
+      </nav>
+
+      <!-- Load error -->
+      <div v-if="loadError" class="load-error">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ loadError }}</span>
+      </div>
+
+      <!-- Loading -->
+      <div v-else-if="loading" class="loading-state">
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Loading...</span>
+      </div>
+
+      <!-- API notes/folders -->
+      <template v-else>
+        <div v-if="apiNotes.length > 0" class="notes-grid">
+          <!-- Folders -->
+          <button
+            v-for="item in apiFolders"
+            :key="item.id"
+            class="note-card folder-card"
+            @click="openFolder(item)"
+          >
+            <div class="note-card-header">
+              <span class="note-title"><i class="pi pi-folder folder-icon"></i> {{ item.title }}</span>
+            </div>
+            <p class="note-preview folder-hint">Click to browse contents</p>
+          </button>
+
+          <!-- Notes (non-folders) -->
+          <div v-for="item in apiNoteItems" :key="item.id" class="note-card">
+            <div class="note-card-header">
+              <span class="note-title">{{ item.title }}</span>
+              <span class="note-date">{{ formatDate(item.updatedAt) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="!loading" class="empty-state">
+          <i class="pi pi-folder-open empty-icon"></i>
+          <p>{{ currentFolderId ? 'This folder is empty.' : 'No notes yet.' }}</p>
+        </div>
+      </template>
+
+      <!-- Sample notes (kept for reference) -->
+      <div v-if="breadcrumbs.length === 0" class="section-divider">
+        <span class="section-label">Sample layout</span>
+      </div>
+      <div v-if="breadcrumbs.length === 0" class="notes-grid">
+        <div v-for="note in sampleNotes" :key="note.id" class="note-card">
           <div class="note-card-header">
             <span class="note-title">{{ note.title }}</span>
             <span class="note-date">{{ note.date }}</span>
           </div>
           <p class="note-preview">{{ note.preview }}</p>
           <div class="note-tags">
-            <span
-              v-for="tag in note.tags"
-              :key="tag"
-              class="tag-chip"
-            >{{ tag }}</span>
+            <span v-for="tag in note.tags" :key="tag" class="tag-chip">{{ tag }}</span>
           </div>
         </div>
       </div>
@@ -100,48 +109,80 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewFolderDialog from './NewFolderDialog.vue'
+import { useNoteFolders } from '../../composables/useNoteFolders'
 
+const route = useRoute()
+const projectId = computed(() => route.params.id)
 const sidebarOpen = ref(window.innerWidth >= 768)
-const activeFolder = ref('all')
-const activeTag = ref(null)
 const showNewFolderDialog = ref(false)
 
-// Placeholder — will come from project context once Notes is project-aware
-const activeFolderProjectId = ref('')
+const { getNotes } = useNoteFolders()
 
-function closeSidebarOnMobile() {
-  if (window.innerWidth < 768) sidebarOpen.value = false
+const currentFolderId = ref(null)
+const breadcrumbs     = ref([])   // [{ id, title }, ...]
+const apiNotes        = ref([])
+const loading         = ref(false)
+const loadError       = ref(null)
+
+const apiFolders   = computed(() => apiNotes.value.filter(n => n.isFolder))
+const apiNoteItems = computed(() => apiNotes.value.filter(n => !n.isFolder))
+
+async function loadNotes(parentId = null) {
+  loading.value   = true
+  loadError.value = null
+  try {
+    const response = await getNotes(projectId.value, parentId)
+    if (response.ok) {
+      apiNotes.value = await response.json()
+    } else {
+      loadError.value = `Failed to load notes (${response.status}).`
+    }
+  } catch {
+    loadError.value = 'Could not connect to the server.'
+  } finally {
+    loading.value = false
+  }
+}
+
+function openFolder(folder) {
+  breadcrumbs.value.push({ id: folder.id, title: folder.title })
+  currentFolderId.value = folder.id
+  loadNotes(folder.id)
+}
+
+function navigateTo(index) {
+  if (index === -1) {
+    // Back to root
+    breadcrumbs.value     = []
+    currentFolderId.value = null
+    loadNotes(null)
+  } else {
+    breadcrumbs.value     = breadcrumbs.value.slice(0, index + 1)
+    currentFolderId.value = breadcrumbs.value[index].id
+    loadNotes(currentFolderId.value)
+  }
 }
 
 function onFolderSaved(folder) {
-  folders.value.push({ id: folder.id, name: folder.title, icon: 'pi-folder', count: 0 })
+  loadNotes(currentFolderId.value)
 }
 
-const folders = ref([
-  { id: 'all', name: 'All Notes', icon: 'pi-inbox', count: 12 },
-  { id: 'personal', name: 'Personal', icon: 'pi-user', count: 4 },
-  { id: 'work', name: 'Work', icon: 'pi-briefcase', count: 6 },
-  { id: 'archive', name: 'Archive', icon: 'pi-box', count: 2 },
-])
+function formatDate(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
-const tags = [
-  { id: 'ideas', label: 'Ideas', color: '#a855f7' },
-  { id: 'research', label: 'Research', color: '#ec4899' },
-  { id: 'todo', label: 'To Do', color: '#8b5cf6' },
+onMounted(() => loadNotes(null))
+
+const sampleNotes = [
+  { id: 1, title: 'Project Brief',  date: 'Mar 20', preview: 'Objectives and scope for this project...', tags: ['planning'] },
+  { id: 2, title: 'Meeting Notes',  date: 'Mar 18', preview: 'Action items from the kick-off call...',   tags: ['meetings'] },
+  { id: 3, title: 'Technical Spec', date: 'Mar 15', preview: 'Architecture decisions and API contracts...', tags: ['tech'] },
 ]
-
-const notes = [
-  { id: 1, title: 'Project Kickoff', date: 'Mar 12', preview: 'Initial planning and requirements for the new product launch...', tags: ['work', 'ideas'] },
-  { id: 2, title: 'Reading List', date: 'Mar 10', preview: 'Books and articles to read this quarter. Focus on distributed systems...', tags: ['personal', 'research'] },
-  { id: 3, title: 'Architecture Notes', date: 'Mar 8', preview: 'Thoughts on the new microservices approach and event sourcing patterns...', tags: ['work'] },
-  { id: 4, title: 'Weekly Review', date: 'Mar 6', preview: 'Summary of the week: completed API integration, started on the frontend...', tags: ['personal'] },
-  { id: 5, title: 'API Design', date: 'Mar 5', preview: 'REST vs GraphQL considerations. Authentication patterns using JWT...', tags: ['work', 'research'] },
-  { id: 6, title: 'Ideas Dump', date: 'Mar 3', preview: 'Random ideas and shower thoughts. New feature concepts for Q2...', tags: ['ideas'] },
-]
-
-const currentFolderName = ref('All Notes')
 </script>
 
 <style scoped>
@@ -152,124 +193,6 @@ const currentFolderName = ref('All Notes')
   height: calc(100vh - 60px);
 }
 
-/* ── Sidebar ── */
-.sidebar {
-  width: 240px;
-  min-width: 240px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding: 1rem 0;
-  transition: transform 0.25s ease;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.25rem 1rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.sidebar-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.icon-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: color 0.2s;
-}
-.icon-btn:hover { color: var(--color-purple); }
-
-.sidebar-search {
-  position: relative;
-  padding: 0 0.75rem 0.75rem;
-}
-.search-icon {
-  position: absolute;
-  left: 1.25rem;
-  top: 50%;
-  transform: translateY(-60%);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-.search-input {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.4rem 0.75rem 0.4rem 2rem;
-  color: var(--text-primary);
-  font-size: 0.8rem;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-.search-input:focus { border-color: var(--color-purple); }
-
-.sidebar-nav { padding: 0 0.5rem; }
-
-.nav-group-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  padding: 0 0.5rem 0.4rem;
-}
-
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: left;
-}
-.sidebar-item:hover { background: var(--bg-hover); color: var(--text-primary); }
-.sidebar-item.active {
-  background: var(--bg-active);
-  color: var(--color-pink);
-}
-.sidebar-item.active i { color: var(--color-purple); }
-
-.item-count {
-  margin-left: auto;
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  background: var(--bg-badge);
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-}
-
-.tag-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-/* ── Main Content ── */
 .main-body {
   flex: 1;
   overflow-y: auto;
@@ -281,7 +204,7 @@ const currentFolderName = ref('All Notes')
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .content-header-left {
@@ -317,6 +240,22 @@ const currentFolderName = ref('All Notes')
   gap: 0.5rem;
 }
 
+.secondary-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  border: 1px solid var(--border-purple);
+  border-radius: 8px;
+  color: var(--color-purple);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.secondary-btn:hover { background: var(--bg-active); box-shadow: 0 0 12px var(--glow-purple); }
+
 .primary-btn {
   display: flex;
   align-items: center;
@@ -334,26 +273,74 @@ const currentFolderName = ref('All Notes')
 }
 .primary-btn:hover { opacity: 0.9; box-shadow: 0 0 24px var(--glow-purple); }
 
-.secondary-btn {
+/* Breadcrumbs */
+.breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1.25rem;
-  background: transparent;
-  border: 1px solid var(--border-purple);
-  border-radius: 8px;
-  color: var(--color-purple);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
 }
-.secondary-btn:hover { background: var(--bg-active); box-shadow: 0 0 12px var(--glow-purple); }
 
+.breadcrumb-item {
+  background: transparent;
+  border: none;
+  color: var(--color-purple);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.breadcrumb-item:hover { background: var(--bg-active); }
+.breadcrumb-current { color: var(--text-primary); cursor: default; }
+.breadcrumb-current:hover { background: transparent; }
+
+.breadcrumb-sep {
+  color: var(--text-dim);
+  font-size: 0.65rem;
+}
+
+/* States */
+.load-error {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(236, 72, 153, 0.08);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: var(--color-pink-light);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 1rem 0;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 0;
+  color: var(--text-dim);
+}
+.empty-icon { font-size: 2rem; }
+
+/* Notes grid */
 .notes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .note-card {
@@ -363,11 +350,22 @@ const currentFolderName = ref('All Notes')
   padding: 1rem 1.25rem;
   cursor: pointer;
   transition: all 0.2s;
+  text-align: left;
+  width: 100%;
 }
 .note-card:hover {
   border-color: var(--color-purple);
   box-shadow: 0 0 16px var(--glow-purple);
   transform: translateY(-2px);
+}
+
+.folder-card {
+  background: rgba(168, 85, 247, 0.07);
+  border-color: rgba(168, 85, 247, 0.35);
+}
+.folder-card:hover {
+  background: rgba(168, 85, 247, 0.13);
+  border-color: var(--color-purple);
 }
 
 .note-card-header {
@@ -381,6 +379,11 @@ const currentFolderName = ref('All Notes')
   font-weight: 600;
   font-size: 0.95rem;
   color: var(--text-primary);
+}
+
+.folder-icon {
+  color: var(--color-purple);
+  margin-right: 0.4rem;
 }
 
 .note-date {
@@ -400,6 +403,11 @@ const currentFolderName = ref('All Notes')
   overflow: hidden;
 }
 
+.folder-hint {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 .note-tags {
   display: flex;
   gap: 0.4rem;
@@ -416,25 +424,31 @@ const currentFolderName = ref('All Notes')
   font-weight: 500;
 }
 
-/* ── Mobile ── */
-.sidebar-backdrop {
-  display: none;
+/* Section divider for sample notes */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1rem;
+}
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+.section-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
+.sidebar-backdrop { display: none; }
+
 @media (max-width: 767px) {
-  .sidebar {
-    position: fixed;
-    top: 60px;
-    left: 0;
-    bottom: 0;
-    z-index: 100;
-    transform: translateX(-100%);
-    width: 280px;
-    min-width: 0;
-  }
-  .sidebar.open {
-    transform: translateX(0);
-  }
   .sidebar-backdrop {
     display: block;
     position: fixed;
@@ -443,21 +457,6 @@ const currentFolderName = ref('All Notes')
     background: rgba(0, 0, 0, 0.6);
     z-index: 99;
   }
-  .main-body {
-    padding: 1rem;
-  }
-}
-
-@media (min-width: 768px) {
-  .sidebar {
-    transform: translateX(0);
-  }
-  .sidebar:not(.open) {
-    width: 0;
-    min-width: 0;
-    padding: 0;
-    overflow: hidden;
-    border-right: none;
-  }
+  .main-body { padding: 1rem; }
 }
 </style>

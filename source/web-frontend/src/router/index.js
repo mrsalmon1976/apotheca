@@ -6,10 +6,9 @@ import HomeView from '../features/home/HomeView.vue'
 import AboutView from '../features/about/AboutView.vue'
 import FeaturesView from '../features/features/FeaturesView.vue'
 import DashboardView from '../features/dashboard/DashboardView.vue'
-import NotesView from '../features/notes/NotesView.vue'
 import TasksView from '../features/tasks/TasksView.vue'
 import ProjectView from '../features/projects/ProjectView.vue'
-import ProjectNotesView from '../features/projects/ProjectNotesView.vue'
+import NotesView from '../features/notes/NotesView.vue'
 import ProjectSettingsView from '../features/projects/ProjectSettingsView.vue'
 import LoginView from '../features/auth/LoginView.vue'
 import LoggingInView from '../features/auth/LoggingInView.vue'
@@ -36,9 +35,8 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: 'dashboard', component: DashboardView },
-      { path: 'notes', component: NotesView },
       { path: 'project/:id', component: ProjectView },
-      { path: 'project/:id/notes', component: ProjectNotesView },
+      { path: 'project/:id/notes', component: NotesView },
       { path: 'project/:id/tasks', redirect: to => `/project/${to.params.id}/tasks/all` },
       { path: 'project/:id/tasks/:filter', component: TasksView },
       { path: 'project/:id/settings', component: ProjectSettingsView }

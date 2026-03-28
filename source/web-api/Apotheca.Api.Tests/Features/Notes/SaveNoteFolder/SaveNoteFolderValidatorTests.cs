@@ -28,7 +28,7 @@ public class SaveNoteFolderValidatorTests
         Assert.That(errors, Is.Empty);
     }
 
-    [TestCase("Hello")]         // exactly 5 characters
+    [TestCase("Abc")]           // exactly 3 characters
     [TestCase("A longer title")]
     public void Validate_ReturnsNoErrors_WhenTitleMeetsMinLength(string title)
     {
@@ -64,9 +64,7 @@ public class SaveNoteFolderValidatorTests
     // --- Minimum length ---
 
     [TestCase("A")]
-    [TestCase("Ab")]
-    [TestCase("Abc")]
-    [TestCase("Abcd")]   // 4 characters — one short
+    [TestCase("Ab")]     // 2 characters — one short
     public void Validate_ReturnsError_WhenTitleIsTooShort(string title)
     {
         var request = new SaveNoteFolderRequest { Title = title };
@@ -79,7 +77,7 @@ public class SaveNoteFolderValidatorTests
     [Test]
     public void Validate_TrimsBeforeCheckingLength()
     {
-        // 4 visible chars padded with spaces — should fail length, not required
+        // 2 visible chars padded with spaces — should fail length, not required
         var request = new SaveNoteFolderRequest { Title = "  Ab  " };
 
         var errors = _validator.Validate(request);

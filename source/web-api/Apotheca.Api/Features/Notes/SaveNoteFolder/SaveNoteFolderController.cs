@@ -33,7 +33,7 @@ public class SaveNoteFolderController(
         if (userId is null)
             return Unauthorized(new { error = "User identity could not be determined." });
 
-        var id = await repo.InsertNoteFolderAsync(db, projectId, userId, request.Title.Trim());
+        var id = await repo.InsertNoteFolderAsync(db, projectId, userId, request.Title.Trim(), request.ParentNoteId);
         return CreatedAtAction(nameof(SaveNoteFolder), new { projectId }, new { id });
     }
 }
