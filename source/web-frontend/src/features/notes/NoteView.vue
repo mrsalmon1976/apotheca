@@ -9,7 +9,29 @@
           <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
             <i class="pi pi-bars"></i>
           </button>
-          <h1 class="content-title">{{ note?.title ?? 'Note' }}</h1>
+          <div class="title-wrap">
+            <input
+              ref="titleInput"
+              v-model="editingTitle"
+              class="title-input"
+              type="text"
+              maxlength="200"
+              :placeholder="note ? '' : 'Note'"
+              :disabled="!note || titleSaving"
+              @keydown.enter.prevent="titleInput?.blur()"
+              @keydown.escape.prevent="revertTitle"
+              @blur="onTitleBlur"
+            />
+            <span v-if="titleSaving" class="title-status saving">
+              <i class="pi pi-spin pi-spinner"></i>
+            </span>
+            <span v-else-if="titleSaveError" class="title-status error" :title="titleSaveError">
+              <i class="pi pi-exclamation-triangle"></i>
+            </span>
+            <span v-else-if="titleSaved" class="title-status saved">
+              <i class="pi pi-check"></i>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -134,6 +156,14 @@ const folderCrumbs = ref([])
 const loading      = ref(false)
 const loadError    = ref(null)
 
+// Title editing state
+const titleInput      = ref(null)
+const editingTitle    = ref('')
+const titleSaving     = ref(false)
+const titleSaved      = ref(false)
+const titleSaveError  = ref(null)
+let   titleSavedTimer = null
+
 // Label editor state
 const labelInput        = ref(null)
 const labelQuery        = ref('')
@@ -171,7 +201,8 @@ onMounted(async () => {
   try {
     const response = await getNote(projectId.value, noteId.value)
     if (response.ok) {
-      note.value = await response.json()
+      note.value           = await response.json()
+      editingTitle.value   = note.value.title
       selectedLabels.value = [...(note.value.labels ?? [])]
       if (note.value.parentNoteId) {
         folderCrumbs.value = await buildFolderCrumbs(note.value.parentNoteId)
@@ -191,7 +222,50 @@ onMounted(async () => {
 onUnmounted(() => {
   clearTimeout(debounceTimer)
   clearTimeout(savedTimer)
+  clearTimeout(titleSavedTimer)
 })
+
+// ── Title editing ────────────────────────────────────────────────────────────
+
+function revertTitle() {
+  editingTitle.value   = note.value.title
+  titleSaveError.value = null
+  titleInput.value?.blur()
+}
+
+async function onTitleBlur() {
+  const trimmed = editingTitle.value.trim()
+
+  if (trimmed === note.value.title) return
+
+  if (!trimmed || trimmed.length < 3) {
+    editingTitle.value = note.value.title
+    return
+  }
+
+  titleSaving.value    = true
+  titleSaved.value     = false
+  titleSaveError.value = null
+  clearTimeout(titleSavedTimer)
+
+  try {
+    const response = await saveNote(projectId.value, noteId.value, { title: trimmed })
+    if (response.ok) {
+      note.value         = { ...note.value, title: trimmed }
+      editingTitle.value = trimmed
+      titleSaved.value   = true
+      titleSavedTimer    = setTimeout(() => { titleSaved.value = false }, 2000)
+    } else {
+      titleSaveError.value = `Failed to save (${response.status}).`
+      editingTitle.value   = note.value.title
+    }
+  } catch {
+    titleSaveError.value = 'Could not connect to the server.'
+    editingTitle.value   = note.value.title
+  } finally {
+    titleSaving.value = false
+  }
+}
 
 // ── Label save ───────────────────────────────────────────────────────────────
 
@@ -338,12 +412,42 @@ async function fetchSuggestions(query) {
 }
 .hamburger-btn:hover { color: var(--color-purple); }
 
-.content-title {
+.title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.title-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  color: var(--text-primary);
   font-size: 1.4rem;
   font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
+  font-family: inherit;
+  outline: none;
+  padding: 0.1rem 0;
+  min-width: 0;
+  flex: 1;
+  transition: border-color 0.2s;
 }
+.title-input:hover:not(:disabled) { border-bottom-color: var(--border-color); }
+.title-input:focus                 { border-bottom-color: var(--color-purple); }
+.title-input:disabled              { opacity: 0.6; cursor: default; }
+
+.title-status {
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.title-status.saving { color: var(--text-muted); }
+.title-status.saved  { color: #4ade80; }
+.title-status.error  { color: var(--color-pink-light); cursor: default; }
 
 /* Breadcrumbs */
 .breadcrumbs {
