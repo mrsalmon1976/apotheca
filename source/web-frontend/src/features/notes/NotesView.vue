@@ -70,7 +70,10 @@
             <div class="note-card-header">
               <span class="note-title"><i class="pi pi-folder folder-icon"></i> {{ item.title }}</span>
             </div>
-            <p class="note-preview folder-hint">Click to browse contents</p>
+            <div v-if="item.labels?.length > 0" class="note-labels">
+              <span v-for="label in item.labels" :key="label" class="label-chip">{{ label }}</span>
+            </div>
+            <p v-else class="note-preview folder-hint">Click to browse contents</p>
           </button>
 
           <!-- Notes (non-folders) -->
@@ -406,6 +409,23 @@ const sampleNotes = [
 .folder-hint {
   color: var(--text-dim);
   font-style: italic;
+}
+
+.note-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.label-chip {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--color-purple);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  font-weight: 500;
 }
 
 .note-tags {

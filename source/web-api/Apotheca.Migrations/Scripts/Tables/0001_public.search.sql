@@ -1,8 +1,3 @@
--- search table
--- usage:
---  SELECT * FROM search
---      WHERE reference_type = 'NOTE'
---      AND search_vector @@ websearch_to_tsquery('english', 'your search terms');
 CREATE TABLE IF NOT EXISTS search (
     id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     reference_id     TEXT        NOT NULL,

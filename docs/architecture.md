@@ -47,11 +47,25 @@ Methods on `IDbContext` are ordered alphabetically. Follow this convention when 
 
 ## Database Migrations
 
-Migrations are managed by **DbUp** in the `Apotheca.Migrations` console project. DbUp tracks applied scripts in a `schemaversions` journal table and runs any unapplied scripts in order at execution time.
+Migrations are managed by **DbUp** in the `Apotheca.Migrations` console project. Scripts run every time (no journal), so all scripts must be idempotent (use `CREATE TABLE IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`, etc.).
+
+### Script folders
+
+Scripts live under `Apotheca.Migrations/Scripts/` and are organised into subfolders that run in this fixed order:
+
+| Folder | Purpose |
+|---|---|
+| `Schemas/` | `CREATE SCHEMA` statements |
+| `Tables/` | `CREATE TABLE`, indexes, constraints |
+| `Functions/` | Stored functions and triggers |
+
+Within each folder, scripts run alphabetically by filename. Use the `NNNN_description.sql` naming convention to control order within a folder.
+
+To add a new folder (e.g. `Seeds/`), create the subfolder and add its name to the `scriptFolders` array in `Program.cs`.
 
 ### Adding a migration
 
-1. Add a `.sql` file to `Apotheca.Migrations/Scripts/` using the naming convention `NNNN_description.sql` (e.g. `0002_add_users_table.sql`).
+1. Add a `.sql` file to the appropriate subfolder under `Apotheca.Migrations/Scripts/`.
 2. Scripts are embedded resources — no additional registration needed.
 3. Each script runs in its own transaction. A failed script leaves the database unchanged and exits with code 1.
 

@@ -28,6 +28,6 @@ public class GetNoteController(
         if (note is null)
             return NotFound();
 
-        return Ok(note.ToResponse());
+        return Ok(note);
     }
 }

@@ -15,7 +15,7 @@ export function useNoteFolders() {
     })
   }
 
-  async function createFolder(projectId, title, parentId = null) {
+  async function createFolder(projectId, title, parentId = null, labels = []) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/notes/folders`, {
       method: 'POST',
@@ -23,7 +23,7 @@ export function useNoteFolders() {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ title, parentNoteId: parentId }),
+      body: JSON.stringify({ title, parentNoteId: parentId, labels }),
     })
   }
 

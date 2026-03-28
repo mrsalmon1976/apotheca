@@ -33,7 +33,23 @@ public class SaveNoteFolderController(
         if (userId is null)
             return Unauthorized(new { error = "User identity could not be determined." });
 
+        await db.BeginTransactionAsync(cancellationToken);
+
         var id = await repo.InsertNoteFolderAsync(db, projectId, userId, request.Title.Trim(), request.ParentNoteId);
+
+        var labelTexts = request.Labels
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var labelText in labelTexts)
+        {
+            var labelId = await repo.UpsertLabelAsync(db, projectId, userId, labelText);
+            await repo.InsertNoteLabelAsync(db, id, labelId);
+        }
+
+        await db.CommitAsync(cancellationToken);
+
         return CreatedAtAction(nameof(SaveNoteFolder), new { projectId }, new { id });
     }
 }

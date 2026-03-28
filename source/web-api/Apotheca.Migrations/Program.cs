@@ -15,22 +15,35 @@ if (string.IsNullOrWhiteSpace(settings.ConnectionString))
 
 EnsureDatabase.For.PostgresqlDatabase(settings.ConnectionString);
 
-var upgrader = DeployChanges.To
-    .PostgresqlDatabase(settings.ConnectionString)
-    .WithScriptsEmbeddedInAssembly(typeof(Program).Assembly)
-    .WithTransactionPerScript()
-    .JournalTo(new NullJournal())   // no record will be kept of which scripts have been run, so all scripts will run every time
-    .LogToConsole()
-    .Build();
+// Folders run in the order listed here. Within each folder, scripts run alphabetically by filename.
+// To add a new folder, append its name to this array.
+var scriptFolders = new[] { "Schemas", "Tables", "Functions" };
 
-var result = upgrader.PerformUpgrade();
+var assemblyName = typeof(Program).Assembly.GetName().Name;
 
-if (!result.Successful)
+foreach (var folder in scriptFolders)
 {
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.Error.WriteLine(result.Error);
-    Console.ResetColor();
-    return 1;
+    var prefix = $"{assemblyName}.Scripts.{folder}.";
+
+    var upgrader = DeployChanges.To
+        .PostgresqlDatabase(settings.ConnectionString)
+        .WithScriptsEmbeddedInAssembly(
+            typeof(Program).Assembly,
+            s => s.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        .WithTransactionPerScript()
+        .JournalTo(new NullJournal())
+        .LogToConsole()
+        .Build();
+
+    var result = upgrader.PerformUpgrade();
+
+    if (!result.Successful)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.Error.WriteLine(result.Error);
+        Console.ResetColor();
+        return 1;
+    }
 }
 
 Console.ForegroundColor = ConsoleColor.Green;

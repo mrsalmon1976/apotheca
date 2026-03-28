@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Apotheca.Api.Features.Notes.GetNotes;
 using Apotheca.Data;
-using Apotheca.Data.DbEntities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -47,7 +46,7 @@ public class GetNotesControllerTests
         _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(true));
         _repository.GetNotesAsync(_dbContext, Arg.Any<string>(), Arg.Any<string?>())
-            .Returns(Task.FromResult(Enumerable.Empty<NoteDbEntity>()));
+            .Returns(Task.FromResult(Enumerable.Empty<GetNotesResponse>()));
     }
 
     // --- Identity ---
@@ -167,13 +166,13 @@ public class GetNotesControllerTests
         _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(true));
 
-        var dbResults = new[]
+        var repoResults = new[]
         {
-            new NoteDbEntity { Id = "n1", Title = "Folder A",  IsFolder = true,  ProjectId = "proj-1", CreatedBy = "user-1" },
-            new NoteDbEntity { Id = "n2", Title = "A note",    IsFolder = false, ProjectId = "proj-1", CreatedBy = "user-1" },
+            new GetNotesResponse { Id = "n1", Title = "Folder A", IsFolder = true },
+            new GetNotesResponse { Id = "n2", Title = "A note",   IsFolder = false },
         };
         _repository.GetNotesAsync(_dbContext, Arg.Any<string>(), Arg.Any<string?>())
-            .Returns(Task.FromResult<IEnumerable<NoteDbEntity>>(dbResults));
+            .Returns(Task.FromResult<IEnumerable<GetNotesResponse>>(repoResults));
 
         var result = (OkObjectResult)await _controller.GetNotes("proj-1", null, CancellationToken.None);
         var notes = (result.Value as IEnumerable<GetNotesResponse>)!.ToList();
@@ -192,12 +191,12 @@ public class GetNotesControllerTests
         _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(true));
 
-        var dbResults = new[]
+        var repoResults = new[]
         {
-            new NoteDbEntity { Id = "n1", Title = "Child note", IsFolder = false, ParentNoteId = "folder-id-abc", ProjectId = "proj-1", CreatedBy = "user-1" },
+            new GetNotesResponse { Id = "n1", Title = "Child note", IsFolder = false, ParentNoteId = "folder-id-abc" },
         };
         _repository.GetNotesAsync(_dbContext, Arg.Any<string>(), Arg.Any<string?>())
-            .Returns(Task.FromResult<IEnumerable<NoteDbEntity>>(dbResults));
+            .Returns(Task.FromResult<IEnumerable<GetNotesResponse>>(repoResults));
 
         var result = (OkObjectResult)await _controller.GetNotes("proj-1", "folder-id-abc", CancellationToken.None);
         var notes = (result.Value as IEnumerable<GetNotesResponse>)!.ToList();

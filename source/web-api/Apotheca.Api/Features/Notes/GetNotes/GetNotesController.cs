@@ -25,6 +25,6 @@ public class GetNotesController(
             return Forbid();
 
         var notes = await repo.GetNotesAsync(db, projectId, parentId);
-        return Ok(notes.ToResponse());
+        return Ok(notes);
     }
 }

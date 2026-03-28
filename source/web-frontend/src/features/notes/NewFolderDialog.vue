@@ -32,6 +32,23 @@
               <span v-if="fieldError" class="field-error-msg">{{ fieldError }}</span>
             </div>
 
+            <div class="field">
+              <label class="field-label" for="folder-labels">Labels</label>
+              <input
+                id="folder-labels"
+                v-model="labelsRaw"
+                class="field-input"
+                type="text"
+                placeholder="e.g. planning, q1, frontend"
+                maxlength="200"
+                @keydown.enter="save"
+              />
+              <span class="field-hint">Separate multiple labels with commas</span>
+              <div v-if="parsedLabels.length > 0" class="label-preview">
+                <span v-for="label in parsedLabels" :key="label" class="label-chip">{{ label }}</span>
+              </div>
+            </div>
+
             <div v-if="saveError" class="save-error">
               <i class="pi pi-exclamation-triangle"></i>
               <span>{{ saveError }}</span>
@@ -54,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { useNoteFolders } from '../../composables/useNoteFolders'
 
 const props = defineProps({
@@ -67,17 +84,26 @@ const emit = defineEmits(['close', 'saved'])
 
 const { createFolder } = useNoteFolders()
 
-const nameInput = ref(null)
-const name      = ref('')
+const nameInput  = ref(null)
+const name       = ref('')
+const labelsRaw  = ref('')
 const fieldError = ref(null)
 const saveError  = ref(null)
 const saving     = ref(false)
+
+const parsedLabels = computed(() =>
+  labelsRaw.value
+    .split(',')
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+)
 
 const MIN_LENGTH = 3
 
 watch(() => props.visible, (val) => {
   if (val) {
-    name.value      = ''
+    name.value       = ''
+    labelsRaw.value  = ''
     fieldError.value = null
     saveError.value  = null
     saving.value     = false
@@ -121,7 +147,7 @@ async function save() {
   saveError.value = null
 
   try {
-    const response = await createFolder(props.projectId, title, props.parentId)
+    const response = await createFolder(props.projectId, title, props.parentId, parsedLabels.value)
 
     if (response.ok) {
       const body = await response.json()
@@ -264,6 +290,28 @@ async function save() {
 .field-error-msg {
   font-size: 0.78rem;
   color: var(--color-pink);
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.label-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.label-chip {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--color-purple-light, var(--color-purple));
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  font-weight: 500;
 }
 
 .save-error {

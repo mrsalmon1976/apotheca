@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Apotheca.Api.Features.Notes.GetNote;
 using Apotheca.Data;
-using Apotheca.Data.DbEntities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -48,14 +47,12 @@ public class GetNoteControllerTests
             .Returns(Task.FromResult(true));
     }
 
-    private static NoteDbEntity ANote(string id = "note-1") => new()
+    private static GetNoteResponse ANote(string id = "note-1") => new()
     {
         Id        = id,
-        ProjectId = "proj-1",
         Title     = "My Note",
         IsFolder  = false,
         Body      = "Some content",
-        CreatedBy = "user-1",
     };
 
     // --- Identity ---
@@ -127,7 +124,7 @@ public class GetNoteControllerTests
         SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetNoteAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult<NoteDbEntity?>(null));
+            .Returns(Task.FromResult<GetNoteResponse?>(null));
 
         var result = await _controller.GetNote("proj-1", "note-1", CancellationToken.None);
 
@@ -135,12 +132,12 @@ public class GetNoteControllerTests
     }
 
     [Test]
-    public async Task GetNote_QueryiesWithCorrectProjectIdAndNoteId()
+    public async Task GetNote_QueriesWithCorrectProjectIdAndNoteId()
     {
         SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetNoteAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult<NoteDbEntity?>(null));
+            .Returns(Task.FromResult<GetNoteResponse?>(null));
 
         await _controller.GetNote("proj-xyz", "note-abc", CancellationToken.None);
 
@@ -155,7 +152,7 @@ public class GetNoteControllerTests
         SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetNoteAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult<NoteDbEntity?>(ANote()));
+            .Returns(Task.FromResult<GetNoteResponse?>(ANote()));
 
         var result = await _controller.GetNote("proj-1", "note-1", CancellationToken.None);
 
@@ -168,20 +165,19 @@ public class GetNoteControllerTests
         SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
-        var note = new NoteDbEntity
+        var note = new GetNoteResponse
         {
             Id           = "note-abc",
-            ProjectId    = "proj-1",
             ParentNoteId = "folder-id",
             IsFolder     = false,
             Title        = "Meeting Notes",
             Body         = "Item 1\nItem 2",
-            CreatedBy    = "user-1",
+            Labels       = ["alpha", "beta"],
             CreatedAt    = new DateTimeOffset(2025, 1, 15, 10, 0, 0, TimeSpan.Zero),
             UpdatedAt    = new DateTimeOffset(2025, 1, 16, 12, 0, 0, TimeSpan.Zero),
         };
         _repository.GetNoteAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult<NoteDbEntity?>(note));
+            .Returns(Task.FromResult<GetNoteResponse?>(note));
 
         var result = (OkObjectResult)await _controller.GetNote("proj-1", "note-abc", CancellationToken.None);
         var response = result.Value as GetNoteResponse;
@@ -192,6 +188,7 @@ public class GetNoteControllerTests
         Assert.That(response.IsFolder, Is.False);
         Assert.That(response.Title, Is.EqualTo("Meeting Notes"));
         Assert.That(response.Body, Is.EqualTo("Item 1\nItem 2"));
+        Assert.That(response.Labels, Is.EqualTo(new[] { "alpha", "beta" }));
         Assert.That(response.CreatedAt, Is.EqualTo(new DateTimeOffset(2025, 1, 15, 10, 0, 0, TimeSpan.Zero)));
         Assert.That(response.UpdatedAt, Is.EqualTo(new DateTimeOffset(2025, 1, 16, 12, 0, 0, TimeSpan.Zero)));
     }
@@ -202,16 +199,14 @@ public class GetNoteControllerTests
         SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
-        var folder = new NoteDbEntity
+        var folder = new GetNoteResponse
         {
-            Id        = "folder-abc",
-            ProjectId = "proj-1",
-            IsFolder  = true,
-            Title     = "Sprint Notes",
-            CreatedBy = "user-1",
+            Id       = "folder-abc",
+            IsFolder = true,
+            Title    = "Sprint Notes",
         };
         _repository.GetNoteAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult<NoteDbEntity?>(folder));
+            .Returns(Task.FromResult<GetNoteResponse?>(folder));
 
         var result = (OkObjectResult)await _controller.GetNote("proj-1", "folder-abc", CancellationToken.None);
         var response = result.Value as GetNoteResponse;
@@ -219,5 +214,6 @@ public class GetNoteControllerTests
         Assert.That(response!.IsFolder, Is.True);
         Assert.That(response.Body, Is.Null);
         Assert.That(response.ParentNoteId, Is.Null);
+        Assert.That(response.Labels, Is.Empty);
     }
 }

@@ -2,9 +2,11 @@
 drop table audit.project_logs;
 drop table audit.user_logs;
 drop table public.documents;
+drop table public.note_labels;
 drop table public.notes;
 drop table public.tasks;
 drop table public.tickets;
+drop table public.labels;
 drop table public.user_firebase_identities;
 drop table public.user_projects;
 drop table public.projects;
