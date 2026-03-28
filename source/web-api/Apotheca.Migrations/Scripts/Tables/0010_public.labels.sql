@@ -13,3 +13,7 @@ CREATE TABLE IF NOT EXISTS labels (
 
 CREATE INDEX IF NOT EXISTS ix_labels_project_id ON labels (project_id);
 
+-- text_pattern_ops supports prefix LIKE queries: WHERE label_text LIKE 'abc%'
+CREATE INDEX IF NOT EXISTS ix_labels_project_label_text
+    ON labels (project_id, label_text text_pattern_ops);
+

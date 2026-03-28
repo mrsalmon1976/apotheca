@@ -27,5 +27,12 @@ export function useNoteFolders() {
     })
   }
 
-  return { getNotes, createFolder }
+  async function searchLabels(projectId, query) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/labels?q=${encodeURIComponent(query)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
+  return { getNotes, createFolder, searchLabels }
 }

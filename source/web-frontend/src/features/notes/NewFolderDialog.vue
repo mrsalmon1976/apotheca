@@ -32,20 +32,44 @@
               <span v-if="fieldError" class="field-error-msg">{{ fieldError }}</span>
             </div>
 
+            <!-- Labels -->
             <div class="field">
-              <label class="field-label" for="folder-labels">Labels</label>
-              <input
-                id="folder-labels"
-                v-model="labelsRaw"
-                class="field-input"
-                type="text"
-                placeholder="e.g. planning, q1, frontend"
-                maxlength="200"
-                @keydown.enter="save"
-              />
-              <span class="field-hint">Separate multiple labels with commas</span>
-              <div v-if="parsedLabels.length > 0" class="label-preview">
-                <span v-for="label in parsedLabels" :key="label" class="label-chip">{{ label }}</span>
+              <label class="field-label">Labels</label>
+              <div class="label-input-box" :class="{ focused: labelInputFocused }" @click="focusLabelInput">
+                <span
+                  v-for="(label, i) in selectedLabels"
+                  :key="label"
+                  class="label-chip"
+                >
+                  {{ label }}
+                  <button class="chip-remove" tabindex="-1" @click.stop="removeLabel(i)">
+                    <i class="pi pi-times"></i>
+                  </button>
+                </span>
+                <input
+                  ref="labelInput"
+                  v-model="labelQuery"
+                  class="label-text-input"
+                  type="text"
+                  placeholder="Type to search labels…"
+                  autocomplete="off"
+                  @focus="labelInputFocused = true"
+                  @blur="onLabelBlur"
+                  @keydown="onLabelKeydown"
+                />
+              </div>
+
+              <!-- Suggestions dropdown -->
+              <div v-if="suggestions.length > 0" class="suggestions">
+                <button
+                  v-for="(s, i) in suggestions"
+                  :key="s.id"
+                  class="suggestion-item"
+                  :class="{ highlighted: i === highlightedIndex }"
+                  @mousedown.prevent="selectSuggestion(s.labelText)"
+                >
+                  {{ s.labelText }}
+                </button>
               </div>
             </div>
 
@@ -71,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { ref, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { useNoteFolders } from '../../composables/useNoteFolders'
 
 const props = defineProps({
@@ -82,41 +106,128 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'saved'])
 
-const { createFolder } = useNoteFolders()
+const { createFolder, searchLabels } = useNoteFolders()
 
+// Folder name
 const nameInput  = ref(null)
 const name       = ref('')
-const labelsRaw  = ref('')
 const fieldError = ref(null)
 const saveError  = ref(null)
 const saving     = ref(false)
-
-const parsedLabels = computed(() =>
-  labelsRaw.value
-    .split(',')
-    .map(l => l.trim())
-    .filter(l => l.length > 0)
-)
-
 const MIN_LENGTH = 3
 
+// Labels
+const labelInput       = ref(null)
+const labelQuery       = ref('')
+const selectedLabels   = ref([])
+const suggestions      = ref([])
+const highlightedIndex = ref(-1)
+const labelInputFocused = ref(false)
+
+let debounceTimer = null
+
+// Reset on open
 watch(() => props.visible, (val) => {
   if (val) {
-    name.value       = ''
-    labelsRaw.value  = ''
-    fieldError.value = null
-    saveError.value  = null
-    saving.value     = false
+    name.value           = ''
+    labelQuery.value     = ''
+    selectedLabels.value = []
+    suggestions.value    = []
+    highlightedIndex.value = -1
+    fieldError.value     = null
+    saveError.value      = null
+    saving.value         = false
     nextTick(() => nameInput.value?.focus())
   }
 })
 
+// Debounced label search
+watch(labelQuery, (val) => {
+  clearTimeout(debounceTimer)
+  highlightedIndex.value = -1
+
+  if (val.trim().length < 1) {
+    suggestions.value = []
+    return
+  }
+
+  debounceTimer = setTimeout(() => fetchSuggestions(val.trim()), 300)
+})
+
+async function fetchSuggestions(query) {
+  try {
+    const res = await searchLabels(props.projectId, query)
+    if (!res.ok) { suggestions.value = []; return }
+    const all = await res.json()
+    // Exclude labels already selected
+    suggestions.value = all.filter(s => !selectedLabels.value.includes(s.labelText))
+  } catch {
+    suggestions.value = []
+  }
+}
+
+function commitLabel(text) {
+  const trimmed = text.trim()
+  if (trimmed && !selectedLabels.value.includes(trimmed)) {
+    selectedLabels.value.push(trimmed)
+  }
+  labelQuery.value   = ''
+  suggestions.value  = []
+  highlightedIndex.value = -1
+}
+
+function selectSuggestion(text) {
+  commitLabel(text)
+  nextTick(() => labelInput.value?.focus())
+}
+
+function removeLabel(index) {
+  selectedLabels.value.splice(index, 1)
+}
+
+function focusLabelInput() {
+  labelInput.value?.focus()
+}
+
+function onLabelBlur() {
+  // Short delay so mousedown on a suggestion fires first
+  setTimeout(() => {
+    labelInputFocused.value = false
+    suggestions.value = []
+    // Commit any unconfirmed text on blur
+    if (labelQuery.value.trim()) commitLabel(labelQuery.value)
+  }, 150)
+}
+
+function onLabelKeydown(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault()
+    if (highlightedIndex.value >= 0 && suggestions.value[highlightedIndex.value]) {
+      selectSuggestion(suggestions.value[highlightedIndex.value].labelText)
+    } else {
+      commitLabel(labelQuery.value)
+    }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    highlightedIndex.value = Math.min(highlightedIndex.value + 1, suggestions.value.length - 1)
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    highlightedIndex.value = Math.max(highlightedIndex.value - 1, 0)
+  } else if (e.key === 'Backspace' && labelQuery.value === '') {
+    selectedLabels.value.pop()
+  } else if (e.key === 'Escape') {
+    suggestions.value = []
+    highlightedIndex.value = -1
+  }
+}
+
+// Global Escape to close dialog
 function onKeyDown(e) {
-  if (e.key === 'Escape' && props.visible) close()
+  if (e.key === 'Escape' && props.visible && suggestions.value.length === 0) close()
 }
 
 onMounted(() => window.addEventListener('keydown', onKeyDown))
-onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
+onUnmounted(() => { window.removeEventListener('keydown', onKeyDown); clearTimeout(debounceTimer) })
 
 function close() {
   if (!saving.value) emit('close')
@@ -137,6 +248,9 @@ function validate() {
 }
 
 async function save() {
+  // Commit any unconfirmed label text before saving
+  if (labelQuery.value.trim()) commitLabel(labelQuery.value)
+
   const title = validate()
   if (!title) {
     nameInput.value?.focus()
@@ -147,7 +261,7 @@ async function save() {
   saveError.value = null
 
   try {
-    const response = await createFolder(props.projectId, title, props.parentId, parsedLabels.value)
+    const response = await createFolder(props.projectId, title, props.parentId, selectedLabels.value)
 
     if (response.ok) {
       const body = await response.json()
@@ -253,6 +367,7 @@ async function save() {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  position: relative;
 }
 
 .field-label {
@@ -292,26 +407,98 @@ async function save() {
   color: var(--color-pink);
 }
 
-.field-hint {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-}
-
-.label-preview {
+/* Label chip-input box */
+.label-input-box {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem;
-  margin-top: 0.4rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  cursor: text;
+  min-height: 2.5rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.label-input-box.focused {
+  border-color: var(--color-purple);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
 }
 
 .label-chip {
-  font-size: 0.72rem;
-  padding: 0.15rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem 0.15rem 0.6rem;
   border-radius: 999px;
-  background: rgba(168, 85, 247, 0.12);
-  color: var(--color-purple-light, var(--color-purple));
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.15);
+  color: var(--color-purple);
+  border: 1px solid rgba(168, 85, 247, 0.4);
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: var(--color-purple);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.6rem;
+  line-height: 1;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+}
+.chip-remove:hover { opacity: 1; }
+
+.label-text-input {
+  flex: 1;
+  min-width: 8rem;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  padding: 0.15rem 0;
+}
+.label-text-input::placeholder { color: var(--text-dim); }
+
+/* Suggestions dropdown */
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-purple);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  z-index: 10;
+}
+
+.suggestion-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.suggestion-item:hover,
+.suggestion-item.highlighted {
+  background: var(--bg-active);
+  color: var(--color-purple);
 }
 
 .save-error {
