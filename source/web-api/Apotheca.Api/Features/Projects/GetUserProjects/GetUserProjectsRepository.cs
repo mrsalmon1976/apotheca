@@ -10,6 +10,7 @@ public class GetUserProjectsRepository
         return await db.QueryAsync<ProjectDbEntity>(
             @"SELECT p.id            AS Id,
                      p.name          AS Name,
+                     p.summary       AS Summary,
                      p.created_at    AS CreatedAt,
                      up.project_role AS ProjectRole
               FROM projects p

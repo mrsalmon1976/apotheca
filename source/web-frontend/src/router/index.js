@@ -10,6 +10,7 @@ import NotesView from '../features/notes/NotesView.vue'
 import TasksView from '../features/tasks/TasksView.vue'
 import ProjectView from '../features/projects/ProjectView.vue'
 import ProjectNotesView from '../features/projects/ProjectNotesView.vue'
+import ProjectSettingsView from '../features/projects/ProjectSettingsView.vue'
 import LoginView from '../features/auth/LoginView.vue'
 import LoggingInView from '../features/auth/LoggingInView.vue'
 
@@ -39,7 +40,8 @@ const routes = [
       { path: 'project/:id', component: ProjectView },
       { path: 'project/:id/notes', component: ProjectNotesView },
       { path: 'project/:id/tasks', redirect: to => `/project/${to.params.id}/tasks/all` },
-      { path: 'project/:id/tasks/:filter', component: TasksView }
+      { path: 'project/:id/tasks/:filter', component: TasksView },
+      { path: 'project/:id/settings', component: ProjectSettingsView }
     ]
   }
 ]

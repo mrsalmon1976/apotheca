@@ -8,6 +8,7 @@ public static class GetUserProjectsMapper
     {
         Id = result.Id,
         Name = result.Name,
+        Summary = result.Summary,
         CreatedAt = result.CreatedAt,
     };
 

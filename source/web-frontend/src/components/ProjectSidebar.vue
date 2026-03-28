@@ -71,7 +71,7 @@ const mainNav = [
   { id: 'kanban',   label: 'Kanban',   icon: 'pi-objects-column', disabled: true,  to: computed(() => `/project/${projectId.value}/kanban`) },
   { id: 'backlog',  label: 'Backlog',  icon: 'pi-inbox',          disabled: true,  to: computed(() => `/project/${projectId.value}/backlog`) },
   { id: 'reports',  label: 'Reports',  icon: 'pi-chart-bar',      disabled: true,  to: computed(() => `/project/${projectId.value}/reports`) },
-  { id: 'settings', label: 'Settings', icon: 'pi-cog',            disabled: true,  to: computed(() => `/project/${projectId.value}/settings`) },
+  { id: 'settings', label: 'Settings', icon: 'pi-cog',            disabled: false, to: computed(() => `/project/${projectId.value}/settings`) },
 ]
 
 const taskFilters = [

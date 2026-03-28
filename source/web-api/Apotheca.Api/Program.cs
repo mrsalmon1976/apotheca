@@ -5,6 +5,7 @@ using Apotheca.Api.Features.ProjectTasks.CompleteProjectTask;
 using Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 using Apotheca.Api.Features.ProjectTasks.SaveProjectTask;
 using Apotheca.Api.Features.Projects.GetUserProjects;
+using Apotheca.Api.Features.Projects.SaveProject;
 using Apotheca.Data;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
@@ -26,6 +27,8 @@ builder.Services.AddTransient<GetProjectTasksRepository>();
 builder.Services.AddTransient<SaveProjectTaskRepository>();
 builder.Services.AddTransient<SaveProjectTaskValidator>();
 builder.Services.AddTransient<GetUserProjectsRepository>();
+builder.Services.AddTransient<SaveProjectRepository>();
+builder.Services.AddTransient<SaveProjectValidator>();
 builder.Services.AddTransient<LoginRepository>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
