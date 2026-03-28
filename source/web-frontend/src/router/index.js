@@ -9,6 +9,7 @@ import DashboardView from '../features/dashboard/DashboardView.vue'
 import TasksView from '../features/tasks/TasksView.vue'
 import ProjectView from '../features/projects/ProjectView.vue'
 import NotesView from '../features/notes/NotesView.vue'
+import NoteView from '../features/notes/NoteView.vue'
 import ProjectSettingsView from '../features/projects/ProjectSettingsView.vue'
 import LoginView from '../features/auth/LoginView.vue'
 import LoggingInView from '../features/auth/LoggingInView.vue'
@@ -37,6 +38,7 @@ const routes = [
       { path: 'dashboard', component: DashboardView },
       { path: 'project/:id', component: ProjectView },
       { path: 'project/:id/notes', component: NotesView },
+      { path: 'project/:id/notes/:noteId', component: NoteView },
       { path: 'project/:id/tasks', redirect: to => `/project/${to.params.id}/tasks/all` },
       { path: 'project/:id/tasks/:filter', component: TasksView },
       { path: 'project/:id/settings', component: ProjectSettingsView }

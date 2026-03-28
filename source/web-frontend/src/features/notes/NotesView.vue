@@ -24,8 +24,8 @@
           <button class="secondary-btn" @click="showNewFolderDialog = true">
             <i class="pi pi-folder-plus"></i> New Folder
           </button>
-          <button class="primary-btn">
-            <i class="pi pi-plus"></i> New Note
+          <button class="primary-btn" :disabled="creatingNote" @click="onCreateNote">
+            <i :class="creatingNote ? 'pi pi-spin pi-spinner' : 'pi pi-plus'"></i> New Note
           </button>
         </div>
       </div>
@@ -44,6 +44,12 @@
           </button>
         </template>
       </nav>
+
+      <!-- Create note error -->
+      <div v-if="createNoteError" class="load-error">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ createNoteError }}</span>
+      </div>
 
       <!-- Load error -->
       <div v-if="loadError" class="load-error">
@@ -77,12 +83,17 @@
           </button>
 
           <!-- Notes (non-folders) -->
-          <div v-for="item in apiNoteItems" :key="item.id" class="note-card">
+          <button
+            v-for="item in apiNoteItems"
+            :key="item.id"
+            class="note-card"
+            @click="router.push(`/project/${projectId}/notes/${item.id}`)"
+          >
             <div class="note-card-header">
               <span class="note-title">{{ item.title }}</span>
               <span class="note-date">{{ formatDate(item.updatedAt) }}</span>
             </div>
-          </div>
+          </button>
         </div>
 
         <div v-else-if="!loading" class="empty-state">
@@ -113,17 +124,21 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewFolderDialog from './NewFolderDialog.vue'
 import { useNoteFolders } from '../../composables/useNoteFolders'
 
 const route = useRoute()
+const router = useRouter()
 const projectId = computed(() => route.params.id)
 const sidebarOpen = ref(window.innerWidth >= 768)
 const showNewFolderDialog = ref(false)
 
-const { getNotes } = useNoteFolders()
+const { getNote, getNotes, createNote } = useNoteFolders()
+
+const creatingNote    = ref(false)
+const createNoteError = ref(null)
 
 const currentFolderId = ref(null)
 const breadcrumbs     = ref([])   // [{ id, title }, ...]
@@ -174,12 +189,50 @@ function onFolderSaved(folder) {
   loadNotes(currentFolderId.value)
 }
 
+async function onCreateNote() {
+  creatingNote.value    = true
+  createNoteError.value = null
+  try {
+    const response = await createNote(projectId.value, currentFolderId.value)
+    if (response.ok) {
+      const { id } = await response.json()
+      router.push(`/project/${projectId.value}/notes/${id}`)
+    } else {
+      createNoteError.value = `Failed to create note (${response.status}).`
+    }
+  } catch {
+    createNoteError.value = 'Could not connect to the server.'
+  } finally {
+    creatingNote.value = false
+  }
+}
+
 function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-onMounted(() => loadNotes(null))
+async function buildBreadcrumbsFromFolder(folderId) {
+  const chain = []
+  let currentId = folderId
+  while (currentId) {
+    const response = await getNote(projectId.value, currentId)
+    if (!response.ok) break
+    const folder = await response.json()
+    chain.unshift({ id: folder.id, title: folder.title })
+    currentId = folder.parentNoteId ?? null
+  }
+  return chain
+}
+
+onMounted(async () => {
+  const folderId = route.query.folderId ?? null
+  if (folderId) {
+    breadcrumbs.value     = await buildBreadcrumbsFromFolder(folderId)
+    currentFolderId.value = folderId
+  }
+  loadNotes(folderId)
+})
 
 const sampleNotes = [
   { id: 1, title: 'Project Brief',  date: 'Mar 20', preview: 'Objectives and scope for this project...', tags: ['planning'] },

@@ -12,7 +12,8 @@
       "Bash(dotnet build:*)",
       "Bash(xargs ls:*)",
       "Bash(del:*)",
-      "Bash(dotnet test:*)"
+      "Bash(dotnet test:*)",
+      "Bash(find C:/Matt/code/apotheca/source/web-frontend -type f \\\\\\(-name vitest.config.* -o -name jest.config.* -o -name *.test.* -o -name *.spec.* \\\\\\))"
     ]
   }
 }
