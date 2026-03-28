@@ -1,5 +1,12 @@
 <template>
   <div class="page-layout">
+    <NewFolderDialog
+      :visible="showNewFolderDialog"
+      :project-id="projectId"
+      @close="showNewFolderDialog = false"
+      @saved="onFolderSaved"
+    />
+
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
     <ProjectSidebar :open="sidebarOpen" />
@@ -12,9 +19,14 @@
           </button>
           <h1 class="content-title">Notes</h1>
         </div>
-        <button class="primary-btn">
-          <i class="pi pi-plus"></i> New Note
-        </button>
+        <div class="header-actions">
+          <button class="secondary-btn" @click="showNewFolderDialog = true">
+            <i class="pi pi-folder-plus"></i> New Folder
+          </button>
+          <button class="primary-btn">
+            <i class="pi pi-plus"></i> New Note
+          </button>
+        </div>
       </div>
 
       <div class="notes-grid">
@@ -34,10 +46,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
+import NewFolderDialog from '../notes/NewFolderDialog.vue'
 
+const route = useRoute()
+const projectId = computed(() => route.params.id)
 const sidebarOpen = ref(window.innerWidth >= 768)
+const showNewFolderDialog = ref(false)
+
+function onFolderSaved() {
+  // folders will be loaded from the API when that is implemented
+}
 
 const notes = [
   { id: 1, title: 'Project Brief',  date: 'Mar 20', preview: 'Objectives and scope for this project...', tags: ['planning'] },
@@ -94,6 +115,28 @@ const notes = [
   color: var(--text-primary);
   margin: 0;
 }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.secondary-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  border: 1px solid var(--border-purple);
+  border-radius: 8px;
+  color: var(--color-purple);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.secondary-btn:hover { background: var(--bg-active); box-shadow: 0 0 12px var(--glow-purple); }
 
 .primary-btn {
   display: flex;

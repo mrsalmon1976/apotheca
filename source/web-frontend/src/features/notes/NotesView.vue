@@ -1,5 +1,12 @@
 <template>
   <div class="page-layout">
+    <NewFolderDialog
+      :visible="showNewFolderDialog"
+      :project-id="activeFolderProjectId"
+      @close="showNewFolderDialog = false"
+      @saved="onFolderSaved"
+    />
+
     <!-- Mobile backdrop -->
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
@@ -10,6 +17,9 @@
         <div class="sidebar-header-actions">
           <button class="icon-btn" title="New note">
             <i class="pi pi-plus"></i>
+          </button>
+          <button class="icon-btn" title="New folder" @click="showNewFolderDialog = true">
+            <i class="pi pi-folder-plus"></i>
           </button>
           <button class="icon-btn" title="Close menu" @click="sidebarOpen = false">
             <i class="pi pi-times"></i>
@@ -56,9 +66,14 @@
           </button>
           <h1 class="content-title">{{ currentFolderName }}</h1>
         </div>
-        <button class="primary-btn">
-          <i class="pi pi-plus"></i> New Note
-        </button>
+        <div class="header-actions">
+          <button class="secondary-btn" @click="showNewFolderDialog = true">
+            <i class="pi pi-folder-plus"></i> New Folder
+          </button>
+          <button class="primary-btn">
+            <i class="pi pi-plus"></i> New Note
+          </button>
+        </div>
       </div>
       <div class="notes-grid">
         <div
@@ -86,21 +101,30 @@
 
 <script setup>
 import { ref } from 'vue'
+import NewFolderDialog from './NewFolderDialog.vue'
 
 const sidebarOpen = ref(window.innerWidth >= 768)
 const activeFolder = ref('all')
 const activeTag = ref(null)
+const showNewFolderDialog = ref(false)
+
+// Placeholder — will come from project context once Notes is project-aware
+const activeFolderProjectId = ref('')
 
 function closeSidebarOnMobile() {
   if (window.innerWidth < 768) sidebarOpen.value = false
 }
 
-const folders = [
+function onFolderSaved(folder) {
+  folders.value.push({ id: folder.id, name: folder.title, icon: 'pi-folder', count: 0 })
+}
+
+const folders = ref([
   { id: 'all', name: 'All Notes', icon: 'pi-inbox', count: 12 },
   { id: 'personal', name: 'Personal', icon: 'pi-user', count: 4 },
   { id: 'work', name: 'Work', icon: 'pi-briefcase', count: 6 },
   { id: 'archive', name: 'Archive', icon: 'pi-box', count: 2 },
-]
+])
 
 const tags = [
   { id: 'ideas', label: 'Ideas', color: '#a855f7' },
@@ -287,6 +311,12 @@ const currentFolderName = ref('All Notes')
   margin: 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .primary-btn {
   display: flex;
   align-items: center;
@@ -303,6 +333,22 @@ const currentFolderName = ref('All Notes')
   box-shadow: 0 0 16px var(--glow-purple);
 }
 .primary-btn:hover { opacity: 0.9; box-shadow: 0 0 24px var(--glow-purple); }
+
+.secondary-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  background: transparent;
+  border: 1px solid var(--border-purple);
+  border-radius: 8px;
+  color: var(--color-purple);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.secondary-btn:hover { background: var(--bg-active); box-shadow: 0 0 12px var(--glow-purple); }
 
 .notes-grid {
   display: grid;

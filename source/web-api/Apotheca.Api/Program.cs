@@ -4,6 +4,7 @@ using Apotheca.Api.Utilities;
 using Apotheca.Api.Features.ProjectTasks.CompleteProjectTask;
 using Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 using Apotheca.Api.Features.ProjectTasks.SaveProjectTask;
+using Apotheca.Api.Features.Notes.SaveNoteFolder;
 using Apotheca.Api.Features.Projects.GetUserProjects;
 using Apotheca.Api.Features.Projects.SaveProject;
 using Apotheca.Data;
@@ -29,6 +30,8 @@ builder.Services.AddTransient<SaveProjectTaskValidator>();
 builder.Services.AddTransient<GetUserProjectsRepository>();
 builder.Services.AddTransient<SaveProjectRepository>();
 builder.Services.AddTransient<SaveProjectValidator>();
+builder.Services.AddTransient<SaveNoteFolderRepository>();
+builder.Services.AddTransient<SaveNoteFolderValidator>();
 builder.Services.AddTransient<LoginRepository>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
