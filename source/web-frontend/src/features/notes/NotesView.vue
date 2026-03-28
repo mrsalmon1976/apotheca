@@ -93,6 +93,9 @@
               <span class="note-title">{{ item.title }}</span>
               <span class="note-date">{{ formatDate(item.updatedAt) }}</span>
             </div>
+            <div v-if="item.labels?.length > 0" class="note-labels">
+              <span v-for="label in item.labels" :key="label" class="label-chip">{{ label }}</span>
+            </div>
           </button>
         </div>
 

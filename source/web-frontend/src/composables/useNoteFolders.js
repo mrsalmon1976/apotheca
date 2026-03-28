@@ -34,6 +34,18 @@ export function useNoteFolders() {
     })
   }
 
+  async function saveNote(projectId, noteId, data) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/notes/${noteId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+  }
+
   async function createNote(projectId, parentNoteId = null) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/notes`, {
@@ -53,5 +65,5 @@ export function useNoteFolders() {
     })
   }
 
-  return { getNote, getNotes, createFolder, createNote, searchLabels }
+  return { getNote, getNotes, createFolder, createNote, saveNote, searchLabels }
 }
