@@ -87,6 +87,7 @@ public class GetNotesRepository
             ParentNoteId = r.ParentNoteId,
             IsFolder     = r.IsFolder,
             Title        = r.Title,
+            Body         = r.Body,
             Labels       = r.LabelsCsv?.Split(',') ?? [],
             CreatedAt    = r.CreatedAt,
             UpdatedAt    = r.UpdatedAt,

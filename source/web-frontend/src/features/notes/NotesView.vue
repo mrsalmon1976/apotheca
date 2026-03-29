@@ -63,10 +63,14 @@
         <span>Loading...</span>
       </div>
 
-      <!-- API notes/folders -->
-      <template v-else>
-        <div v-if="apiNotes.length > 0" class="notes-grid">
-          <!-- Folders -->
+      <!-- Folders -->
+      <template v-if="!loading">
+
+        <div class="section-divider">
+          <span class="section-label">Folders</span>
+        </div>
+
+        <div v-if="apiFolders.length > 0" class="notes-grid">
           <button
             v-for="item in apiFolders"
             :key="item.id"
@@ -81,8 +85,14 @@
             </div>
             <p v-else class="note-preview folder-hint">Click to browse contents</p>
           </button>
+        </div>
 
-          <!-- Notes (non-folders) -->
+        <!-- Notes section -->
+        <div class="section-divider">
+          <span class="section-label">Notes</span>
+        </div>
+
+        <div v-if="apiNoteItems.length > 0" class="notes-grid">
           <button
             v-for="item in apiNoteItems"
             :key="item.id"
@@ -93,34 +103,18 @@
               <span class="note-title">{{ item.title }}</span>
               <span class="note-date">{{ formatDate(item.updatedAt) }}</span>
             </div>
+            <p v-if="item.body" class="note-preview">{{ synopsis(item.body) }}</p>
             <div v-if="item.labels?.length > 0" class="note-labels">
               <span v-for="label in item.labels" :key="label" class="label-chip">{{ label }}</span>
             </div>
           </button>
         </div>
 
-        <div v-else-if="!loading" class="empty-state">
-          <i class="pi pi-folder-open empty-icon"></i>
-          <p>{{ currentFolderId ? 'This folder is empty.' : 'No notes yet.' }}</p>
+        <div v-else class="empty-state">
+          <i class="pi pi-file-edit empty-icon"></i>
+          <p>{{ currentFolderId ? 'No notes in this folder.' : 'No notes yet.' }}</p>
         </div>
       </template>
-
-      <!-- Sample notes (kept for reference) -->
-      <div v-if="breadcrumbs.length === 0" class="section-divider">
-        <span class="section-label">Sample layout</span>
-      </div>
-      <div v-if="breadcrumbs.length === 0" class="notes-grid">
-        <div v-for="note in sampleNotes" :key="note.id" class="note-card">
-          <div class="note-card-header">
-            <span class="note-title">{{ note.title }}</span>
-            <span class="note-date">{{ note.date }}</span>
-          </div>
-          <p class="note-preview">{{ note.preview }}</p>
-          <div class="note-tags">
-            <span v-for="tag in note.tags" :key="tag" class="tag-chip">{{ tag }}</span>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -215,6 +209,19 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function synopsis(body) {
+  // Strip markdown syntax for a clean preview
+  const plain = body
+    .replace(/!\[.*?\]\(.*?\)/g, '')   // images
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1') // links → keep label text
+    .replace(/#{1,6}\s+/g, '')         // headings
+    .replace(/[*_~`]+/g, '')           // bold/italic/code/strikethrough
+    .replace(/^\s*[-*+>|]\s*/gm, '')   // list markers, blockquotes, table pipes
+    .replace(/\n+/g, ' ')
+    .trim()
+  return plain.length > 150 ? plain.slice(0, 150) + '…' : plain
+}
+
 async function buildBreadcrumbsFromFolder(folderId) {
   const chain = []
   let currentId = folderId
@@ -237,11 +244,6 @@ onMounted(async () => {
   loadNotes(folderId)
 })
 
-const sampleNotes = [
-  { id: 1, title: 'Project Brief',  date: 'Mar 20', preview: 'Objectives and scope for this project...', tags: ['planning'] },
-  { id: 2, title: 'Meeting Notes',  date: 'Mar 18', preview: 'Action items from the kick-off call...',   tags: ['meetings'] },
-  { id: 3, title: 'Technical Spec', date: 'Mar 15', preview: 'Architecture decisions and API contracts...', tags: ['tech'] },
-]
 </script>
 
 <style scoped>
@@ -484,23 +486,7 @@ const sampleNotes = [
   font-weight: 500;
 }
 
-.note-tags {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.tag-chip {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.6rem;
-  border-radius: 999px;
-  background: var(--bg-badge);
-  color: var(--color-purple);
-  border: 1px solid var(--border-purple);
-  font-weight: 500;
-}
-
-/* Section divider for sample notes */
+/* Section divider */
 .section-divider {
   display: flex;
   align-items: center;
