@@ -123,11 +123,21 @@
           </div>
         </div>
 
-        <!-- Placeholder body -->
-        <div class="note-placeholder">
-          <i class="pi pi-file-edit placeholder-icon"></i>
-          <p class="placeholder-title">Note editor coming soon</p>
-          <p class="placeholder-subtitle">Note ID: <code>{{ noteId }}</code></p>
+        <!-- Body editor -->
+        <div class="body-section">
+          <div class="body-header">
+            <span class="section-label">Content</span>
+            <span v-if="bodySaving" class="save-status saving">
+              <i class="pi pi-spin pi-spinner"></i> Saving…
+            </span>
+            <span v-else-if="bodySaveError" class="save-status error">
+              <i class="pi pi-exclamation-triangle"></i> {{ bodySaveError }}
+            </span>
+            <span v-else-if="bodySaved" class="save-status saved">
+              <i class="pi pi-check"></i> Saved
+            </span>
+          </div>
+          <div ref="editorEl" class="editor-container"></div>
         </div>
 
       </template>
@@ -136,8 +146,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Editor from '@toast-ui/editor'
+import '@toast-ui/editor/dist/toastui-editor.css'
+import '@toast-ui/editor/dist/theme/toastui-editor-dark.css'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import { useNoteFolders } from '../../composables/useNoteFolders'
 
@@ -176,6 +189,15 @@ const labelInputFocused = ref(false)
 const labelsSaving   = ref(false)
 const labelsSaved    = ref(false)
 const labelsSaveError = ref(null)
+
+// Body editor state
+const editorEl        = ref(null)
+let   editorInstance  = null
+const bodySaving      = ref(false)
+const bodySaved       = ref(false)
+const bodySaveError   = ref(null)
+let   bodySavedTimer  = null
+let   bodyDebounce    = null
 
 let debounceTimer  = null
 let savedTimer     = null
@@ -217,12 +239,34 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+
+  await nextTick()
+  if (note.value && editorEl.value) {
+    editorInstance = new Editor({
+      el: editorEl.value,
+      height: 'auto',
+      minHeight: '400px',
+      initialEditType: 'wysiwyg',
+      previewStyle: 'vertical',
+      initialValue: note.value.body ?? '',
+      theme: 'dark',
+      hideModeSwitch: false,
+    })
+    editorInstance.on('change', () => {
+      clearTimeout(bodyDebounce)
+      bodyDebounce = setTimeout(persistBody, 1000)
+    })
+  }
 })
 
 onUnmounted(() => {
   clearTimeout(debounceTimer)
   clearTimeout(savedTimer)
   clearTimeout(titleSavedTimer)
+  clearTimeout(bodyDebounce)
+  clearTimeout(bodySavedTimer)
+  editorInstance?.destroy()
+  editorInstance = null
 })
 
 // ── Title editing ────────────────────────────────────────────────────────────
@@ -286,6 +330,30 @@ async function persistLabels() {
     labelsSaveError.value = 'Could not connect to the server.'
   } finally {
     labelsSaving.value = false
+  }
+}
+
+// ── Body save ────────────────────────────────────────────────────────────────
+
+async function persistBody() {
+  if (!editorInstance) return
+  const markdown = editorInstance.getMarkdown()
+  bodySaving.value    = true
+  bodySaved.value     = false
+  bodySaveError.value = null
+  clearTimeout(bodySavedTimer)
+  try {
+    const response = await saveNote(projectId.value, noteId.value, { body: markdown })
+    if (response.ok) {
+      bodySaved.value  = true
+      bodySavedTimer   = setTimeout(() => { bodySaved.value = false }, 2000)
+    } else {
+      bodySaveError.value = `Failed to save (${response.status}).`
+    }
+  } catch {
+    bodySaveError.value = 'Could not connect to the server.'
+  } finally {
+    bodySaving.value = false
   }
 }
 
@@ -624,42 +692,45 @@ async function fetchSuggestions(query) {
   color: var(--color-purple);
 }
 
-/* Placeholder */
-.note-placeholder {
+/* Body editor */
+.body-section {
+  position: relative;
+}
+
+.body-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 0.75rem;
-  padding: 4rem 0;
-  color: var(--text-dim);
+  margin-bottom: 0.4rem;
 }
 
-.placeholder-icon {
-  font-size: 3rem;
-  color: var(--color-purple);
-  opacity: 0.4;
-}
-
-.placeholder-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.placeholder-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.placeholder-subtitle code {
-  background: var(--bg-card);
+.editor-container {
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 0.1rem 0.4rem;
-  font-family: monospace;
-  color: var(--color-purple-light);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.editor-container:focus-within {
+  border-color: var(--color-purple);
+}
+
+/* Override ToastUI dark theme to match app palette */
+:deep(.toastui-editor-dark) {
+  --toastui-editor-bg-color: var(--bg-card);
+  background: var(--bg-card);
+}
+:deep(.toastui-editor-dark .toastui-editor-toolbar) {
+  background: var(--bg-nav);
+  border-bottom-color: var(--border-color);
+}
+:deep(.toastui-editor-dark .toastui-editor-mode-switch) {
+  background: var(--bg-nav);
+  border-top-color: var(--border-color);
+}
+:deep(.toastui-editor-dark .ProseMirror),
+:deep(.toastui-editor-dark .toastui-editor) {
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .sidebar-backdrop { display: none; }
