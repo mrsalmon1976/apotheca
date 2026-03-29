@@ -55,7 +55,7 @@ public class GetNotesRepository
                   WHERE n.project_id = @ProjectId
                     AND n.parent_note_id IS NULL
                   GROUP BY n.id
-                  ORDER BY n.is_folder DESC, n.title",
+                  ORDER BY n.is_folder DESC, lower(n.title)",
                 new { ProjectId = projectId });
         }
         else
@@ -77,7 +77,7 @@ public class GetNotesRepository
                   WHERE n.project_id = @ProjectId
                     AND n.parent_note_id = @ParentNoteId
                   GROUP BY n.id
-                  ORDER BY n.is_folder DESC, n.title",
+                  ORDER BY n.is_folder DESC, lower(n.title)",
                 new { ProjectId = projectId, ParentNoteId = parentNoteId });
         }
 
