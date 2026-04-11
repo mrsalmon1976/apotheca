@@ -10,7 +10,10 @@ public class PingController(IServiceProvider services) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<PingResponse>> Get(CancellationToken cancellationToken)
     {
+        // NOTE: ServiceProvider is injected here to ensure that any DI errors do not result in a 
+        // crash of the entire endpoint - I'd rather see it in the error message
         string dbStatus;
+        string errorMessage = "";
         try
         {
             var dbContextFactory = services.GetRequiredService<IDbContextFactory>();
@@ -20,14 +23,16 @@ public class PingController(IServiceProvider services) : ControllerBase
         }
         catch (Exception ex)
         {
-            dbStatus = $"error: {ex.Message}";
+            dbStatus = "error";
+            errorMessage = $"[{ex.Message}]";
         }
 
         return Ok(new PingResponse
         {
             Status = "ok",
             Timestamp = DateTimeOffset.UtcNow,
-            DatabaseStatus = dbStatus
+            DatabaseStatus = dbStatus,
+            ErrorMessage = errorMessage
         });
     }
 }
