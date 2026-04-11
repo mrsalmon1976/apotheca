@@ -47,17 +47,27 @@ if (-not (Test-Path $secretsFile)) {
 }
 
 $secrets = Get-Content $secretsFile -Raw | ConvertFrom-Json
-$neonConnStr      = $secrets.NeonConnectionString
-$gcpProjectId     = $secrets.GcpProjectId
-$gcpRegion        = $secrets.GcpRegion
-$firebaseProjectId = $secrets.FirebaseProjectId
-$frontendUrl      = $secrets.FrontendUrl
+$neonConnStr             = $secrets.NeonConnectionString
+$gcpProjectId            = $secrets.GcpProjectId
+$gcpRegion               = $secrets.GcpRegion
+$firebaseProjectId       = $secrets.FirebaseProjectId
+$frontendUrl             = $secrets.FrontendUrl
+$viteApiUrl              = $secrets.ViteApiUrl
+$viteFirebaseApiKey      = $secrets.ViteFirebaseApiKey
+$viteFirebaseAuthDomain  = $secrets.ViteFirebaseAuthDomain
+$viteFirebaseProjectId   = $secrets.ViteFirebaseProjectId
+$viteFirebaseStorageBucket     = $secrets.ViteFirebaseStorageBucket
+$viteFirebaseMessagingSenderId = $secrets.ViteFirebaseMessagingSenderId
+$viteFirebaseAppId       = $secrets.ViteFirebaseAppId
+$viteAzureClientId       = $secrets.ViteAzureClientId
 
 if ([string]::IsNullOrWhiteSpace($neonConnStr))       { Write-Error "NeonConnectionString is not set in secrets.json." }
 if ([string]::IsNullOrWhiteSpace($gcpProjectId))      { Write-Error "GcpProjectId is not set in secrets.json." }
 if ([string]::IsNullOrWhiteSpace($gcpRegion))         { Write-Error "GcpRegion is not set in secrets.json." }
 if ([string]::IsNullOrWhiteSpace($firebaseProjectId)) { Write-Error "FirebaseProjectId is not set in secrets.json." }
 if ([string]::IsNullOrWhiteSpace($frontendUrl))       { Write-Error "FrontendUrl is not set in secrets.json." }
+if ([string]::IsNullOrWhiteSpace($viteApiUrl))        { Write-Error "ViteApiUrl is not set in secrets.json." }
+if ([string]::IsNullOrWhiteSpace($viteFirebaseApiKey)) { Write-Error "ViteFirebaseApiKey is not set in secrets.json." }
 
 $imageTag        = "$gcpRegion-docker.pkg.dev/$gcpProjectId/apotheca/api:latest"
 $cloudRunService = "apotheca-api"
@@ -145,80 +155,144 @@ try {
 Write-Host "    Secret '$dbSecretName' updated." -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
-# Phase 3: Build and push API image via Cloud Build
+# Phases 3 + 4: Build and deploy API
 # ---------------------------------------------------------------------------
 Write-Host ""
-Write-Host "==> Building and pushing API image..." -ForegroundColor Cyan
-Write-Host "    Image: $imageTag" -ForegroundColor Gray
+$deployApi = Read-Host "==> Build and deploy API to Cloud Run? (Y/N)"
+if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
 
-# Create Artifact Registry repository if it doesn't exist
-if (-not (Test-GCloudResource { "artifacts", "repositories", "describe", "apotheca", "--location=$gcpRegion", "--project=$gcpProjectId" })) {
-    Write-Host "    Creating Artifact Registry repository 'apotheca'..." -ForegroundColor Yellow
-    Invoke-GCloud artifacts repositories create apotheca `
-        --repository-format=docker `
-        --location=$gcpRegion `
-        --project=$gcpProjectId
-}
+    # Phase 3: Build and push API image via Cloud Build
+    Write-Host "    Building and pushing API image..." -ForegroundColor Cyan
+    Write-Host "    Image: $imageTag" -ForegroundColor Gray
 
-# Build and push using Cloud Build (no local Docker required)
-Push-Location $rootPath
-try {
-    Invoke-GCloud builds submit . `
-        --tag=$imageTag `
-        --project=$gcpProjectId
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Cloud Build failed."
+    # Create Artifact Registry repository if it doesn't exist
+    if (-not (Test-GCloudResource { "artifacts", "repositories", "describe", "apotheca", "--location=$gcpRegion", "--project=$gcpProjectId" })) {
+        Write-Host "    Creating Artifact Registry repository 'apotheca'..." -ForegroundColor Yellow
+        Invoke-GCloud artifacts repositories create apotheca `
+            --repository-format=docker `
+            --location=$gcpRegion `
+            --project=$gcpProjectId
     }
-} finally {
-    Pop-Location
+
+    # Build and push using Cloud Build (no local Docker required)
+    Push-Location $rootPath
+    try {
+        Invoke-GCloud builds submit . `
+            --tag=$imageTag `
+            --project=$gcpProjectId
+        if ($LASTEXITCODE -ne 0) { Write-Error "Cloud Build failed." }
+    } finally {
+        Pop-Location
+    }
+
+    Write-Host "    Image built and pushed successfully." -ForegroundColor Green
+
+    # Phase 4: Deploy to Cloud Run
+    Write-Host "    Deploying to Cloud Run..." -ForegroundColor Cyan
+
+    # Create dedicated service account if it doesn't exist
+    if (-not (Test-GCloudResource { "iam", "service-accounts", "describe", $saEmail, "--project=$gcpProjectId" })) {
+        Write-Host "    Creating service account '$saName'..." -ForegroundColor Yellow
+        Invoke-GCloud iam service-accounts create $saName `
+            --project=$gcpProjectId `
+            --display-name="Apotheca API"
+    }
+
+    # Grant the service account access to the DB secret
+    Invoke-GCloud secrets add-iam-policy-binding $dbSecretName `
+        --member="serviceAccount:$saEmail" `
+        --role="roles/secretmanager.secretAccessor" `
+        --project=$gcpProjectId | Out-Null
+
+    # Grant Firebase Authentication Admin so the service account can call GetUserAsync
+    Invoke-GCloud projects add-iam-policy-binding $gcpProjectId `
+        --member="serviceAccount:$saEmail" `
+        --role="roles/firebaseauth.admin" | Out-Null
+    Write-Host "    Granted Firebase Authentication Admin to service account." -ForegroundColor Green
+
+    # Deploy the Cloud Run service
+    Invoke-GCloud run deploy $cloudRunService `
+        --image=$imageTag `
+        --region=$gcpRegion `
+        --platform=managed `
+        --service-account=$saEmail `
+        --set-secrets="ConnectionStrings__Postgres=$dbSecretName`:latest" `
+        --set-env-vars="Firebase__ProjectId=$firebaseProjectId,Cors__AllowedOrigins__0=$frontendUrl" `
+        --allow-unauthenticated `
+        --project=$gcpProjectId
+
+    if ($LASTEXITCODE -ne 0) { Write-Error "Cloud Run deployment failed." }
+
+    $serviceUrl = & $gcloud run services describe $cloudRunService `
+        --region=$gcpRegion `
+        --project=$gcpProjectId `
+        --format="value(status.url)" 2>$null
+
+    Write-Host "    API deployed successfully." -ForegroundColor Green
+    Write-Host "    Service URL: $serviceUrl" -ForegroundColor Green
+} else {
+    Write-Host "    Skipping API deployment." -ForegroundColor Gray
 }
 
-Write-Host "    Image built and pushed successfully." -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
-# Phase 4: Deploy to Cloud Run
+# Phase 5: Build and deploy frontend to Firebase Hosting
 # ---------------------------------------------------------------------------
 Write-Host ""
-Write-Host "==> Deploying to Cloud Run..." -ForegroundColor Cyan
+$deployFrontend = Read-Host "==> Deploy frontend to Firebase Hosting? (Y/N)"
+if ($deployFrontend -eq 'Y' -or $deployFrontend -eq 'y') {
 
-# Create dedicated service account if it doesn't exist
-if (-not (Test-GCloudResource { "iam", "service-accounts", "describe", $saEmail, "--project=$gcpProjectId" })) {
-    Write-Host "    Creating service account '$saName'..." -ForegroundColor Yellow
-    Invoke-GCloud iam service-accounts create $saName `
-        --project=$gcpProjectId `
-        --display-name="Apotheca API"
+    # Locate firebase CLI
+    $firebase = Get-Command firebase -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+    if (-not $firebase) {
+        Write-Error "firebase CLI not found. Install with: npm install -g firebase-tools, then run 'firebase login'."
+    }
+
+    $frontendPath = Join-Path $sourcePath "web-frontend"
+    $envProdFile  = Join-Path $frontendPath ".env.production"
+
+    # Write production env file for the Vite build
+    Write-Host "    Writing .env.production..." -ForegroundColor Cyan
+    $envContent = @"
+VITE_API_URL=$viteApiUrl
+VITE_FIREBASE_API_KEY=$viteFirebaseApiKey
+VITE_FIREBASE_AUTH_DOMAIN=$viteFirebaseAuthDomain
+VITE_FIREBASE_PROJECT_ID=$viteFirebaseProjectId
+VITE_FIREBASE_STORAGE_BUCKET=$viteFirebaseStorageBucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=$viteFirebaseMessagingSenderId
+VITE_FIREBASE_APP_ID=$viteFirebaseAppId
+VITE_AZURE_CLIENT_ID=$viteAzureClientId
+"@
+    try {
+        [System.IO.File]::WriteAllText($envProdFile, $envContent, [System.Text.UTF8Encoding]::new($false))
+
+        # Build the frontend
+        Write-Host "    Building frontend..." -ForegroundColor Cyan
+        Push-Location $frontendPath
+        try {
+            npm run build
+            if ($LASTEXITCODE -ne 0) { Write-Error "Frontend build failed." }
+        } finally {
+            Pop-Location
+        }
+
+        # Deploy to Firebase Hosting
+        Write-Host "    Deploying to Firebase Hosting..." -ForegroundColor Cyan
+        Push-Location $rootPath
+        try {
+            & $firebase deploy --only hosting --project=$firebaseProjectId
+            if ($LASTEXITCODE -ne 0) { Write-Error "Firebase deploy failed." }
+        } finally {
+            Pop-Location
+        }
+
+        Write-Host "    Frontend deployed successfully." -ForegroundColor Green
+    } finally {
+        Remove-Item $envProdFile -ErrorAction SilentlyContinue
+    }
+} else {
+    Write-Host "    Skipping frontend deployment." -ForegroundColor Gray
 }
-
-# Grant the service account access to the DB secret
-Invoke-GCloud secrets add-iam-policy-binding $dbSecretName `
-    --member="serviceAccount:$saEmail" `
-    --role="roles/secretmanager.secretAccessor" `
-    --project=$gcpProjectId | Out-Null
-Write-Host "    Granted Secret Manager access to service account." -ForegroundColor Green
-
-# Deploy the Cloud Run service
-Invoke-GCloud run deploy $cloudRunService `
-    --image=$imageTag `
-    --region=$gcpRegion `
-    --platform=managed `
-    --service-account=$saEmail `
-    --set-secrets="ConnectionStrings__Postgres=$dbSecretName`:latest" `
-    --set-env-vars="Firebase__ProjectId=$firebaseProjectId,Cors__AllowedOrigins__0=$frontendUrl" `
-    --allow-unauthenticated `
-    --project=$gcpProjectId
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Cloud Run deployment failed."
-}
-
-# Retrieve and display the deployed service URL
-$serviceUrl = & $gcloud run services describe $cloudRunService `
-    --region=$gcpRegion `
-    --project=$gcpProjectId `
-    --format="value(status.url)" 2>$null
-
-Write-Host "    Deployed successfully." -ForegroundColor Green
-Write-Host "    Service URL: $serviceUrl" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
 Write-Host ""

@@ -34,25 +34,42 @@ docker compose up -d		# Start up the database and pgAdmin (http://localhost:5050
 
 ### Deployment (`deployment/`)
 
-Requires the **Google Cloud SDK** (`gcloud` CLI). Install via winget:
+#### Prerequisites (one-time setup)
 
+**Google Cloud SDK** — required for API deployment:
 ```powershell
 winget install -e --id Google.CloudSDK
-```
-
-Then authenticate before running any deployment scripts:
-
-```powershell
 gcloud auth login
 ```
 
-Run the full deployment (migrations + API):
+**Firebase CLI** — required for frontend deployment. Install and authenticate once:
+```powershell
+npm install -g firebase-tools
+firebase login
+```
+
+#### Running a deployment
 
 ```powershell
 .\deployment\deploy.ps1
 ```
 
+The script prompts for each phase independently so steps can be skipped:
+
+| Phase | What it does |
+|---|---|
+| Migrations | Runs `Apotheca.Migrations` against Neon via `ConnectionString` env var |
+| API | Cloud Build compiles and pushes a Docker image to Artifact Registry, then deploys to Cloud Run |
+| Frontend | Writes `.env.production` from secrets, runs `npm run build`, deploys to Firebase Hosting, deletes `.env.production` |
+
 Before first run, copy `secrets/deploy_secrets.template.json` to `secrets/deploy_secrets.json` (gitignored) and fill in all values.
+
+#### Post-deployment checklist (one-time per new domain)
+
+When the frontend URL changes, update these before redeploying:
+- **`secrets/deploy_secrets.json`** → `FrontendUrl` — controls the API's CORS allowed origin
+- **Firebase Console** → Authentication → Settings → Authorized domains → add the new domain
+- **Azure Portal** → App registrations → your app → Authentication → Redirect URIs → add `https://<domain>/__/auth/handler`
 
 ## Architecture
 
@@ -142,5 +159,6 @@ Defined as CSS custom properties in `source/web-frontend/src/assets/main.css`.
 | API URL (local) | `https://localhost:6060` |
 | API URL (production) | `https://apotheca-api-fmoznjmzma-nw.a.run.app` |
 | API ping (production) | `https://apotheca-api-fmoznjmzma-nw.a.run.app/ping` |
-| Firebase project | `apotheca-dev` |
+| Frontend URL (production) | `https://apotheca-490805.web.app` |
+| Firebase project | `apotheca-490805` |
 | PostgreSQL | `Host=localhost;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca` |
