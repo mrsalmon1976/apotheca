@@ -351,3 +351,4 @@ MigrationBackup/
 
 src/web-frontend-old
 /source/secrets/*
+/deployment/secrets.json

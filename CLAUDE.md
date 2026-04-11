@@ -32,6 +32,20 @@ npm run preview    # Preview production build
 docker compose up -d		# Start up the database and pgAdmin (http://localhost:5050)
 ```
 
+### Deployment (`deployment/`)
+
+Requires the **Google Cloud SDK** (`gcloud` CLI). Install via winget:
+
+```powershell
+winget install -e --id Google.CloudSDK
+```
+
+Then authenticate before running any deployment scripts:
+
+```powershell
+gcloud auth login
+```
+
 ## Architecture
 
 - See @docs/architecture.md for more architectural detail.
