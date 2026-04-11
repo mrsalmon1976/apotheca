@@ -139,6 +139,8 @@ Defined as CSS custom properties in `source/web-frontend/src/assets/main.css`.
 | Setting | Value |
 |---|---|
 | Frontend dev port | `5173` (Vite) |
-| API URL | `https://localhost:6060` |
+| API URL (local) | `https://localhost:6060` |
+| API URL (production) | `https://apotheca-api-fmoznjmzma-nw.a.run.app` |
+| API ping (production) | `https://apotheca-api-fmoznjmzma-nw.a.run.app/ping` |
 | Firebase project | `apotheca-dev` |
 | PostgreSQL | `Host=localhost;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca` |
