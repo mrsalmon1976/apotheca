@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Overview
 
 Apotheca is a full-stack web application. The active frontend is a Vue 3 + PrimeVue SPA (`source/web-frontend/`).
-The backend is a .NET 10 Web API (`source/web-api/`) targeting Google Cloud Run.
+The backend is a .NET 10 Web API (`source/web-api/`) deployed as a **Google Cloud Run** service (`apotheca-api`). The database is **Neon** (managed PostgreSQL). Deployments are automated via `deployment/deploy.ps1`.
 
 ## Commands
 
@@ -45,6 +45,14 @@ Then authenticate before running any deployment scripts:
 ```powershell
 gcloud auth login
 ```
+
+Run the full deployment (migrations + API):
+
+```powershell
+.\deployment\deploy.ps1
+```
+
+Before first run, copy `deployment/secrets.template.json` to `deployment/secrets.json` (gitignored) and fill in all values.
 
 ## Architecture
 

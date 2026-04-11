@@ -68,7 +68,7 @@ builder.Services.AddCors(options =>
 });
 
 GoogleCredential credential;
-if (appSettings.FirebaseCredentialsPath is not null)
+if (!string.IsNullOrEmpty(appSettings.FirebaseCredentialsPath))
 {
     var serviceAccount = await CredentialFactory.FromFileAsync<ServiceAccountCredential>(appSettings.FirebaseCredentialsPath, CancellationToken.None);
     credential = serviceAccount.ToGoogleCredential();
