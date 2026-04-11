@@ -350,6 +350,5 @@ MigrationBackup/
 .ionide/
 
 src/web-frontend-old
-/source/secrets/*
-/deployment/secrets.json
-/secrets/*
+/secrets/apotheca-dev-key.json
+/secrets/deploy_secrets.json

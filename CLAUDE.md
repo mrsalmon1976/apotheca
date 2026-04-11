@@ -52,7 +52,7 @@ Run the full deployment (migrations + API):
 .\deployment\deploy.ps1
 ```
 
-Before first run, copy `deployment/secrets.template.json` to `deployment/secrets.json` (gitignored) and fill in all values.
+Before first run, copy `secrets/deploy_secrets.template.json` to `secrets/deploy_secrets.json` (gitignored) and fill in all values.
 
 ## Architecture
 

@@ -41,9 +41,9 @@ function Test-GCloudResource {
 # ---------------------------------------------------------------------------
 # Load secrets
 # ---------------------------------------------------------------------------
-$secretsFile = Join-Path $scriptPath "secrets.json"
+$secretsFile = Join-Path $rootPath "secrets/deploy_secrets.json"
 if (-not (Test-Path $secretsFile)) {
-    Write-Error "secrets.json not found. Copy secrets.template.json to secrets.json and fill in the values."
+    Write-Error "secrets/deploy_secrets.json not found. Copy secrets/deploy_secrets.template.json to secrets/deploy_secrets.json and fill in the values."
 }
 
 $secrets = Get-Content $secretsFile -Raw | ConvertFrom-Json
@@ -134,7 +134,7 @@ if (-not (Test-GCloudResource { "secrets", "describe", $dbSecretName, "--project
 
 $tmpFile = [System.IO.Path]::GetTempFileName()
 try {
-    [System.IO.File]::WriteAllText($tmpFile, $neonConnStr, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($tmpFile, $neonConnStr, [System.Text.UTF8Encoding]::new($false))
     Invoke-GCloud secrets versions add $dbSecretName `
         --project=$gcpProjectId `
         --data-file=$tmpFile
