@@ -49,6 +49,7 @@ public class SaveNoteFolderController(
             await repo.InsertNoteLabelAsync(db, id, labelId);
         }
 
+        await repo.InsertNoteLogAsync(db, id, userId, projectId);
         await repo.InsertProjectActivityLogAsync(db, projectId, id, userId, $"Note folder '{request.Title.Trim()}' added");
 
         await db.CommitAsync(cancellationToken);

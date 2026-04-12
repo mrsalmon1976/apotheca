@@ -1,4 +1,5 @@
 -- drop all objects
+drop table audit.note_logs;
 drop table audit.project_logs;
 drop table audit.user_logs;
 drop table audit.project_activity_logs;

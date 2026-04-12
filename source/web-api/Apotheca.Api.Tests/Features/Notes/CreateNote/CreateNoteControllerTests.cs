@@ -184,6 +184,33 @@ public class CreateNoteControllerTests
         await _repository.Received(1).InsertNoteAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Is<string?>(x => x == null));
     }
 
+    // --- Note log ---
+
+    [Test]
+    public async Task CreateNote_WritesNoteLog_WhenNoteIsCreated()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess("user-id-xyz");
+        _repository.InsertNoteAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(Task.FromResult("new-note-id"));
+
+        await _controller.CreateNote("proj-xyz", new CreateNoteRequest(), CancellationToken.None);
+
+        await _repository.Received(1).InsertNoteLogAsync(_dbContext, "new-note-id", "user-id-xyz", "proj-xyz");
+    }
+
+    [Test]
+    public async Task CreateNote_DoesNotWriteNoteLog_WhenAccessIsDenied()
+    {
+        SetAuthenticatedUser("uid-abc");
+        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.FromResult(false));
+
+        await _controller.CreateNote("proj-xyz", new CreateNoteRequest(), CancellationToken.None);
+
+        await _repository.DidNotReceive().InsertNoteLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
     // --- Activity log ---
 
     [Test]

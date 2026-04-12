@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Apotheca.Data;
 using NanoidDotNet;
 
@@ -40,6 +41,15 @@ public class CreateNoteRepository
                 CreatedBy    = userId,
             });
         return id;
+    }
+
+    public virtual async Task InsertNoteLogAsync(
+        IDbContext db, string noteId, string userId, string projectId)
+    {
+        var newData = JsonSerializer.Serialize(new { id = noteId, project_id = projectId });
+        await db.ExecuteAsync(
+            "INSERT INTO audit.note_logs (note_id, changed_by, operation, log_message, new_data) VALUES (@NoteId, @ChangedBy, @Operation, @LogMessage, @NewData::jsonb)",
+            new { NoteId = noteId, ChangedBy = userId, Operation = "INSERT", LogMessage = "Note created", NewData = newData });
     }
 
     public virtual async Task InsertProjectActivityLogAsync(

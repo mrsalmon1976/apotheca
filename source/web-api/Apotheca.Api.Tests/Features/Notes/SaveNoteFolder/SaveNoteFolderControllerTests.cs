@@ -226,6 +226,33 @@ public class SaveNoteFolderControllerTests
         await _repository.Received(1).InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), "parent-folder-id");
     }
 
+    // --- Note log ---
+
+    [Test]
+    public async Task SaveNoteFolder_WritesNoteLog_WhenFolderIsCreated()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess("user-id-xyz");
+        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(Task.FromResult("new-folder-id"));
+
+        await _controller.SaveNoteFolder("proj-xyz", ValidRequest(), CancellationToken.None);
+
+        await _repository.Received(1).InsertNoteLogAsync(_dbContext, "new-folder-id", "user-id-xyz", "proj-xyz");
+    }
+
+    [Test]
+    public async Task SaveNoteFolder_DoesNotWriteNoteLog_WhenAccessIsDenied()
+    {
+        SetAuthenticatedUser("uid-abc");
+        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.FromResult(false));
+
+        await _controller.SaveNoteFolder("proj-xyz", ValidRequest(), CancellationToken.None);
+
+        await _repository.DidNotReceive().InsertNoteLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
     // --- Activity log ---
 
     [Test]
