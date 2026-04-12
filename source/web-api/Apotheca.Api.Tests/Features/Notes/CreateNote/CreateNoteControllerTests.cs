@@ -3,6 +3,7 @@ using Apotheca.Api.Features.Notes.CreateNote;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Apotheca.Api.Tests.Features.Notes.CreateNote;
@@ -24,7 +25,7 @@ public class CreateNoteControllerTests
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
-        _controller = new CreateNoteController(_dbContextFactory, _repository);
+        _controller = new CreateNoteController(_dbContextFactory, _repository, Substitute.For<ILogger<CreateNoteController>>());
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 

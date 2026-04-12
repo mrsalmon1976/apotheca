@@ -3,6 +3,7 @@ using Apotheca.Api.Features.Notes.SaveNoteFolder;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Apotheca.Api.Tests.Features.Notes.SaveNoteFolder;
@@ -27,7 +28,7 @@ public class SaveNoteFolderControllerTests
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
         _validator.Validate(Arg.Any<SaveNoteFolderRequest>()).Returns([]);
 
-        _controller = new SaveNoteFolderController(_dbContextFactory, _repository, _validator);
+        _controller = new SaveNoteFolderController(_dbContextFactory, _repository, _validator, Substitute.For<ILogger<SaveNoteFolderController>>());
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 

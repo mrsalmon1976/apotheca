@@ -1,4 +1,5 @@
 using Apotheca.Api.Configuration;
+using Google.Cloud.Logging.Console;
 using Apotheca.Api.Features.Auth.Login;
 using Apotheca.Api.Utilities;
 using Apotheca.Api.Features.ProjectTasks.CompleteProjectTask;
@@ -20,6 +21,12 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettings = new AppSettings(builder.Configuration);
+
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddGoogleCloudConsole();
+}
 
 builder.Services.AddSingleton<IAppSettings>(appSettings);
 builder.Services.AddControllers();

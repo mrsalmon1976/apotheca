@@ -6,7 +6,8 @@ namespace Apotheca.Api.Features.Notes.CreateNote;
 [Route("projects/{projectId}/notes")]
 public class CreateNoteController(
     IDbContextFactory dbContextFactory,
-    CreateNoteRepository repo) : AuthenticatedBaseController
+    CreateNoteRepository repo,
+    ILogger<CreateNoteController> logger) : AuthenticatedBaseController
 {
     [HttpPost]
     public async Task<IActionResult> CreateNote(
@@ -29,6 +30,8 @@ public class CreateNoteController(
             return Unauthorized(new { error = "User identity could not be determined." });
 
         var id = await repo.InsertNoteAsync(db, projectId, userId, request.ParentNoteId);
+
+        logger.LogInformation("Note created. NoteId: {NoteId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, userId);
 
         return CreatedAtAction(nameof(CreateNote), new { projectId }, new { id });
     }

@@ -7,7 +7,8 @@ namespace Apotheca.Api.Features.Notes.SaveNoteFolder;
 public class SaveNoteFolderController(
     IDbContextFactory dbContextFactory,
     SaveNoteFolderRepository repo,
-    SaveNoteFolderValidator validator) : AuthenticatedBaseController
+    SaveNoteFolderValidator validator,
+    ILogger<SaveNoteFolderController> logger) : AuthenticatedBaseController
 {
     [HttpPost]
     public async Task<IActionResult> SaveNoteFolder(
@@ -49,6 +50,8 @@ public class SaveNoteFolderController(
         }
 
         await db.CommitAsync(cancellationToken);
+
+        logger.LogInformation("Note folder created. FolderId: {FolderId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, userId);
 
         return CreatedAtAction(nameof(SaveNoteFolder), new { projectId }, new { id });
     }
