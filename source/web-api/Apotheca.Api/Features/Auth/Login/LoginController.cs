@@ -51,6 +51,7 @@ public class LoginController(
                     var projectId = await loginRepo.CreateProjectAsync(db, DataConstants.DefaultProjectName);
                     await loginRepo.CreateUserProjectAsync(db, userId, projectId, DataConstants.ProjectRole.Owner);
                     await loginRepo.CreateProjectAuditLogAsync(db, projectId, userId);
+                    await loginRepo.CreateProjectActivityLogAsync(db, projectId, DataConstants.DefaultProjectName, userId, user.DisplayName);
                 }
 
                 await loginRepo.CreateUserIdentityAsync(db, user, userId);

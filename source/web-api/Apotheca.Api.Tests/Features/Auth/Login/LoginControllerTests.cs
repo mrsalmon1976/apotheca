@@ -385,6 +385,46 @@ public class LoginControllerTests
         await _loginRepository.DidNotReceive().CreateProjectAuditLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>());
     }
 
+    [Test]
+    public async Task Login_CreatesProjectActivityLog_WhenNewUserCreated()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>(null));
+        _loginRepository.CreateUserAsync(_dbContext, user)
+            .Returns(Task.FromResult("new-user-id"));
+        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult("new-project-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateProjectActivityLogAsync(_dbContext, "new-project-id", DataConstants.DefaultProjectName, "new-user-id", user.DisplayName);
+    }
+
+    [Test]
+    public async Task Login_DoesNotCreateProjectActivityLog_WhenUserAlreadyExistsByEmail()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>("existing-user-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.DidNotReceive().CreateProjectActivityLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
     // --- Login log ---
 
     [Test]

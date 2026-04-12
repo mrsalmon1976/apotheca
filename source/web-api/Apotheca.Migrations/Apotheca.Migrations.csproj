@@ -19,7 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Scripts\Functions\" />
+    <Compile Remove="Scripts\Functions\**" />
+    <EmbeddedResource Remove="Scripts\Functions\**" />
+    <None Remove="Scripts\Functions\**" />
   </ItemGroup>
 
 </Project>
