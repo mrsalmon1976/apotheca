@@ -12,9 +12,6 @@
           </button>
           <h1 class="content-title">Overview</h1>
         </div>
-        <button class="primary-btn">
-          <i class="pi pi-plus"></i> New
-        </button>
       </div>
 
       <!-- Stats -->
@@ -41,21 +38,54 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
+import { useAuth } from '../../composables/useAuth'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
+const { user } = useAuth()
 const projectId = computed(() => route.params.id)
 const sidebarOpen = ref(window.innerWidth >= 768)
 
-const stats = [
-  { label: 'Open Tasks',      value: 12,  icon: 'pi-check-square' },
-  { label: 'Notes',           value: 8,   icon: 'pi-file-edit' },
-  { label: 'Documents',       value: 4,   icon: 'pi-folder-open' },
-  { label: 'Completed Tasks', value: 31,  icon: 'pi-check-circle' },
-]
+const openTaskCount = ref('—')
+const noteCount     = ref('—')
+const documentCount = ref('—')
+
+const stats = computed(() => [
+  { label: 'Your open tasks', value: openTaskCount.value, icon: 'pi-check-square' },
+  { label: 'Notes',      value: noteCount.value,     icon: 'pi-file-edit' },
+  { label: 'Documents',  value: documentCount.value, icon: 'pi-folder-open' },
+])
+
+async function loadOverview() {
+  if (!user.value) return
+  try {
+    const token    = await user.value.getIdToken()
+    const response = await fetch(`${API_URL}/projects/${projectId.value}/overview`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (response.ok) {
+      const data      = await response.json()
+      openTaskCount.value = data.openTaskCount
+      noteCount.value     = data.noteCount
+      documentCount.value = data.documentCount
+    } else if (response.status === 403) {
+      toast.add({ severity: 'error', summary: 'Access denied', detail: 'You do not have permission to view this project.', life: 10000 })
+    } else {
+      toast.add({ severity: 'error', summary: 'Failed to load overview', detail: `Server error (${response.status})`, life: 10000 })
+    }
+  } catch {
+    toast.add({ severity: 'error', summary: 'Failed to load overview', detail: 'Could not connect to the server.', life: 10000 })
+  }
+}
+
+onMounted(loadOverview)
 
 const quickLinks = computed(() => [
   { label: 'Notes',      icon: 'pi-file-edit',     to: `/project/${projectId.value}/notes` },

@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar" :class="{ open: open }">
     <div class="sidebar-header">
-      <span>Project</span>
+      <span>Project<template v-if="projectName">: {{ projectName }}</template></span>
     </div>
 
     <nav class="sidebar-nav">
@@ -51,6 +51,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useProjects } from '../composables/useProjects'
 
 const props = defineProps({
   open: { type: Boolean, required: true },
@@ -60,7 +61,9 @@ const emit = defineEmits([])
 
 const route = useRoute()
 const router = useRouter()
-const projectId = computed(() => route.params.id)
+const { projects } = useProjects()
+const projectId   = computed(() => route.params.id)
+const projectName = computed(() => projects.value.find(p => p.id === projectId.value)?.name ?? null)
 
 function closeSidebarOnMobile() {
   if (window.innerWidth < 768) emit('close')
