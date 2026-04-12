@@ -15,9 +15,10 @@
       </div>
 
       <div class="settings-container">
-        <Tabs value="details">
+        <Tabs value="details" @update:value="onTabChange">
           <TabList>
             <Tab value="details">Details</Tab>
+            <Tab value="activity">Activity</Tab>
           </TabList>
           <TabPanels>
             <TabPanel value="details">
@@ -55,6 +56,48 @@
                 </button>
               </div>
             </TabPanel>
+
+            <TabPanel value="activity">
+              <div class="tab-content activity-tab">
+                <div v-if="activityLoading" class="activity-loading">
+                  <i class="pi pi-spin pi-spinner"></i> Loading…
+                </div>
+                <div v-else-if="activityError" class="activity-error">
+                  {{ activityError }}
+                </div>
+                <div v-else-if="activityEntries.length === 0" class="activity-empty">
+                  No activity yet.
+                </div>
+                <table v-else class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Ref</th>
+                      <th>Type</th>
+                      <th>Message</th>
+                      <th>User</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="entry in activityEntries" :key="entry.id">
+                      <td>
+                        <router-link :to="refLink(entry)" class="ref-link">
+                          {{ entry.refId.slice(0, 5) }}…
+                        </router-link>
+                      </td>
+                      <td>
+                        <span :class="['ref-type-badge', entry.refType.toLowerCase()]">
+                          {{ entry.refType }}
+                        </span>
+                      </td>
+                      <td class="message-cell">{{ entry.logMessage }}</td>
+                      <td>{{ entry.username }}</td>
+                      <td class="date-cell">{{ formatDate(entry.createdAt) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </TabPanel>
           </TabPanels>
         </Tabs>
       </div>
@@ -75,15 +118,20 @@ import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import { useProjects } from '../../composables/useProjects'
+import { useAuth } from '../../composables/useAuth'
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
 const route = useRoute()
 const toast = useToast()
 const { projects, saveProject } = useProjects()
+const { user } = useAuth()
 
 const sidebarOpen = ref(window.innerWidth >= 768)
 const projectId = computed(() => route.params.id)
 const currentProject = computed(() => projects.value.find(p => p.id === projectId.value))
 
+// --- Details tab ---
 const nameInput = ref('')
 const summaryInput = ref('')
 const saving = ref(false)
@@ -116,6 +164,50 @@ async function save() {
     toast.add({ severity: 'success', summary: 'Project saved', life: 3000 })
   }
   saving.value = false
+}
+
+// --- Activity tab ---
+const activityEntries = ref([])
+const activityLoading = ref(false)
+const activityLoaded = ref(false)
+const activityError = ref(null)
+
+async function loadActivity() {
+  if (activityLoaded.value) return
+  activityLoading.value = true
+  activityError.value = null
+  try {
+    const token = await user.value.getIdToken()
+    const response = await fetch(`${API_URL}/projects/${projectId.value}/activity`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (response.ok) {
+      activityEntries.value = await response.json()
+      activityLoaded.value = true
+    } else {
+      activityError.value = `Failed to load activity (${response.status}).`
+    }
+  } catch {
+    activityError.value = 'Could not connect to the server.'
+  } finally {
+    activityLoading.value = false
+  }
+}
+
+function onTabChange(tab) {
+  if (tab === 'activity') loadActivity()
+}
+
+function refLink(entry) {
+  if (entry.refType === 'NOTE') return `/project/${projectId.value}/notes/${entry.refId}`
+  return `/project/${entry.refId}`
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 </script>
 
@@ -169,7 +261,7 @@ async function save() {
 }
 
 .settings-container {
-  max-width: 600px;
+  max-width: 900px;
 }
 
 .tab-content {
@@ -232,6 +324,78 @@ async function save() {
 }
 .save-btn:hover:not(:disabled) { opacity: 0.9; box-shadow: 0 0 20px var(--glow-purple); }
 .save-btn:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+
+/* Activity tab */
+.activity-tab {
+  padding-top: 1.25rem;
+}
+
+.activity-loading,
+.activity-error,
+.activity-empty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 1rem 0;
+}
+
+.activity-error { color: #f87171; }
+
+.activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.activity-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.activity-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.activity-table tbody tr:hover td {
+  background: var(--bg-card);
+}
+
+.ref-link {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--color-purple);
+  text-decoration: none;
+  letter-spacing: 0.03em;
+}
+.ref-link:hover { color: var(--color-pink); text-decoration: underline; }
+
+.ref-type-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.ref-type-badge.note    { background: color-mix(in srgb, var(--color-purple) 15%, transparent); color: var(--color-purple-light); }
+.ref-type-badge.project { background: color-mix(in srgb, var(--color-pink) 15%, transparent);   color: var(--color-pink-light); }
+
+.message-cell { color: var(--text-primary); }
+
+.date-cell {
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
 
 /* PrimeVue Tabs theming */
 :deep(.p-tabs) {

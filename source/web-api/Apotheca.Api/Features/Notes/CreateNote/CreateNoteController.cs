@@ -30,6 +30,7 @@ public class CreateNoteController(
             return Unauthorized(new { error = "User identity could not be determined." });
 
         var id = await repo.InsertNoteAsync(db, projectId, userId, request.ParentNoteId);
+        await repo.InsertProjectActivityLogAsync(db, projectId, id, userId, "Note added");
 
         logger.LogInformation("Note created. NoteId: {NoteId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, userId);
 

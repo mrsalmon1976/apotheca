@@ -63,7 +63,7 @@ namespace Apotheca.Api.Features.Auth.Login
         public virtual async Task CreateProjectActivityLogAsync(IDbContext db, string projectId, string projectName, string userId, string username)
         {
             await db.ExecuteAsync(
-                "INSERT INTO audit.project_activity_logs (project_id, ref_id, log_message, user_id) VALUES (@ProjectId, @RefId, @LogMessage, @UserId)",
+                "INSERT INTO audit.project_activity_logs (project_id, ref_id, ref_type, log_message, user_id) VALUES (@ProjectId, @RefId, 'PROJECT', @LogMessage, @UserId)",
                 new { ProjectId = projectId, RefId = projectId, LogMessage = $"Project {projectName} created by user {username}", UserId = userId });
         }
 

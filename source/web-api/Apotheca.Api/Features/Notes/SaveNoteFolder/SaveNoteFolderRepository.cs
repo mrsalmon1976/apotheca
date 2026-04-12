@@ -69,4 +69,12 @@ public class SaveNoteFolderRepository
             "INSERT INTO note_labels (note_id, label_id) VALUES (@NoteId, @LabelId) ON CONFLICT DO NOTHING",
             new { NoteId = noteId, LabelId = labelId });
     }
+
+    public virtual async Task InsertProjectActivityLogAsync(
+        IDbContext db, string projectId, string folderId, string userId, string logMessage)
+    {
+        await db.ExecuteAsync(
+            "INSERT INTO audit.project_activity_logs (project_id, ref_id, ref_type, log_message, user_id) VALUES (@ProjectId, @RefId, 'NOTE', @LogMessage, @UserId)",
+            new { ProjectId = projectId, RefId = folderId, LogMessage = logMessage, UserId = userId });
+    }
 }

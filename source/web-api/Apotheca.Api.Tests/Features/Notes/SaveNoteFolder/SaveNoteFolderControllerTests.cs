@@ -225,4 +225,44 @@ public class SaveNoteFolderControllerTests
 
         await _repository.Received(1).InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), "parent-folder-id");
     }
+
+    // --- Activity log ---
+
+    [Test]
+    public async Task SaveNoteFolder_WritesProjectActivityLog_WhenFolderIsCreated()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess("user-id-xyz");
+        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(Task.FromResult("new-folder-id"));
+
+        await _controller.SaveNoteFolder("proj-xyz", new SaveNoteFolderRequest { Title = "Meeting Notes" }, CancellationToken.None);
+
+        await _repository.Received(1).InsertProjectActivityLogAsync(_dbContext, "proj-xyz", "new-folder-id", "user-id-xyz", "Note folder 'Meeting Notes' added");
+    }
+
+    [Test]
+    public async Task SaveNoteFolder_ActivityLogMessage_UsesTrimmedTitle()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess("user-id-xyz");
+        _repository.InsertNoteFolderAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(Task.FromResult("new-folder-id"));
+
+        await _controller.SaveNoteFolder("proj-xyz", new SaveNoteFolderRequest { Title = "  Meeting Notes  " }, CancellationToken.None);
+
+        await _repository.Received(1).InsertProjectActivityLogAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), "Note folder 'Meeting Notes' added");
+    }
+
+    [Test]
+    public async Task SaveNoteFolder_DoesNotWriteProjectActivityLog_WhenAccessIsDenied()
+    {
+        SetAuthenticatedUser("uid-abc");
+        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.FromResult(false));
+
+        await _controller.SaveNoteFolder("proj-xyz", ValidRequest(), CancellationToken.None);
+
+        await _repository.DidNotReceive().InsertProjectActivityLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
 }

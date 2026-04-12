@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS audit.project_activity_logs (
     id          BIGSERIAL   NOT NULL,
     project_id  TEXT        NOT NULL,
     ref_id      TEXT        NOT NULL,
+    ref_type    TEXT        NOT NULL,
     log_message TEXT        NOT NULL,
     user_id     TEXT        NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
