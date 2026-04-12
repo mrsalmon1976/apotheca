@@ -66,11 +66,12 @@
       <!-- Folders -->
       <template v-if="!loading">
 
+        <template v-if="apiFolders.length > 0">
         <div class="section-divider">
           <span class="section-label">Folders</span>
         </div>
 
-        <div v-if="apiFolders.length > 0" class="notes-grid">
+        <div class="notes-grid">
           <button
             v-for="item in apiFolders"
             :key="item.id"
@@ -86,6 +87,7 @@
             <p v-else class="note-preview folder-hint">Click to browse contents</p>
           </button>
         </div>
+        </template>
 
         <!-- Notes section -->
         <div class="section-divider">
