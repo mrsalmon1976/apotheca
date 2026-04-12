@@ -86,6 +86,35 @@ dotnet run --project source/web-api/Apotheca.Migrations
 
 Run `Apotheca.Migrations` as a **Cloud Run Job** before deploying the API service. The job reads the connection string from the `ConnectionStrings__Postgres` environment variable, applies any pending migrations, and exits. Gate the API deployment on a successful job exit in your CI pipeline.
 
+## Logging
+
+The API uses [`Google.Cloud.Logging.Console`](https://cloud.google.com/dotnet/docs/reference/Google.Cloud.Logging.Console/latest) to write structured JSON logs to stdout. In non-development environments (i.e. Cloud Run), the default ASP.NET Core providers are cleared and replaced with the Google Cloud console formatter so that stdout contains only structured JSON. Cloud Run's log router automatically forwards this to Cloud Logging.
+
+In local development the default ASP.NET Core providers are used unchanged (coloured console output).
+
+### Adding log statements
+
+Inject `ILogger<T>` via the constructor and call the standard .NET logging methods:
+
+```csharp
+public class MyController(ILogger<MyController> logger) : AuthenticatedBaseController
+{
+    logger.LogInformation("Something happened. Id: {Id}, UserId: {UserId}", id, userId);
+}
+```
+
+Use named placeholders (`{Id}`, `{UserId}`) — they are captured as structured fields in Cloud Logging and are individually queryable.
+
+### Viewing logs in Cloud Logging
+
+Open [Log Explorer](https://console.cloud.google.com/logs) and run:
+
+```
+resource.type="cloud_run_revision"
+resource.labels.service_name="apotheca-api"
+severity="INFO"
+```
+
 ## Local Development
 
 | Service    | How to run                  | Connection                                                                    |
