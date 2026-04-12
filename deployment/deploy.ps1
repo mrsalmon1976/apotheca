@@ -76,6 +76,30 @@ $saEmail         = "$saName@$gcpProjectId.iam.gserviceaccount.com"
 $dbSecretName    = "apotheca-db-connection-string"
 
 # ---------------------------------------------------------------------------
+# Read current frontend version (needed for the prompt below)
+# ---------------------------------------------------------------------------
+$frontendPath = Join-Path $sourcePath "web-frontend"
+$envLocalFile = Join-Path $frontendPath ".env.local"
+$currentVersion = "0.1.0"
+if (Test-Path $envLocalFile) {
+    $versionLine = Get-Content $envLocalFile | Where-Object { $_ -match "^VITE_APP_VERSION=" }
+    if ($versionLine) { $currentVersion = $versionLine -replace "^VITE_APP_VERSION=", "" }
+}
+
+# ---------------------------------------------------------------------------
+# Ask all deployment questions up front
+# ---------------------------------------------------------------------------
+Write-Host ""
+Write-Host "==> Deployment options" -ForegroundColor Cyan
+$runMigrations  = Read-Host "    Run database migrations?            (Y/N)"
+$deployApi      = Read-Host "    Build and deploy API to Cloud Run?  (Y/N)"
+$deployFrontend = Read-Host "    Deploy frontend to Firebase Hosting? (Y/N)"
+if ($deployFrontend -eq 'Y' -or $deployFrontend -eq 'y') {
+    $versionInput = Read-Host "    App version (current: $currentVersion - press Enter to keep)"
+}
+Write-Host ""
+
+# ---------------------------------------------------------------------------
 # Validate gcloud auth
 # ---------------------------------------------------------------------------
 Write-Host ""
@@ -111,7 +135,6 @@ foreach ($api in $requiredApis) {
 # Phase 1: Run database migrations against Neon
 # ---------------------------------------------------------------------------
 Write-Host ""
-$runMigrations = Read-Host "==> Run database migrations? (Y/N)"
 if ($runMigrations -eq 'Y' -or $runMigrations -eq 'y') {
     Write-Host "    Running migrations..." -ForegroundColor Cyan
     $env:ConnectionString = $neonConnStr
@@ -158,7 +181,6 @@ Write-Host "    Secret '$dbSecretName' updated." -ForegroundColor Green
 # Phases 3 + 4: Build and deploy API
 # ---------------------------------------------------------------------------
 Write-Host ""
-$deployApi = Read-Host "==> Build and deploy API to Cloud Run? (Y/N)"
 if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
 
     # Phase 3: Build and push API image via Cloud Build
@@ -239,7 +261,6 @@ if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
 # Phase 5: Build and deploy frontend to Firebase Hosting
 # ---------------------------------------------------------------------------
 Write-Host ""
-$deployFrontend = Read-Host "==> Deploy frontend to Firebase Hosting? (Y/N)"
 if ($deployFrontend -eq 'Y' -or $deployFrontend -eq 'y') {
 
     # Locate firebase CLI
@@ -248,8 +269,24 @@ if ($deployFrontend -eq 'Y' -or $deployFrontend -eq 'y') {
         Write-Error "firebase CLI not found. Install with: npm install -g firebase-tools, then run 'firebase login'."
     }
 
-    $frontendPath = Join-Path $sourcePath "web-frontend"
-    $envProdFile  = Join-Path $frontendPath ".env.production"
+    $envProdFile = Join-Path $frontendPath ".env.production"
+
+    # Apply version change if one was entered
+    if (-not [string]::IsNullOrWhiteSpace($versionInput)) {
+        $currentVersion = $versionInput.Trim()
+        if (Test-Path $envLocalFile) {
+            $envLocalContent = Get-Content $envLocalFile -Raw
+            if ($envLocalContent -match "(?m)^VITE_APP_VERSION=.*$") {
+                $envLocalContent = $envLocalContent -replace "(?m)^VITE_APP_VERSION=.*$", "VITE_APP_VERSION=$currentVersion"
+            } else {
+                $envLocalContent = $envLocalContent.TrimEnd() + "`nVITE_APP_VERSION=$currentVersion`n"
+            }
+            [System.IO.File]::WriteAllText($envLocalFile, $envLocalContent, [System.Text.UTF8Encoding]::new($false))
+        }
+        Write-Host "    Version updated to: $currentVersion" -ForegroundColor Green
+    } else {
+        Write-Host "    Version unchanged:  $currentVersion" -ForegroundColor Gray
+    }
 
     # Write production env file for the Vite build
     Write-Host "    Writing .env.production..." -ForegroundColor Cyan
@@ -262,6 +299,7 @@ VITE_FIREBASE_STORAGE_BUCKET=$viteFirebaseStorageBucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=$viteFirebaseMessagingSenderId
 VITE_FIREBASE_APP_ID=$viteFirebaseAppId
 VITE_AZURE_CLIENT_ID=$viteAzureClientId
+VITE_APP_VERSION=$currentVersion
 "@
     try {
         [System.IO.File]::WriteAllText($envProdFile, $envContent, [System.Text.UTF8Encoding]::new($false))

@@ -45,6 +45,8 @@
         <span>{{ tf.label }}</span>
       </button>
     </nav>
+
+    <div class="sidebar-version">v{{ appVersion }}</div>
   </aside>
 </template>
 
@@ -52,6 +54,8 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjects } from '../composables/useProjects'
+
+const appVersion = import.meta.env.VITE_APP_VERSION
 
 const props = defineProps({
   open: { type: Boolean, required: true },
@@ -158,6 +162,15 @@ const taskFilters = [
   border: 1px solid var(--border-purple);
   padding: 0.1rem 0.4rem;
   border-radius: 999px;
+}
+
+.sidebar-version {
+  margin-top: auto;
+  padding: 0.5rem 0.75rem 0.25rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  text-align: right;
 }
 
 @media (max-width: 767px) {
