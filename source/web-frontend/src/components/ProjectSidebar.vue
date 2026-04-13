@@ -5,45 +5,48 @@
     </div>
 
     <nav class="sidebar-nav">
-      <button
+      <component
+        :is="item.disabled ? 'span' : 'a'"
         v-for="item in mainNav"
         :key="item.id"
         class="sidebar-item"
         :class="{ active: $route.path === item.to.value, disabled: item.disabled }"
-        :disabled="item.disabled"
-        @click="!item.disabled && router.push(item.to.value); !item.disabled && closeSidebarOnMobile()"
+        :href="item.disabled ? undefined : item.to.value"
+        @click.prevent="!item.disabled && (router.push(item.to.value), closeSidebarOnMobile())"
       >
         <i :class="`pi ${item.icon}`"></i>
         <span>{{ item.label }}</span>
         <span v-if="item.disabled" class="coming-soon">Soon</span>
-      </button>
+      </component>
 
       <div class="nav-group-label" style="margin-top:1rem">Workspace</div>
-      <button
+      <a
         class="sidebar-item"
         :class="{ active: $route.path === `/project/${projectId}/notes` }"
-        @click="router.push(`/project/${projectId}/notes`); closeSidebarOnMobile()"
+        :href="`/project/${projectId}/notes`"
+        @click.prevent="router.push(`/project/${projectId}/notes`); closeSidebarOnMobile()"
       >
         <i class="pi pi-file-edit"></i>
         <span>Notes</span>
-      </button>
-      <button class="sidebar-item disabled" disabled>
+      </a>
+      <span class="sidebar-item disabled">
         <i class="pi pi-folder-open"></i>
         <span>Documents</span>
         <span class="coming-soon">Soon</span>
-      </button>
+      </span>
 
       <div class="nav-group-label" style="margin-top:1rem">Tasks</div>
-      <button
+      <a
         v-for="tf in taskFilters"
         :key="tf.filter"
         class="sidebar-item"
         :class="{ active: $route.path === `/project/${projectId}/tasks/${tf.filter}` }"
-        @click="router.push(`/project/${projectId}/tasks/${tf.filter}`); closeSidebarOnMobile()"
+        :href="`/project/${projectId}/tasks/${tf.filter}`"
+        @click.prevent="router.push(`/project/${projectId}/tasks/${tf.filter}`); closeSidebarOnMobile()"
       >
         <i :class="`pi ${tf.icon}`"></i>
         <span>{{ tf.label }}</span>
-      </button>
+      </a>
     </nav>
 
     <div class="sidebar-version">v{{ appVersion }}</div>
@@ -138,6 +141,7 @@ const taskFilters = [
   cursor: pointer;
   transition: all 0.15s;
   text-align: left;
+  text-decoration: none;
 }
 .sidebar-item:hover:not(.disabled) { background: var(--bg-hover); color: var(--text-primary); }
 .sidebar-item.active {
