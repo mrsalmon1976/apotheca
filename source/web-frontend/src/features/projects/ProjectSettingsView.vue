@@ -19,6 +19,7 @@
           <TabList>
             <Tab value="details">Details</Tab>
             <Tab value="activity">Activity</Tab>
+            <Tab value="recycle-bin">Recycle Bin</Tab>
           </TabList>
           <TabPanels>
             <TabPanel value="details">
@@ -96,6 +97,66 @@
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </TabPanel>
+            <TabPanel value="recycle-bin">
+              <div class="tab-content activity-tab">
+                <div v-if="recycleBinLoading" class="activity-loading">
+                  <i class="pi pi-spin pi-spinner"></i> Loading…
+                </div>
+                <div v-else-if="recycleBinError" class="activity-error">
+                  {{ recycleBinError }}
+                </div>
+                <div v-else-if="recycleBinEntries.length === 0" class="activity-empty">
+                  The recycle bin is empty.
+                </div>
+                <table v-else class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Ref</th>
+                      <th>Type</th>
+                      <th>Title</th>
+                      <th>User</th>
+                      <th>Date</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="entry in recycleBinEntries" :key="entry.id">
+                      <td>
+                        <span class="ref-mono">{{ entry.id.slice(0, 5) }}…</span>
+                      </td>
+                      <td>
+                        <span :class="['ref-type-badge', entry.type.toLowerCase()]">
+                          {{ entry.type }}
+                        </span>
+                      </td>
+                      <td class="message-cell">{{ entry.title }}</td>
+                      <td>{{ entry.deletedBy ?? '—' }}</td>
+                      <td class="date-cell">{{ formatDate(entry.deletedAt) }}</td>
+                      <td class="action-cell">
+                        <template v-if="confirmingRestoreId === entry.id">
+                          <span class="restore-confirm-text">Restore this item?</span>
+                          <button
+                            class="confirm-yes-btn"
+                            :disabled="restoringId === entry.id"
+                            @click="doRestore(entry.id)"
+                          >
+                            <i :class="restoringId === entry.id ? 'pi pi-spin pi-spinner' : 'pi pi-check'"></i>
+                            Yes
+                          </button>
+                          <button class="confirm-cancel-btn" @click="confirmingRestoreId = null">Cancel</button>
+                        </template>
+                        <button v-else class="restore-btn" @click="confirmingRestoreId = entry.id">
+                          <i class="pi pi-replay"></i> Restore
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div v-if="restoreError" class="restore-error">
+                  <i class="pi pi-exclamation-triangle"></i> {{ restoreError }}
+                </div>
               </div>
             </TabPanel>
           </TabPanels>
@@ -196,6 +257,65 @@ async function loadActivity() {
 
 function onTabChange(tab) {
   if (tab === 'activity') loadActivity()
+  if (tab === 'recycle-bin') loadRecycleBin()
+}
+
+// --- Recycle Bin tab ---
+const recycleBinEntries  = ref([])
+const recycleBinLoading  = ref(false)
+const recycleBinLoaded   = ref(false)
+const recycleBinError    = ref(null)
+const confirmingRestoreId = ref(null)
+const restoringId        = ref(null)
+const restoreError       = ref(null)
+
+async function loadRecycleBin(force = false) {
+  if (recycleBinLoaded.value && !force) return
+  recycleBinLoading.value = true
+  recycleBinError.value   = null
+  try {
+    const token    = await user.value.getIdToken()
+    const response = await fetch(`${API_URL}/projects/${projectId.value}/recycle-bin`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (response.ok) {
+      recycleBinEntries.value = await response.json()
+      recycleBinLoaded.value  = true
+    } else {
+      recycleBinError.value = `Failed to load recycle bin (${response.status}).`
+    }
+  } catch {
+    recycleBinError.value = 'Could not connect to the server.'
+  } finally {
+    recycleBinLoading.value = false
+  }
+}
+
+async function doRestore(noteId) {
+  restoringId.value  = noteId
+  restoreError.value = null
+  try {
+    const token    = await user.value.getIdToken()
+    const response = await fetch(`${API_URL}/projects/${projectId.value}/notes/${noteId}/restore`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (response.ok) {
+      confirmingRestoreId.value = null
+      recycleBinLoaded.value    = false
+      await loadRecycleBin(true)
+    } else if (response.status === 403) {
+      restoreError.value = 'You do not have permission to restore this item.'
+    } else if (response.status === 404) {
+      restoreError.value = 'This item could not be found.'
+    } else {
+      restoreError.value = `Unexpected error (${response.status}). Please try again.`
+    }
+  } catch {
+    restoreError.value = 'Could not connect to the server. Please try again.'
+  } finally {
+    restoringId.value = null
+  }
 }
 
 function refLink(entry) {
@@ -387,6 +507,7 @@ function formatDate(iso) {
   text-transform: uppercase;
 }
 .ref-type-badge.note    { background: color-mix(in srgb, var(--color-purple) 15%, transparent); color: var(--color-purple-light); }
+.ref-type-badge.folder  { background: color-mix(in srgb, var(--color-purple) 15%, transparent); color: var(--color-purple-light); }
 .ref-type-badge.project { background: color-mix(in srgb, var(--color-pink) 15%, transparent);   color: var(--color-pink-light); }
 
 .message-cell { color: var(--text-primary); }
@@ -395,6 +516,83 @@ function formatDate(iso) {
   white-space: nowrap;
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+
+.ref-mono {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+.action-cell {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.restore-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-purple);
+  border-radius: 6px;
+  color: var(--color-purple);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.restore-btn:hover { background: var(--bg-active); box-shadow: 0 0 8px var(--glow-purple); }
+
+.restore-confirm-text {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-right: 0.5rem;
+}
+
+.confirm-yes-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  background: var(--gradient-brand);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 0.35rem;
+  transition: opacity 0.2s;
+}
+.confirm-yes-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.confirm-yes-btn:not(:disabled):hover { opacity: 0.85; }
+
+.confirm-cancel-btn {
+  padding: 0.3rem 0.65rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.confirm-cancel-btn:hover { border-color: var(--border-purple); color: var(--text-primary); }
+
+.restore-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.65rem 0.9rem;
+  background: rgba(236, 72, 153, 0.08);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  border-radius: 8px;
+  color: var(--color-pink-light);
+  font-size: 0.85rem;
 }
 
 /* PrimeVue Tabs theming */
