@@ -10,4 +10,5 @@ public class GetNoteResponse
     public IReadOnlyList<string> Labels { get; init; } = [];
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
+    public DateTimeOffset? DeletedAt { get; init; }
 }

@@ -70,6 +70,17 @@
       <!-- Note content -->
       <template v-else-if="note">
 
+        <!-- Recycle bin banner -->
+        <div v-if="note.deletedAt" class="recycle-banner">
+          <i class="pi pi-trash recycle-banner-icon"></i>
+          <div class="recycle-banner-body">
+            <span class="recycle-banner-title">This note is in the recycle bin.</span>
+            <span class="recycle-banner-detail">
+              It will be permanently deleted on <strong>{{ permanentDeletionDate }}</strong>.
+            </span>
+          </div>
+        </div>
+
         <!-- Labels -->
         <div class="labels-section">
           <div class="labels-header">
@@ -146,7 +157,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Editor from '@toast-ui/editor'
 import '@toast-ui/editor/dist/toastui-editor.css'
@@ -162,6 +173,13 @@ const noteId      = computed(() => route.params.noteId)
 const sidebarOpen = ref(window.innerWidth >= 768)
 
 const { getNote, saveNote, searchLabels } = useNoteFolders()
+
+const permanentDeletionDate = computed(() => {
+  if (!note.value?.deletedAt) return ''
+  const d = new Date(note.value.deletedAt)
+  d.setDate(d.getDate() + 30)
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+})
 
 // Note load state
 const note         = ref(null)
@@ -567,6 +585,42 @@ async function fetchSuggestions(query) {
   color: var(--text-muted);
   font-size: 0.875rem;
   padding: 1rem 0;
+}
+
+/* Recycle bin banner */
+.recycle-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: rgba(236, 72, 153, 0.07);
+  border: 1px solid rgba(236, 72, 153, 0.3);
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.recycle-banner-icon {
+  color: var(--color-pink);
+  font-size: 1rem;
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+.recycle-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.recycle-banner-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-pink-light);
+}
+
+.recycle-banner-detail {
+  font-size: 0.825rem;
+  color: var(--text-secondary);
 }
 
 /* Labels section */
