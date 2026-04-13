@@ -58,6 +58,14 @@ export function useNoteFolders() {
     })
   }
 
+  async function deleteNote(projectId, noteId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/notes/${noteId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
   async function searchLabels(projectId, query) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/labels?q=${encodeURIComponent(query)}`, {
@@ -65,5 +73,5 @@ export function useNoteFolders() {
     })
   }
 
-  return { getNote, getNotes, createFolder, createNote, saveNote, searchLabels }
+  return { getNote, getNotes, createFolder, createNote, saveNote, deleteNote, searchLabels }
 }

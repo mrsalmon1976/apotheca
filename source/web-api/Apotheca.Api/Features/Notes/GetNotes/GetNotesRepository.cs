@@ -54,6 +54,7 @@ public class GetNotesRepository
                   LEFT JOIN labels l       ON l.id = nl.label_id
                   WHERE n.project_id = @ProjectId
                     AND n.parent_note_id IS NULL
+                    AND n.deleted_at IS NULL
                   GROUP BY n.id
                   ORDER BY n.is_folder DESC, lower(n.title)",
                 new { ProjectId = projectId });
@@ -76,6 +77,7 @@ public class GetNotesRepository
                   LEFT JOIN labels l       ON l.id = nl.label_id
                   WHERE n.project_id = @ProjectId
                     AND n.parent_note_id = @ParentNoteId
+                    AND n.deleted_at IS NULL
                   GROUP BY n.id
                   ORDER BY n.is_folder DESC, lower(n.title)",
                 new { ProjectId = projectId, ParentNoteId = parentNoteId });

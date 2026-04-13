@@ -8,6 +8,14 @@
       @saved="onFolderSaved"
     />
 
+    <DeleteConfirmDialog
+      :visible="showDeleteDialog"
+      :item-title="deleteTarget?.title ?? ''"
+      :is-folder="deleteTarget?.isFolder ?? false"
+      @close="showDeleteDialog = false"
+      @confirm="onDeleteConfirm"
+    />
+
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
     <ProjectSidebar :open="sidebarOpen" />
@@ -72,7 +80,7 @@
         </div>
 
         <div class="notes-grid">
-          <button
+          <div
             v-for="item in apiFolders"
             :key="item.id"
             class="note-card folder-card"
@@ -80,12 +88,19 @@
           >
             <div class="note-card-header">
               <span class="note-title"><i class="pi pi-folder folder-icon"></i> {{ item.title }}</span>
+              <button
+                class="card-delete-btn"
+                title="Delete folder"
+                @click.stop="promptDelete(item)"
+              >
+                <i class="pi pi-trash"></i>
+              </button>
             </div>
             <div v-if="item.labels?.length > 0" class="note-labels">
               <span v-for="label in item.labels" :key="label" class="label-chip">{{ label }}</span>
             </div>
             <p v-else class="note-preview folder-hint">Click to browse contents</p>
-          </button>
+          </div>
         </div>
         </template>
 
@@ -95,7 +110,7 @@
         </div>
 
         <div v-if="apiNoteItems.length > 0" class="notes-grid">
-          <button
+          <div
             v-for="item in apiNoteItems"
             :key="item.id"
             class="note-card"
@@ -103,13 +118,22 @@
           >
             <div class="note-card-header">
               <span class="note-title">{{ item.title }}</span>
-              <span class="note-date">{{ formatDate(item.updatedAt) }}</span>
+              <div class="note-card-header-right">
+                <span class="note-date">{{ formatDate(item.updatedAt) }}</span>
+                <button
+                  class="card-delete-btn"
+                  title="Delete note"
+                  @click.stop="promptDelete(item)"
+                >
+                  <i class="pi pi-trash"></i>
+                </button>
+              </div>
             </div>
             <p v-if="item.body" class="note-preview">{{ synopsis(item.body) }}</p>
             <div v-if="item.labels?.length > 0" class="note-labels">
               <span v-for="label in item.labels" :key="label" class="label-chip">{{ label }}</span>
             </div>
-          </button>
+          </div>
         </div>
 
         <div v-else class="empty-state">
@@ -126,6 +150,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewFolderDialog from './NewFolderDialog.vue'
+import DeleteConfirmDialog from './DeleteConfirmDialog.vue'
 import { useNoteFolders } from '../../composables/useNoteFolders'
 
 const route = useRoute()
@@ -134,10 +159,13 @@ const projectId = computed(() => route.params.id)
 const sidebarOpen = ref(window.innerWidth >= 768)
 const showNewFolderDialog = ref(false)
 
-const { getNote, getNotes, createNote } = useNoteFolders()
+const { getNote, getNotes, createNote, deleteNote } = useNoteFolders()
 
 const creatingNote    = ref(false)
 const createNoteError = ref(null)
+
+const showDeleteDialog = ref(false)
+const deleteTarget     = ref(null)   // { id, title, isFolder }
 
 const currentFolderId = ref(null)
 const breadcrumbs     = ref([])   // [{ id, title }, ...]
@@ -222,6 +250,29 @@ function synopsis(body) {
     .replace(/\n+/g, ' ')
     .trim()
   return plain.length > 150 ? plain.slice(0, 150) + '…' : plain
+}
+
+function promptDelete(item) {
+  deleteTarget.value  = { id: item.id, title: item.title, isFolder: item.isFolder }
+  showDeleteDialog.value = true
+}
+
+async function onDeleteConfirm({ setError, done }) {
+  try {
+    const response = await deleteNote(projectId.value, deleteTarget.value.id)
+    if (response.ok) {
+      done()
+      loadNotes(currentFolderId.value)
+    } else if (response.status === 403) {
+      setError('You do not have permission to delete this item.')
+    } else if (response.status === 404) {
+      setError('This item no longer exists.')
+    } else {
+      setError(`Unexpected error (${response.status}). Please try again.`)
+    }
+  } catch {
+    setError('Could not connect to the server. Please try again.')
+  }
 }
 
 async function buildBreadcrumbsFromFolder(folderId) {
@@ -449,11 +500,35 @@ onMounted(async () => {
   margin-right: 0.4rem;
 }
 
+.note-card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
 .note-date {
   font-size: 0.75rem;
   color: var(--text-dim);
   white-space: nowrap;
 }
+
+.card-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 4px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.note-card:hover .card-delete-btn,
+.folder-card:hover .card-delete-btn { opacity: 1; }
+.card-delete-btn:hover { color: var(--color-pink-light); background: rgba(236, 72, 153, 0.12); }
 
 .note-preview {
   font-size: 0.8rem;

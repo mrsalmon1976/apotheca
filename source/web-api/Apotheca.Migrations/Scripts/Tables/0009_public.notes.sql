@@ -17,3 +17,5 @@ CREATE TABLE IF NOT EXISTS notes (
 
 CREATE INDEX IF NOT EXISTS ix_notes_project_id      ON notes (project_id);
 CREATE INDEX IF NOT EXISTS ix_notes_parent_note_id  ON notes (parent_note_id);
+
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;

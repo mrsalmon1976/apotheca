@@ -50,6 +50,7 @@ public class GetNoteRepository
               LEFT JOIN labels l       ON l.id = nl.label_id
               WHERE n.id = @NoteId
                 AND n.project_id = @ProjectId
+                AND n.deleted_at IS NULL
               GROUP BY n.id",
             new { NoteId = noteId, ProjectId = projectId });
 
