@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@primevue/themes": "^4.5.4",
-    "@toast-ui/editor": "^3.2.2",
+    "@toast-ui/editor": "^3.1.0",
     "firebase": "^12.11.0",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.4",
