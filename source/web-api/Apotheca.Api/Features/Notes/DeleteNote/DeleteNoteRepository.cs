@@ -42,15 +42,7 @@ public class DeleteNoteRepository
     public virtual async Task SoftDeleteNoteAsync(IDbContext db, string noteId)
     {
         await db.ExecuteAsync(
-            @"WITH RECURSIVE descendants AS (
-                  SELECT id FROM notes WHERE id = @NoteId AND deleted_at IS NULL
-                  UNION ALL
-                  SELECT n.id FROM notes n
-                  INNER JOIN descendants d ON n.parent_note_id = d.id
-                  WHERE n.deleted_at IS NULL
-              )
-              UPDATE notes SET deleted_at = now() AT TIME ZONE 'UTC'
-              WHERE id IN (SELECT id FROM descendants)",
+            "UPDATE notes SET deleted_at = now() AT TIME ZONE 'UTC' WHERE id = @NoteId AND deleted_at IS NULL",
             new { NoteId = noteId });
     }
 

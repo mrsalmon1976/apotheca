@@ -24,5 +24,45 @@ services:
     depends_on:
       - postgres
 
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    container_name: apotheca-pubsub
+    restart: unless-stopped
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=apotheca-490805
+    ports:
+      - "8085:8085"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8085/v1/projects/apotheca-490805/topics"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  pubsub-init:
+    image: curlimages/curl:latest
+    container_name: apotheca-pubsub-init
+    restart: "no"
+    depends_on:
+      pubsub:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "Creating topics..."
+        curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/topics/note-deleted
+        echo ""
+        curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/topics/note-restored
+        echo ""
+        echo "Creating push subscriptions..."
+        curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/subscriptions/note-deleted-push \
+          -H "Content-Type: application/json" \
+          -d '{"topic":"projects/apotheca-490805/topics/note-deleted","pushConfig":{"pushEndpoint":"http://host.docker.internal:6061/events/notes/note-deleted"}}'
+        echo ""
+        curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/subscriptions/note-restored-push \
+          -H "Content-Type: application/json" \
+          -d '{"topic":"projects/apotheca-490805/topics/note-restored","pushConfig":{"pushEndpoint":"http://host.docker.internal:6061/events/notes/note-restored"}}'
+        echo ""
+        echo "Done."
+
 volumes:
   postgres_data:

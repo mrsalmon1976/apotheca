@@ -135,32 +135,44 @@
                       <td>{{ entry.deletedBy ?? '—' }}</td>
                       <td class="date-cell">{{ formatDate(entry.deletedAt) }}</td>
                       <td class="action-cell">
-                        <template v-if="confirmingRestoreId === entry.id">
-                          <span class="restore-confirm-text">Restore this item?</span>
-                          <button
-                            class="confirm-yes-btn"
-                            :disabled="restoringId === entry.id"
-                            @click="doRestore(entry.id)"
-                          >
-                            <i :class="restoringId === entry.id ? 'pi pi-spin pi-spinner' : 'pi pi-check'"></i>
-                            Yes
-                          </button>
-                          <button class="confirm-cancel-btn" @click="confirmingRestoreId = null">Cancel</button>
-                        </template>
-                        <button v-else class="restore-btn" @click="confirmingRestoreId = entry.id">
+                        <button class="restore-btn" @click="promptRestore(entry)">
                           <i class="pi pi-replay"></i> Restore
                         </button>
                       </td>
                     </tr>
                   </tbody>
                 </table>
-                <div v-if="restoreError" class="restore-error">
-                  <i class="pi pi-exclamation-triangle"></i> {{ restoreError }}
-                </div>
               </div>
             </TabPanel>
           </TabPanels>
         </Tabs>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="showRestoreDialog" class="modal-overlay" @click.self="!restoringId && (showRestoreDialog = false)">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Restore Item</span>
+      </div>
+      <div class="modal-body">
+        <p class="modal-message">
+          Are you sure you want to restore <strong>{{ restoreTarget?.title }}</strong>?
+        </p>
+        <p class="modal-warning">
+          <i class="pi pi-info-circle"></i>
+          Any parent folders currently in the recycle bin will also be restored.
+        </p>
+        <p v-if="restoreError" class="modal-error">
+          <i class="pi pi-exclamation-triangle"></i> {{ restoreError }}
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="confirm-cancel-btn" :disabled="!!restoringId" @click="showRestoreDialog = false">Cancel</button>
+        <button class="confirm-yes-btn" :disabled="!!restoringId" @click="doRestore(restoreTarget.id)">
+          <i :class="restoringId ? 'pi pi-spin pi-spinner' : 'pi pi-replay'"></i>
+          {{ restoringId ? 'Restoring…' : 'Restore' }}
+        </button>
       </div>
     </div>
   </div>
@@ -261,13 +273,14 @@ function onTabChange(tab) {
 }
 
 // --- Recycle Bin tab ---
-const recycleBinEntries  = ref([])
-const recycleBinLoading  = ref(false)
-const recycleBinLoaded   = ref(false)
-const recycleBinError    = ref(null)
-const confirmingRestoreId = ref(null)
-const restoringId        = ref(null)
-const restoreError       = ref(null)
+const recycleBinEntries = ref([])
+const recycleBinLoading = ref(false)
+const recycleBinLoaded  = ref(false)
+const recycleBinError   = ref(null)
+const showRestoreDialog = ref(false)
+const restoreTarget     = ref(null)
+const restoringId       = ref(null)
+const restoreError      = ref(null)
 
 async function loadRecycleBin(force = false) {
   if (recycleBinLoaded.value && !force) return
@@ -291,6 +304,12 @@ async function loadRecycleBin(force = false) {
   }
 }
 
+function promptRestore(entry) {
+  restoreTarget.value  = entry
+  restoreError.value   = null
+  showRestoreDialog.value = true
+}
+
 async function doRestore(noteId) {
   restoringId.value  = noteId
   restoreError.value = null
@@ -301,8 +320,7 @@ async function doRestore(noteId) {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (response.ok) {
-      confirmingRestoreId.value = null
-      recycleBinLoaded.value    = false
+      showRestoreDialog.value = false
       await loadRecycleBin(true)
     } else if (response.status === 403) {
       restoreError.value = 'You do not have permission to restore this item.'
@@ -326,7 +344,7 @@ function refLink(entry) {
 function formatDate(iso) {
   return new Date(iso).toLocaleString(undefined, {
     year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
 }
 </script>
@@ -546,12 +564,6 @@ function formatDate(iso) {
 }
 .restore-btn:hover { background: var(--bg-active); box-shadow: 0 0 8px var(--glow-purple); }
 
-.restore-confirm-text {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-right: 0.5rem;
-}
-
 .confirm-yes-btn {
   display: inline-flex;
   align-items: center;
@@ -581,6 +593,81 @@ function formatDate(iso) {
   transition: all 0.2s;
 }
 .confirm-cancel-btn:hover { border-color: var(--border-purple); color: var(--text-primary); }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  width: 420px;
+  max-width: calc(100vw - 2rem);
+}
+
+.modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.modal-message {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem;
+}
+
+.modal-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--color-purple) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-purple) 20%, transparent);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0;
+}
+.modal-warning i { color: var(--color-purple); margin-top: 0.1rem; flex-shrink: 0; }
+
+.modal-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(236, 72, 153, 0.08);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  border-radius: 8px;
+  color: var(--color-pink-light);
+  font-size: 0.83rem;
+}
+
+.modal-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-radius: 0 0 12px 12px;
+}
 
 .restore-error {
   display: flex;

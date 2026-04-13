@@ -5,4 +5,6 @@ public interface IAppSettings
     string[] CorsAllowedOrigins { get; }
     string? FirebaseCredentialsPath { get; }
     string FirebaseProjectId { get; }
+    bool PubSubRequireAuthentication { get; }
+    string? PubSubAudience { get; }
 }

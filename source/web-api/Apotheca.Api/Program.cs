@@ -1,4 +1,7 @@
 using Apotheca.Api.Configuration;
+using Apotheca.Api.Events;
+using Apotheca.Api.Events.Notes.HandleNoteDeleted;
+using Apotheca.Api.Events.Notes.HandleNoteRestored;
 using Google.Cloud.Logging.Console;
 using Apotheca.Api.Features.Auth.Login;
 using Apotheca.Api.Utilities;
@@ -37,6 +40,9 @@ builder.Services.AddSingleton<IAppSettings>(appSettings);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IDbContextFactory, DbContextFactory>();
+builder.Services.AddSingleton<IEventPublisher, PubSubEventPublisher>();
+builder.Services.AddTransient<HandleNoteDeletedRepository>();
+builder.Services.AddTransient<HandleNoteRestoredRepository>();
 builder.Services.AddTransient<INetworkProvider, NetworkProvider>();
 
 builder.Services.AddTransient<FirebaseService>();
@@ -72,7 +78,33 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = $"https://securetoken.google.com/{appSettings.FirebaseProjectId}",
             ValidAudience = appSettings.FirebaseProjectId,
         };
+    })
+    .AddJwtBearer("PubSub", options =>
+    {
+        options.Authority = "https://accounts.google.com";
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = "https://accounts.google.com",
+            ValidateAudience = !string.IsNullOrEmpty(appSettings.PubSubAudience),
+            ValidAudience = appSettings.PubSubAudience,
+        };
     });
+
+builder.Services.AddAuthorization(options =>
+{
+    if (appSettings.PubSubRequireAuthentication)
+    {
+        options.AddPolicy("PubSubPush", policy => policy
+            .AddAuthenticationSchemes("PubSub")
+            .RequireAuthenticatedUser());
+    }
+    else
+    {
+        options.AddPolicy("PubSubPush", policy => policy
+            .RequireAssertion(_ => true));
+    }
+});
 
 builder.Services.AddCors(options =>
 {
@@ -103,7 +135,10 @@ FirebaseApp.Create(new AppOptions
 
 var app = builder.Build();
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

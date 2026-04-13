@@ -123,7 +123,8 @@ $requiredApis = @(
     "secretmanager.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
-    "run.googleapis.com"
+    "run.googleapis.com",
+    "pubsub.googleapis.com"
 )
 
 foreach ($api in $requiredApis) {
@@ -239,7 +240,7 @@ if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
         --platform=managed `
         --service-account=$saEmail `
         --set-secrets="ConnectionStrings__Postgres=$dbSecretName`:latest" `
-        --set-env-vars="Firebase__ProjectId=$firebaseProjectId,Cors__AllowedOrigins__0=$frontendUrl" `
+        --set-env-vars="Firebase__ProjectId=$firebaseProjectId,Cors__AllowedOrigins__0=$frontendUrl,PubSub__RequireAuthentication=true,PubSub__Audience=$viteApiUrl" `
         --allow-unauthenticated `
         --project=$gcpProjectId
 
@@ -252,6 +253,69 @@ if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
 
     Write-Host "    API deployed successfully." -ForegroundColor Green
     Write-Host "    Service URL: $serviceUrl" -ForegroundColor Green
+
+    # ---------------------------------------------------------------------------
+    # Pub/Sub: topics, subscriptions, and IAM
+    # ---------------------------------------------------------------------------
+    Write-Host ""
+    Write-Host "==> Configuring Pub/Sub..." -ForegroundColor Cyan
+
+    # Grant the API service account permission to publish
+    Invoke-GCloud projects add-iam-policy-binding $gcpProjectId `
+        --member="serviceAccount:$saEmail" `
+        --role="roles/pubsub.publisher" | Out-Null
+    Write-Host "    Granted pubsub.publisher to $saEmail" -ForegroundColor Green
+
+    # Get the project number (needed for the Pub/Sub service agent email)
+    $projectNumber = & $gcloud projects describe $gcpProjectId --format="value(projectNumber)" 2>$null
+    $pubsubServiceAgent = "service-$projectNumber@gcp-sa-pubsub.iam.gserviceaccount.com"
+
+    # Allow the Pub/Sub service agent to generate OIDC tokens for the API service account
+    Invoke-GCloud iam service-accounts add-iam-policy-binding $saEmail `
+        --member="serviceAccount:$pubsubServiceAgent" `
+        --role="roles/iam.serviceAccountTokenCreator" `
+        --project=$gcpProjectId | Out-Null
+    Write-Host "    Granted serviceAccountTokenCreator to Pub/Sub service agent" -ForegroundColor Green
+
+    # Create topics and push subscriptions
+    $pubsubTopics = @(
+        @{ TopicId = "note-deleted";  Path = "/events/notes/note-deleted" },
+        @{ TopicId = "note-restored"; Path = "/events/notes/note-restored" }
+    )
+
+    foreach ($entry in $pubsubTopics) {
+        $topicId   = $entry.TopicId
+        $topicName = "projects/$gcpProjectId/topics/$topicId"
+        $subName   = "projects/$gcpProjectId/subscriptions/$topicId-push"
+        $pushUrl   = "$serviceUrl$($entry.Path)"
+
+        if (-not (Test-GCloudResource { "pubsub", "topics", "describe", $topicName, "--project=$gcpProjectId" })) {
+            Write-Host "    Creating topic '$topicId'..." -ForegroundColor Yellow
+            Invoke-GCloud pubsub topics create $topicName --project=$gcpProjectId
+        } else {
+            Write-Host "    Topic '$topicId' already exists." -ForegroundColor Gray
+        }
+
+        if (-not (Test-GCloudResource { "pubsub", "subscriptions", "describe", $subName, "--project=$gcpProjectId" })) {
+            Write-Host "    Creating subscription '$topicId-push'..." -ForegroundColor Yellow
+            Invoke-GCloud pubsub subscriptions create $subName `
+                --topic=$topicName `
+                --push-endpoint=$pushUrl `
+                --push-auth-service-account=$saEmail `
+                --push-auth-token-audience=$serviceUrl `
+                --ack-deadline=60 `
+                --project=$gcpProjectId
+        } else {
+            Write-Host "    Updating subscription '$topicId-push' push endpoint..." -ForegroundColor Yellow
+            Invoke-GCloud pubsub subscriptions modify-push-config $subName `
+                --push-endpoint=$pushUrl `
+                --push-auth-service-account=$saEmail `
+                --push-auth-token-audience=$serviceUrl `
+                --project=$gcpProjectId
+        }
+        Write-Host "    Subscription '$topicId-push' -> $pushUrl" -ForegroundColor Green
+    }
+
 } else {
     Write-Host "    Skipping API deployment." -ForegroundColor Gray
 }

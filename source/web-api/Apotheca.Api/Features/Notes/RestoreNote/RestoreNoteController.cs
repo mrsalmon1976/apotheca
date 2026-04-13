@@ -1,3 +1,5 @@
+using Apotheca.Api.Events;
+using Apotheca.Api.Events.Notes;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +9,7 @@ namespace Apotheca.Api.Features.Notes.RestoreNote;
 public class RestoreNoteController(
     IDbContextFactory dbContextFactory,
     RestoreNoteRepository repo,
+    IEventPublisher eventPublisher,
     ILogger<RestoreNoteController> logger) : AuthenticatedBaseController
 {
     [HttpPost("{noteId}/restore")]
@@ -36,6 +39,7 @@ public class RestoreNoteController(
         await db.BeginTransactionAsync(cancellationToken);
 
         await repo.RestoreNoteAsync(db, noteId);
+        var restoredAncestors = await repo.RestoreAncestorsAsync(db, noteId);
 
         await repo.InsertNoteLogAsync(db, noteId, userId, projectId, note.Title, note.IsFolder);
 
@@ -46,7 +50,17 @@ public class RestoreNoteController(
 
         await db.CommitAsync(cancellationToken);
 
-        logger.LogInformation("Note restored. NoteId: {NoteId}, ProjectId: {ProjectId}, UserId: {UserId}", noteId, projectId, userId);
+        logger.LogInformation("Note restored. NoteId: {NoteId}, ProjectId: {ProjectId}, UserId: {UserId}, AncestorsRestored: {AncestorCount}", noteId, projectId, userId, restoredAncestors.Count);
+
+        await eventPublisher.PublishAsync(NoteRestoredEvent.TopicId, new NoteRestoredEvent
+        {
+            NoteId             = noteId,
+            ProjectId          = projectId,
+            UserId             = userId,
+            Title              = note.Title,
+            IsFolder           = note.IsFolder,
+            RestoredAncestors  = restoredAncestors,
+        }, cancellationToken);
 
         return NoContent();
     }

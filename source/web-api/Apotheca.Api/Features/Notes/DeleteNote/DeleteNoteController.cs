@@ -1,3 +1,5 @@
+using Apotheca.Api.Events;
+using Apotheca.Api.Events.Notes;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +9,7 @@ namespace Apotheca.Api.Features.Notes.DeleteNote;
 public class DeleteNoteController(
     IDbContextFactory dbContextFactory,
     DeleteNoteRepository repo,
+    IEventPublisher eventPublisher,
     ILogger<DeleteNoteController> logger) : AuthenticatedBaseController
 {
     [HttpDelete("{noteId}")]
@@ -47,6 +50,16 @@ public class DeleteNoteController(
         await db.CommitAsync(cancellationToken);
 
         logger.LogInformation("Note deleted. NoteId: {NoteId}, ProjectId: {ProjectId}, UserId: {UserId}", noteId, projectId, userId);
+
+        await eventPublisher.PublishAsync(NoteDeletedEvent.TopicId, new NoteDeletedEvent
+        {
+            NoteId    = noteId,
+            ProjectId = projectId,
+            UserId    = userId,
+            Title     = note.Title,
+            IsFolder  = note.IsFolder,
+            DeletedAt = DateTimeOffset.UtcNow,
+        }, cancellationToken);
 
         return NoContent();
     }

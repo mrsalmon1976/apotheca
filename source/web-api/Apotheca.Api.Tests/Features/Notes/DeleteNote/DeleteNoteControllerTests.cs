@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using Apotheca.Api.Events;
+using Apotheca.Api.Events.Notes;
 using Apotheca.Api.Features.Notes.DeleteNote;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
@@ -14,6 +16,7 @@ public class DeleteNoteControllerTests
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
     private DeleteNoteRepository _repository = null!;
+    private IEventPublisher _eventPublisher = null!;
     private DeleteNoteController _controller = null!;
 
     [SetUp]
@@ -22,10 +25,11 @@ public class DeleteNoteControllerTests
         _dbContextFactory = Substitute.For<IDbContextFactory>();
         _dbContext        = Substitute.For<IDbContext>();
         _repository       = Substitute.For<DeleteNoteRepository>();
+        _eventPublisher   = Substitute.For<IEventPublisher>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
-        _controller = new DeleteNoteController(_dbContextFactory, _repository, Substitute.For<ILogger<DeleteNoteController>>());
+        _controller = new DeleteNoteController(_dbContextFactory, _repository, _eventPublisher, Substitute.For<ILogger<DeleteNoteController>>());
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
@@ -306,5 +310,79 @@ public class DeleteNoteControllerTests
         await _repository.DidNotReceive().InsertProjectActivityLogAsync(
             Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    // --- Event publishing ---
+
+    [Test]
+    public async Task DeleteNote_PublishesNoteDeletedEvent_WithCorrectNoteId()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess();
+        NoteExists();
+
+        await _controller.DeleteNote("proj-1", "note-abc", CancellationToken.None);
+
+        await _eventPublisher.Received(1).PublishAsync(
+            NoteDeletedEvent.TopicId,
+            Arg.Is<NoteDeletedEvent>(e => e.NoteId == "note-abc"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeleteNote_PublishesNoteDeletedEvent_WithCorrectProjectIdAndUserId()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess("user-id-xyz");
+        NoteExists();
+
+        await _controller.DeleteNote("proj-xyz", "note-1", CancellationToken.None);
+
+        await _eventPublisher.Received(1).PublishAsync(
+            NoteDeletedEvent.TopicId,
+            Arg.Is<NoteDeletedEvent>(e => e.ProjectId == "proj-xyz" && e.UserId == "user-id-xyz"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeleteNote_PublishesNoteDeletedEvent_WithCorrectTitleAndIsFolder()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess();
+        NoteExists("My Folder", isFolder: true);
+
+        await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
+
+        await _eventPublisher.Received(1).PublishAsync(
+            NoteDeletedEvent.TopicId,
+            Arg.Is<NoteDeletedEvent>(e => e.Title == "My Folder" && e.IsFolder == true),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeleteNote_DoesNotPublishEvent_WhenNoteDoesNotExist()
+    {
+        SetAuthenticatedUser("uid-abc");
+        AllowProjectAccess();
+        _repository.GetNoteInfoAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.FromResult<NoteInfo?>(null));
+
+        await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
+
+        await _eventPublisher.DidNotReceive().PublishAsync(
+            Arg.Any<string>(), Arg.Any<NoteDeletedEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task DeleteNote_DoesNotPublishEvent_WhenAccessIsDenied()
+    {
+        SetAuthenticatedUser("uid-abc");
+        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.FromResult(false));
+
+        await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
+
+        await _eventPublisher.DidNotReceive().PublishAsync(
+            Arg.Any<string>(), Arg.Any<NoteDeletedEvent>(), Arg.Any<CancellationToken>());
     }
 }

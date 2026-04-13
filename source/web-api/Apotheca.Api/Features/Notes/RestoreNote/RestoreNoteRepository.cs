@@ -1,9 +1,12 @@
 using System.Text.Json;
+using Apotheca.Api.Events.Notes;
 using Apotheca.Data;
 
 namespace Apotheca.Api.Features.Notes.RestoreNote;
 
 public record NoteInfo(string Title, bool IsFolder);
+
+file record AncestorRow(string Id, string Title, bool IsFolder);
 
 public class RestoreNoteRepository
 {
@@ -44,6 +47,29 @@ public class RestoreNoteRepository
         await db.ExecuteAsync(
             "UPDATE notes SET deleted_at = NULL WHERE id = @NoteId",
             new { NoteId = noteId });
+    }
+
+    public virtual async Task<IReadOnlyList<RestoredAncestor>> RestoreAncestorsAsync(IDbContext db, string noteId)
+    {
+        var rows = await db.QueryAsync<AncestorRow>(
+            @"WITH RECURSIVE ancestors AS (
+                  SELECT id, parent_note_id FROM notes WHERE id = @NoteId
+                  UNION ALL
+                  SELECT n.id, n.parent_note_id FROM notes n
+                  INNER JOIN ancestors a ON n.id = a.parent_note_id
+                  WHERE a.parent_note_id IS NOT NULL
+              ),
+              updated AS (
+                  UPDATE notes SET deleted_at = NULL
+                  WHERE id IN (SELECT id FROM ancestors WHERE id != @NoteId)
+                    AND deleted_at IS NOT NULL
+                  RETURNING id, title, is_folder
+              )
+              SELECT id AS Id, title AS Title, is_folder AS IsFolder FROM updated",
+            new { NoteId = noteId });
+
+        return rows.Select(r => new RestoredAncestor { NoteId = r.Id, Title = r.Title, IsFolder = r.IsFolder })
+                   .ToList();
     }
 
     public virtual async Task InsertNoteLogAsync(
