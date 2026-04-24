@@ -159,19 +159,20 @@ if ($runMigrations -eq 'Y' -or $runMigrations -eq 'y') {
 Write-Host ""
 Write-Host "==> Syncing connection string to Secret Manager..." -ForegroundColor Cyan
 
-$secretExists = Test-GCloudResource { "secrets", "describe", $dbSecretName, "--project=$gcpProjectId" }
+$ErrorActionPreference = "Continue"
+$currentSecretValue = & $gcloud secrets versions access latest --secret=$dbSecretName --project=$gcpProjectId 2>$null
+$secretReadExitCode = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
 
-if (-not $secretExists) {
+if ($secretReadExitCode -ne 0) {
     Write-Host "    Creating secret '$dbSecretName'..." -ForegroundColor Yellow
     Invoke-GCloud secrets create $dbSecretName `
         --project=$gcpProjectId `
         --replication-policy="automatic"
     $currentSecretValue = $null
-} else {
-    $currentSecretValue = & $gcloud secrets versions access latest --secret=$dbSecretName --project=$gcpProjectId 2>$null
 }
 
-if ($currentSecretValue -eq $neonConnStr) {
+if ($null -ne $currentSecretValue -and ($currentSecretValue -join "").Trim() -eq $neonConnStr.Trim()) {
     Write-Host "    Secret '$dbSecretName' is already up to date, skipping." -ForegroundColor Gray
 } else {
     $tmpFile = [System.IO.Path]::GetTempFileName()
