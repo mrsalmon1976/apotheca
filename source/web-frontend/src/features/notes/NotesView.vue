@@ -223,7 +223,7 @@ async function onCreateNote() {
     const response = await createNote(projectId.value, currentFolderId.value)
     if (response.ok) {
       const { id } = await response.json()
-      router.push(`/project/${projectId.value}/notes/${id}`)
+      router.push(`/project/${projectId.value}/notes/${id}?new=true`)
     } else {
       createNoteError.value = `Failed to create note (${response.status}).`
     }

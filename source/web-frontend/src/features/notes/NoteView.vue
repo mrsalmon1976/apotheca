@@ -35,25 +35,72 @@
         </div>
       </div>
 
-      <!-- Breadcrumbs -->
-      <nav v-if="!loadError" class="breadcrumbs">
-        <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/notes`)">
-          Notes
-        </button>
-        <template v-for="crumb in folderCrumbs" :key="crumb.id">
-          <i class="pi pi-chevron-right breadcrumb-sep"></i>
-          <button
-            class="breadcrumb-item"
-            @click="router.push(`/project/${projectId}/notes?folderId=${crumb.id}`)"
-          >
-            {{ crumb.title }}
+      <!-- Breadcrumbs + labels row -->
+      <div v-if="!loadError" class="breadcrumbs-row">
+        <nav class="breadcrumbs">
+          <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/notes`)">
+            Notes
           </button>
-        </template>
-        <template v-if="note">
-          <i class="pi pi-chevron-right breadcrumb-sep"></i>
-          <span class="breadcrumb-item breadcrumb-current">{{ note.title }}</span>
-        </template>
-      </nav>
+          <template v-for="crumb in folderCrumbs" :key="crumb.id">
+            <i class="pi pi-chevron-right breadcrumb-sep"></i>
+            <button
+              class="breadcrumb-item"
+              @click="router.push(`/project/${projectId}/notes?folderId=${crumb.id}`)"
+            >
+              {{ crumb.title }}
+            </button>
+          </template>
+          <template v-if="note">
+            <i class="pi pi-chevron-right breadcrumb-sep"></i>
+            <span class="breadcrumb-item breadcrumb-current">{{ note.title }}</span>
+          </template>
+        </nav>
+        <div v-if="note" class="labels-inline">
+          <div
+            class="label-input-box"
+            :class="{ focused: labelInputFocused }"
+            @click="focusLabelInput"
+          >
+            <span v-for="(label, i) in selectedLabels" :key="label" class="label-chip">
+              {{ label }}
+              <button class="chip-remove" tabindex="-1" @click.stop="removeLabel(i)">
+                <i class="pi pi-times"></i>
+              </button>
+            </span>
+            <input
+              ref="labelInput"
+              v-model="labelQuery"
+              class="label-text-input"
+              type="text"
+              placeholder="Add a label…"
+              autocomplete="off"
+              @focus="labelInputFocused = true"
+              @blur="onLabelBlur"
+              @keydown="onLabelKeydown"
+            />
+            <span v-if="labelsSaving" class="title-status saving">
+              <i class="pi pi-spin pi-spinner"></i>
+            </span>
+            <span v-else-if="labelsSaveError" class="title-status error" :title="labelsSaveError">
+              <i class="pi pi-exclamation-triangle"></i>
+            </span>
+            <span v-else-if="labelsSaved" class="title-status saved">
+              <i class="pi pi-check"></i>
+            </span>
+          </div>
+          <div v-if="suggestions.length > 0" class="suggestions">
+            <button
+              v-for="(s, i) in suggestions"
+              :key="s.id"
+              class="suggestion-item"
+              :class="{ highlighted: i === highlightedIndex }"
+              @mousedown.prevent="selectSuggestion(s.labelText)"
+            >
+              {{ s.labelText }}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- Load error -->
       <div v-if="loadError" class="load-error">
@@ -78,59 +125,6 @@
             <span class="recycle-banner-detail">
               It will be permanently deleted on <strong>{{ permanentDeletionDate }}</strong>.
             </span>
-          </div>
-        </div>
-
-        <!-- Labels -->
-        <div class="labels-section">
-          <div class="labels-header">
-            <span class="section-label">Labels</span>
-            <span v-if="labelsSaving" class="save-status saving">
-              <i class="pi pi-spin pi-spinner"></i> Saving…
-            </span>
-            <span v-else-if="labelsSaveError" class="save-status error">
-              <i class="pi pi-exclamation-triangle"></i> {{ labelsSaveError }}
-            </span>
-            <span v-else-if="labelsSaved" class="save-status saved">
-              <i class="pi pi-check"></i> Saved
-            </span>
-          </div>
-
-          <div
-            class="label-input-box"
-            :class="{ focused: labelInputFocused }"
-            @click="focusLabelInput"
-          >
-            <span v-for="(label, i) in selectedLabels" :key="label" class="label-chip">
-              {{ label }}
-              <button class="chip-remove" tabindex="-1" @click.stop="removeLabel(i)">
-                <i class="pi pi-times"></i>
-              </button>
-            </span>
-            <input
-              ref="labelInput"
-              v-model="labelQuery"
-              class="label-text-input"
-              type="text"
-              placeholder="Add a label…"
-              autocomplete="off"
-              @focus="labelInputFocused = true"
-              @blur="onLabelBlur"
-              @keydown="onLabelKeydown"
-            />
-          </div>
-
-          <!-- Suggestions dropdown -->
-          <div v-if="suggestions.length > 0" class="suggestions">
-            <button
-              v-for="(s, i) in suggestions"
-              :key="s.id"
-              class="suggestion-item"
-              :class="{ highlighted: i === highlightedIndex }"
-              @mousedown.prevent="selectSuggestion(s.labelText)"
-            >
-              {{ s.labelText }}
-            </button>
           </div>
         </div>
 
@@ -274,6 +268,15 @@ onMounted(async () => {
       clearTimeout(bodyDebounce)
       bodyDebounce = setTimeout(persistBody, 1000)
     })
+    editorEl.value?.querySelectorAll('.toastui-editor-toolbar [tabindex], .toastui-editor-toolbar button, .toastui-editor-toolbar select, .toastui-editor-mode-switch button').forEach(el => {
+      el.setAttribute('tabindex', '-1')
+    })
+  }
+  if (note.value && route.query.new === 'true') {
+    setTimeout(() => {
+      titleInput.value?.focus()
+      titleInput.value?.select()
+    }, 0)
   }
 })
 
@@ -508,21 +511,20 @@ async function fetchSuggestions(query) {
 
 .title-input {
   background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  border-radius: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
   color: var(--text-primary);
   font-size: 1.4rem;
   font-weight: 700;
   font-family: inherit;
   outline: none;
-  padding: 0.1rem 0;
+  padding: 0.1rem 0.4rem;
   min-width: 0;
   flex: 1;
   transition: border-color 0.2s;
 }
-.title-input:hover:not(:disabled) { border-bottom-color: var(--border-color); }
-.title-input:focus                 { border-bottom-color: var(--color-purple); }
+.title-input:hover:not(:disabled) { border-color: var(--border-color); }
+.title-input:focus                 { border-color: var(--color-purple); }
 .title-input:disabled              { opacity: 0.6; cursor: default; }
 
 .title-status {
@@ -535,12 +537,18 @@ async function fetchSuggestions(query) {
 .title-status.saved  { color: #4ade80; }
 .title-status.error  { color: var(--color-pink-light); cursor: default; }
 
-/* Breadcrumbs */
+/* Breadcrumbs + labels row */
+.breadcrumbs-row {
+  display: flex;
+  align-items: center;
+  gap: 80px;
+  margin-bottom: 1.25rem;
+}
+
 .breadcrumbs {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  margin-bottom: 1.25rem;
   flex-wrap: wrap;
 }
 
@@ -623,17 +631,10 @@ async function fetchSuggestions(query) {
   color: var(--text-secondary);
 }
 
-/* Labels section */
-.labels-section {
-  margin-bottom: 1.5rem;
+/* Labels inline */
+.labels-inline {
   position: relative;
-}
-
-.labels-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.4rem;
+  flex: 1;
 }
 
 .section-label {
@@ -662,9 +663,8 @@ async function fetchSuggestions(query) {
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 0.45rem 0.75rem;
+  padding: 0.25rem 0.6rem;
   cursor: text;
-  min-height: 2.5rem;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .label-input-box.focused {
