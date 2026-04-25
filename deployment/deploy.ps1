@@ -60,6 +60,7 @@ $viteFirebaseStorageBucket     = $secrets.ViteFirebaseStorageBucket
 $viteFirebaseMessagingSenderId = $secrets.ViteFirebaseMessagingSenderId
 $viteFirebaseAppId       = $secrets.ViteFirebaseAppId
 $viteAzureClientId       = $secrets.ViteAzureClientId
+$gcsBucketName           = $secrets.GcsStorageBucketName
 
 if ([string]::IsNullOrWhiteSpace($neonConnStr))       { Write-Error "NeonConnectionString is not set in secrets.json." }
 if ([string]::IsNullOrWhiteSpace($gcpProjectId))      { Write-Error "GcpProjectId is not set in secrets.json." }
@@ -68,6 +69,7 @@ if ([string]::IsNullOrWhiteSpace($firebaseProjectId)) { Write-Error "FirebasePro
 if ([string]::IsNullOrWhiteSpace($frontendUrl))       { Write-Error "FrontendUrl is not set in secrets.json." }
 if ([string]::IsNullOrWhiteSpace($viteApiUrl))        { Write-Error "ViteApiUrl is not set in secrets.json." }
 if ([string]::IsNullOrWhiteSpace($viteFirebaseApiKey)) { Write-Error "ViteFirebaseApiKey is not set in secrets.json." }
+if ([string]::IsNullOrWhiteSpace($gcsBucketName))     { Write-Error "GcsStorageBucketName is not set in secrets.json." }
 
 $imageTag        = "$gcpRegion-docker.pkg.dev/$gcpProjectId/apotheca/api:latest"
 $cloudRunService = "apotheca-api"
@@ -124,7 +126,8 @@ $requiredApis = @(
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "run.googleapis.com",
-    "pubsub.googleapis.com"
+    "pubsub.googleapis.com",
+    "storage.googleapis.com"
 )
 
 foreach ($api in $requiredApis) {
@@ -242,6 +245,29 @@ if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
         --role="roles/firebaseauth.admin" | Out-Null
     Write-Host "    Granted Firebase Authentication Admin to service account." -ForegroundColor Green
 
+    # ---------------------------------------------------------------------------
+    # Cloud Storage: create bucket and grant access
+    # ---------------------------------------------------------------------------
+    Write-Host ""
+    Write-Host "==> Configuring Cloud Storage..." -ForegroundColor Cyan
+
+    $bucketUri = "gs://$gcsBucketName"
+    if (-not (Test-GCloudResource { "storage", "buckets", "describe", $bucketUri, "--project=$gcpProjectId" })) {
+        Write-Host "    Creating bucket '$gcsBucketName'..." -ForegroundColor Yellow
+        Invoke-GCloud storage buckets create $bucketUri `
+            --location=$gcpRegion `
+            --uniform-bucket-level-access `
+            --project=$gcpProjectId
+    } else {
+        Write-Host "    Bucket '$gcsBucketName' already exists." -ForegroundColor Gray
+    }
+
+    Invoke-GCloud storage buckets add-iam-policy-binding $bucketUri `
+        --member="serviceAccount:$saEmail" `
+        --role="roles/storage.objectAdmin" `
+        --project=$gcpProjectId | Out-Null
+    Write-Host "    Granted storage.objectAdmin on '$gcsBucketName' to $saEmail" -ForegroundColor Green
+
     # Deploy the Cloud Run service
     Invoke-GCloud run deploy $cloudRunService `
         --image=$imageTag `
@@ -249,7 +275,7 @@ if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
         --platform=managed `
         --service-account=$saEmail `
         --set-secrets="ConnectionStrings__Postgres=$dbSecretName`:latest" `
-        --set-env-vars="Firebase__ProjectId=$firebaseProjectId,Cors__AllowedOrigins__0=$frontendUrl,PubSub__RequireAuthentication=true,PubSub__Audience=$viteApiUrl" `
+        --set-env-vars="Firebase__ProjectId=$firebaseProjectId,Cors__AllowedOrigins__0=$frontendUrl,PubSub__RequireAuthentication=true,PubSub__Audience=$viteApiUrl,Storage__BucketName=$gcsBucketName" `
         --allow-unauthenticated `
         --project=$gcpProjectId
 
@@ -288,8 +314,10 @@ if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
 
     # Create topics and push subscriptions
     $pubsubTopics = @(
-        @{ TopicId = "note-deleted";  Path = "/events/notes/note-deleted" },
-        @{ TopicId = "note-restored"; Path = "/events/notes/note-restored" }
+        @{ TopicId = "note-deleted";      Path = "/events/notes/note-deleted" },
+        @{ TopicId = "note-restored";     Path = "/events/notes/note-restored" },
+        @{ TopicId = "document-deleted";  Path = "/events/documents/document-deleted" },
+        @{ TopicId = "document-restored"; Path = "/events/documents/document-restored" }
     )
 
     foreach ($entry in $pubsubTopics) {
