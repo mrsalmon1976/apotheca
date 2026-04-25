@@ -53,6 +53,10 @@ services:
         echo ""
         curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/topics/note-restored
         echo ""
+        curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/topics/document-deleted
+        echo ""
+        curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/topics/document-restored
+        echo ""
         echo "Creating push subscriptions..."
         curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/subscriptions/note-deleted-push \
           -H "Content-Type: application/json" \
@@ -61,6 +65,14 @@ services:
         curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/subscriptions/note-restored-push \
           -H "Content-Type: application/json" \
           -d '{"topic":"projects/apotheca-490805/topics/note-restored","pushConfig":{"pushEndpoint":"http://host.docker.internal:6061/events/notes/note-restored"}}'
+        echo ""
+        curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/subscriptions/document-deleted-push \
+          -H "Content-Type: application/json" \
+          -d '{"topic":"projects/apotheca-490805/topics/document-deleted","pushConfig":{"pushEndpoint":"http://host.docker.internal:6061/events/documents/document-deleted"}}'
+        echo ""
+        curl -s -X PUT http://pubsub:8085/v1/projects/apotheca-490805/subscriptions/document-restored-push \
+          -H "Content-Type: application/json" \
+          -d '{"topic":"projects/apotheca-490805/topics/document-restored","pushConfig":{"pushEndpoint":"http://host.docker.internal:6061/events/documents/document-restored"}}'
         echo ""
         echo "Done."
 
