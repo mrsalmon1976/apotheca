@@ -310,12 +310,13 @@ function promptRestore(entry) {
   showRestoreDialog.value = true
 }
 
-async function doRestore(noteId) {
-  restoringId.value  = noteId
+async function doRestore(itemId) {
+  restoringId.value  = itemId
   restoreError.value = null
+  const segment = ['DOCUMENT', 'FOLDER'].includes(restoreTarget.value?.type) ? 'documents' : 'notes'
   try {
     const token    = await user.value.getIdToken()
-    const response = await fetch(`${API_URL}/projects/${projectId.value}/notes/${noteId}/restore`, {
+    const response = await fetch(`${API_URL}/projects/${projectId.value}/${segment}/${itemId}/restore`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -524,9 +525,10 @@ function formatDate(iso) {
   border-radius: 4px;
   text-transform: uppercase;
 }
-.ref-type-badge.note    { background: color-mix(in srgb, var(--color-purple) 15%, transparent); color: var(--color-purple-light); }
-.ref-type-badge.folder  { background: color-mix(in srgb, var(--color-purple) 15%, transparent); color: var(--color-purple-light); }
-.ref-type-badge.project { background: color-mix(in srgb, var(--color-pink) 15%, transparent);   color: var(--color-pink-light); }
+.ref-type-badge.note     { background: color-mix(in srgb, var(--color-purple) 15%, transparent); color: var(--color-purple-light); }
+.ref-type-badge.folder   { background: color-mix(in srgb, var(--color-purple) 15%, transparent); color: var(--color-purple-light); }
+.ref-type-badge.document { background: color-mix(in srgb, var(--color-purple) 15%, transparent); color: var(--color-purple-light); }
+.ref-type-badge.project  { background: color-mix(in srgb, var(--color-pink) 15%, transparent);   color: var(--color-pink-light); }
 
 .message-cell { color: var(--text-primary); }
 

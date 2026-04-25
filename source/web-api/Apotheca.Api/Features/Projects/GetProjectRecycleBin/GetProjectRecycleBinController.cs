@@ -23,7 +23,9 @@ public class GetProjectRecycleBinController(
         if (!hasAccess)
             return Forbid();
 
-        var entries = await repo.GetDeletedNotesAsync(db, projectId);
+        var notes     = await repo.GetDeletedNotesAsync(db, projectId);
+        var documents = await repo.GetDeletedDocumentsAsync(db, projectId);
+        var entries   = notes.Concat(documents).OrderByDescending(e => e.DeletedAt);
         return Ok(entries);
     }
 }
