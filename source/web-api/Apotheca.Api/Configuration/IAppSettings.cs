@@ -7,4 +7,6 @@ public interface IAppSettings
     string FirebaseProjectId { get; }
     bool PubSubRequireAuthentication { get; }
     string? PubSubAudience { get; }
+    string StorageBucketName { get; }
+    string? StorageEmulatorHost { get; }
 }

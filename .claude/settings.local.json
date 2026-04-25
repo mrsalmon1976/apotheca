@@ -15,7 +15,9 @@
       "Bash(dotnet test:*)",
       "Bash(find C:/Matt/code/apotheca/source/web-frontend -type f \\\\\\(-name vitest.config.* -o -name jest.config.* -o -name *.test.* -o -name *.spec.* \\\\\\))",
       "Bash(grep -i \"\\\\.cs$\")",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"\\\\.\\(vue|ts|js\\)$\")",
+      "Bash(grep -E \"\\\\.cs$\")"
     ]
   }
 }

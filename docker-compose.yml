@@ -72,5 +72,25 @@ services:
     ports:
       - "4443:4443"
 
+  gcs-init:
+    image: curlimages/curl:latest
+    container_name: apotheca-gcs-init
+    restart: "no"
+    depends_on:
+      - gcs
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for GCS emulator..."
+        until curl -sf "http://gcs:4443/storage/v1/b?project=apotheca" > /dev/null 2>&1; do
+          sleep 1
+        done
+        echo "Creating bucket..."
+        curl -s -X POST "http://gcs:4443/storage/v1/b?project=apotheca" \
+          -H "Content-Type: application/json" \
+          -d '{"name":"apotheca"}'
+        echo ""
+        echo "Done."
+
 volumes:
   postgres_data:

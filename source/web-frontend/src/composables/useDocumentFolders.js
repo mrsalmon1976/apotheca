@@ -74,6 +74,21 @@ export function useDocumentFolders() {
     })
   }
 
+  async function uploadDocument(projectId, file, parentId = null, title = null) {
+    const token = await user.value.getIdToken()
+    const url = parentId
+      ? `${API_URL}/projects/${projectId}/documents/upload?parentId=${encodeURIComponent(parentId)}`
+      : `${API_URL}/projects/${projectId}/documents/upload`
+    const formData = new FormData()
+    formData.append('file', file)
+    if (title) formData.append('title', title)
+    return fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+  }
+
   async function searchLabels(projectId, query) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/labels?q=${encodeURIComponent(query)}`, {
@@ -81,5 +96,5 @@ export function useDocumentFolders() {
     })
   }
 
-  return { getDocument, getDocuments, createFolder, createDocument, saveDocument, deleteDocument, restoreDocument, searchLabels }
+  return { getDocument, getDocuments, createFolder, createDocument, saveDocument, deleteDocument, restoreDocument, uploadDocument, searchLabels }
 }

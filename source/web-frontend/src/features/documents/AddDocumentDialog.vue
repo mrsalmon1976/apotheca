@@ -17,11 +17,26 @@
 
           <!-- Body -->
           <div class="dialog-body">
-            <div class="upload-zone">
+            <input
+              ref="fileInput"
+              type="file"
+              class="hidden-input"
+              @change="onFileInputChange"
+            />
+
+            <div
+              class="upload-zone"
+              :class="{ 'drag-active': isDragActive, 'has-file': selectedFile }"
+              @click="fileInput.click()"
+              @dragover.prevent="isDragActive = true"
+              @dragleave="isDragActive = false"
+              @drop.prevent="onDrop"
+            >
               <i class="pi pi-cloud-upload upload-icon"></i>
-              <template v-if="file">
-                <p class="upload-filename">{{ file.name }}</p>
-                <p class="upload-filesize">{{ formatSize(file.size) }}</p>
+              <template v-if="selectedFile">
+                <p class="upload-filename">{{ selectedFile.name }}</p>
+                <p class="upload-filesize">{{ formatSize(selectedFile.size) }}</p>
+                <p class="change-hint">Click to change file</p>
               </template>
               <template v-else>
                 <p class="upload-title">Drop a file here</p>
@@ -29,18 +44,30 @@
               </template>
             </div>
 
-            <div class="coming-soon-notice">
-              <i class="pi pi-info-circle"></i>
-              <span>File upload is coming soon. Document content will be available once storage is set up.</span>
+            <input
+              v-model="title"
+              type="text"
+              class="name-input"
+              placeholder="Name (defaults to file name after upload)"
+            />
+
+            <div v-if="uploadError" class="error-notice">
+              <i class="pi pi-exclamation-circle"></i>
+              <span>{{ uploadError }}</span>
             </div>
           </div>
 
           <!-- Footer -->
           <div class="dialog-footer">
-            <button class="cancel-btn" @click="close">Cancel</button>
-            <button class="save-btn" disabled>
-              <i class="pi pi-upload"></i>
-              Upload
+            <button class="cancel-btn" :disabled="uploading" @click="close">Cancel</button>
+            <button
+              class="save-btn"
+              :disabled="!selectedFile || !title.trim() || uploading"
+              :class="{ 'is-loading': uploading }"
+              @click="upload"
+            >
+              <i :class="uploading ? 'pi pi-spin pi-spinner' : 'pi pi-upload'"></i>
+              {{ uploading ? 'Uploading…' : 'Upload' }}
             </button>
           </div>
 
@@ -51,16 +78,83 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useDocumentFolders } from '../../composables/useDocumentFolders'
 
 const props = defineProps({
-  visible: { type: Boolean, required: true },
-  file:    { type: Object, default: null },
+  visible:   { type: Boolean, required: true },
+  file:      { type: Object, default: null },
+  projectId: { type: String, required: true },
+  parentId:  { type: String, default: null },
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'uploaded'])
 
-function close() { emit('close') }
+const { uploadDocument } = useDocumentFolders()
+
+const fileInput    = ref(null)
+const selectedFile = ref(null)
+const title        = ref('')
+const isDragActive = ref(false)
+const uploading    = ref(false)
+const uploadError  = ref(null)
+
+watch(() => props.file, (f) => { if (f) setFile(f) })
+watch(() => props.visible, (v) => { if (!v) reset() })
+
+function reset() {
+  selectedFile.value = null
+  title.value        = ''
+  uploadError.value  = null
+  uploading.value    = false
+  isDragActive.value = false
+}
+
+function setFile(f) {
+  selectedFile.value = f
+  uploadError.value  = null
+  if (!title.value.trim()) {
+    title.value = f.name.replace(/\.[^.]+$/, '')
+  }
+}
+
+function close() {
+  if (!uploading.value) emit('close')
+}
+
+function onFileInputChange(e) {
+  const f = e.target.files?.[0]
+  if (f) setFile(f)
+  e.target.value = ''
+}
+
+function onDrop(e) {
+  isDragActive.value = false
+  const f = e.dataTransfer?.files?.[0]
+  if (f) setFile(f)
+}
+
+async function upload() {
+  if (!selectedFile.value || !title.value.trim() || uploading.value) return
+  uploading.value   = true
+  uploadError.value = null
+  try {
+    const response = await uploadDocument(props.projectId, selectedFile.value, props.parentId, title.value.trim())
+    if (response.ok) {
+      const data = await response.json()
+      emit('uploaded', data.id)
+      emit('close')
+    } else if (response.status === 413) {
+      uploadError.value = 'File is too large. Maximum size is 50 MB.'
+    } else {
+      uploadError.value = `Upload failed (${response.status}). Please try again.`
+    }
+  } catch {
+    uploadError.value = 'Could not connect to the server. Please try again.'
+  } finally {
+    uploading.value = false
+  }
+}
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -77,6 +171,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 </script>
 
 <style scoped>
+.hidden-input { display: none; }
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -153,8 +249,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
   padding: 2.5rem 1.5rem;
   text-align: center;
   background: rgba(168, 85, 247, 0.03);
-  transition: border-color 0.2s;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
 }
+.upload-zone:hover,
+.upload-zone.drag-active { border-color: var(--color-purple); background: rgba(168, 85, 247, 0.07); }
+.upload-zone.has-file { border-color: rgba(168, 85, 247, 0.5); background: rgba(168, 85, 247, 0.05); }
 
 .upload-icon { font-size: 2.25rem; color: var(--text-dim); }
 
@@ -168,19 +268,36 @@ onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 
 .upload-filesize { font-size: 0.8rem; color: var(--text-dim); margin: 0; }
 
-.coming-soon-notice {
+.change-hint { font-size: 0.75rem; color: var(--text-dim); margin: 0; font-style: italic; }
+
+.name-input {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.name-input::placeholder { color: var(--text-dim); }
+.name-input:focus { border-color: var(--color-purple); }
+
+.error-notice {
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
-  background: rgba(168, 85, 247, 0.07);
-  border: 1px solid rgba(168, 85, 247, 0.2);
+  background: rgba(236, 72, 153, 0.08);
+  border: 1px solid rgba(236, 72, 153, 0.25);
   border-radius: 8px;
   padding: 0.75rem 1rem;
-  color: var(--color-purple-light);
+  color: var(--color-pink-light);
   font-size: 0.85rem;
   line-height: 1.5;
 }
-.coming-soon-notice .pi { margin-top: 2px; flex-shrink: 0; }
+.error-notice .pi { margin-top: 2px; flex-shrink: 0; }
 
 .dialog-footer {
   display: flex;
@@ -202,7 +319,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
   cursor: pointer;
   transition: all 0.2s;
 }
-.cancel-btn:hover { border-color: var(--border-purple); color: var(--text-primary); }
+.cancel-btn:hover:not(:disabled) { border-color: var(--border-purple); color: var(--text-primary); }
+.cancel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .save-btn {
   display: flex;
@@ -215,10 +333,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
   color: white;
   font-size: 0.875rem;
   font-weight: 600;
-  cursor: not-allowed;
-  opacity: 0.45;
-  box-shadow: none;
+  cursor: pointer;
+  box-shadow: 0 0 16px var(--glow-purple);
+  transition: opacity 0.2s, box-shadow 0.2s;
 }
+.save-btn:hover:not(:disabled) { opacity: 0.9; box-shadow: 0 0 24px var(--glow-purple); }
+.save-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
 .dialog-enter-active, .dialog-leave-active { transition: opacity 0.2s ease; }
 .dialog-enter-active .dialog, .dialog-leave-active .dialog { transition: transform 0.2s ease, opacity 0.2s ease; }

@@ -9,6 +9,8 @@ public class AppSettings : IAppSettings
     public string FirebaseProjectId { get; }
     public bool PubSubRequireAuthentication { get; }
     public string? PubSubAudience { get; }
+    public string StorageBucketName { get; }
+    public string? StorageEmulatorHost { get; }
 
     public AppSettings(IConfiguration configuration)
     {
@@ -18,5 +20,8 @@ public class AppSettings : IAppSettings
             ?? throw new InvalidOperationException("Firebase:ProjectId is not configured.");
         PubSubRequireAuthentication = configuration.GetValue<bool>("PubSub:RequireAuthentication", defaultValue: true);
         PubSubAudience = configuration["PubSub:Audience"];
+        StorageBucketName = configuration["Storage:BucketName"]
+            ?? throw new InvalidOperationException("Storage:BucketName is not configured.");
+        StorageEmulatorHost = configuration["Storage:EmulatorHost"];
     }
 }

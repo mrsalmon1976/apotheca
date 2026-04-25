@@ -11,7 +11,10 @@
     <AddDocumentDialog
       :visible="showAddDocumentDialog"
       :file="droppedFile"
+      :project-id="projectId"
+      :parent-id="currentFolderId"
       @close="showAddDocumentDialog = false; droppedFile = null"
+      @uploaded="onDocumentUploaded"
     />
 
     <DeleteConfirmDialog
@@ -230,6 +233,10 @@ function navigateTo(index) {
 }
 
 function onFolderSaved() {
+  loadDocuments(currentFolderId.value)
+}
+
+function onDocumentUploaded() {
   loadDocuments(currentFolderId.value)
 }
 

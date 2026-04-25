@@ -1,140 +1,75 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with this repository. See @docs/architecture.md for full architectural detail, deployment instructions, and local dev setup.
 
 ## Overview
 
-Apotheca is a full-stack web application. The active frontend is a Vue 3 + PrimeVue SPA (`source/web-frontend/`).
-The backend is a .NET 10 Web API (`source/web-api/`) deployed as a **Google Cloud Run** service (`apotheca-api`). The database is **Neon** (managed PostgreSQL). Deployments are automated via `deployment/deploy.ps1`.
+Apotheca is a full-stack web application. Frontend: Vue 3 + PrimeVue SPA (`source/web-frontend/`). Backend: .NET 10 Web API (`source/web-api/`) on Google Cloud Run. Database: Neon (managed PostgreSQL).
 
 ## Commands
 
-### Backend (.NET 10 — `source/web-api/`)
-
-```bash
-dotnet build          # Build the project
-dotnet run            # Run on https://localhost:6060
-dotnet watch          # Run with hot reload
-```
-
-### Frontend (Vue 3 — `source/web-frontend/`)
-
-```bash
-npm install        # Install dependencies
-npm run dev        # Dev server (Vite, default port 5173)
-npm run build      # Production build
-npm run preview    # Preview production build
-```
-
-### Database
-
-```bash
-docker compose up -d		# Start up the database and pgAdmin (http://localhost:5050)
-```
-
-### Deployment (`deployment/`)
-
-#### Prerequisites (one-time setup)
-
-**Google Cloud SDK** — required for API deployment:
-```powershell
-winget install -e --id Google.CloudSDK
-gcloud auth login
-```
-
-**Firebase CLI** — required for frontend deployment. Install and authenticate once:
-```powershell
-npm install -g firebase-tools
-firebase login
-```
-
-#### Running a deployment
-
-```powershell
-.\deployment\deploy.ps1
-```
-
-The script prompts for each phase independently so steps can be skipped:
-
-| Phase | What it does |
-|---|---|
-| Migrations | Runs `Apotheca.Migrations` against Neon via `ConnectionString` env var |
-| API | Cloud Build compiles and pushes a Docker image to Artifact Registry, then deploys to Cloud Run |
-| Frontend | Writes `.env.production` from secrets, runs `npm run build`, deploys to Firebase Hosting, deletes `.env.production` |
-
-Before first run, copy `secrets/deploy_secrets.template.json` to `secrets/deploy_secrets.json` (gitignored) and fill in all values.
-
-#### Post-deployment checklist (one-time per new domain)
-
-When the frontend URL changes, update these before redeploying:
-- **`secrets/deploy_secrets.json`** → `FrontendUrl` — controls the API's CORS allowed origin
-- **Firebase Console** → Authentication → Settings → Authorized domains → add the new domain
-- **Azure Portal** → App registrations → your app → Authentication → Redirect URIs → add `https://<domain>/__/auth/handler`
-
-## Architecture
-
-- See @docs/architecture.md for more architectural detail.
-
 ### Backend (`source/web-api/`)
 
-.NET 10 Web API using **vertical slice architecture** — features are self-contained under `Features/DomainArea/<FeatureName>/` with their own controller and models, rather than a layered Controllers/Services/Models split.
-
-- **`Features/Ping/PingController.cs`** — `GET /api/ping` returns status and UTC timestamp
-- **`Program.cs`** — Minimal host setup: controllers, Firebase JWT Bearer auth middleware, CORS
-
-#### Authentication (backend)
-
-All API endpoints requiring auth inherit from `Features/AuthenticatedBaseController.cs`, which carries `[Authorize]` and `[ApiController]` and exposes `GetFirebaseUid()` (reads the `sub` claim).
-
-JWT Bearer middleware is configured in `Program.cs` for Firebase OIDC (`securetoken.google.com/{projectId}`), with `MapInboundClaims = false` so claim names are preserved as-is (e.g. `sub` rather than the Microsoft URI equivalent).
-
-#### Data access
-
-All database access uses **Dapper** via `IDbContext`/`IDbContextFactory` in `Apotheca.Data`. `DbContextFactory` uses `NpgsqlDataSourceBuilder` to create a `NpgsqlDataSource` (singleton), which enforces UTC timestamp handling — all `TIMESTAMPTZ` columns are read/written as UTC. See @docs/architecture.md for query patterns.
+```bash
+dotnet build    # Build
+dotnet run      # Run on https://localhost:6060
+dotnet watch    # Run with hot reload
+```
 
 ### Frontend (`source/web-frontend/`)
 
-Vue 3 SPA built with Vite. PrimeVue (Aura preset) provides the component library, styled with a custom dark theme (black background, purple/pink brand colors via CSS custom properties in `src/assets/main.css`). Dark mode is activated via the `.app-dark` class on the root element.
+```bash
+npm install     # Install dependencies
+npm run dev     # Dev server on http://localhost:5173
+npm run build   # Production build
+```
 
-#### Layouts
+### Local services
 
-- **`src/layouts/PublicLayout.vue`** — Nav bar for unauthenticated pages (Home, Features, About, Login). Shows a Dashboard button and Logout when logged in.
-- **`src/layouts/AppLayout.vue`** — Nav bar for authenticated pages. Includes Dashboard/Notes/Tasks nav tabs, a project jump dropdown (loaded from API), and a Logout button with the username as a tooltip.
+```bash
+docker compose up -d   # PostgreSQL, pgAdmin, Pub/Sub emulator, GCS emulator
+```
 
-#### Router (`src/router/index.js`)
+### Migrations
 
-- `/` → redirects to `/home`
-- Public (PublicLayout): `/home`, `/features`, `/about`, `/auth/login`, `/logging-in`
-- Authenticated (AppLayout, `requiresAuth: true`): `/dashboard`, `/notes`, `/tasks`, `/project/:id`
+```bash
+dotnet run --project source/web-api/Apotheca.Migrations -- "Host=localhost;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca"
+```
 
-Post-login redirect goes to `/dashboard`.
+## Architecture
 
-#### Key views
+### Backend (`source/web-api/`)
 
-- **`src/features/dashboard/DashboardView.vue`** — Default post-login page; stat cards and activity overview
-- **`src/features/notes/NotesView.vue`** — Left sidebar (folders, tags) + right notes card grid
-- **`src/features/tasks/TasksView.vue`** — Left sidebar (view filters, projects) + right task list
-- **`src/features/projects/ProjectView.vue`** — Per-project page; sidebar with sections (Notes, Tasks, Activity) and members; URL includes project ID (`/project/:id`)
+**Vertical slice architecture** — each feature is self-contained under `Features/DomainArea/FeatureName/` with its own controller and repository. No shared service layer.
 
-#### Composables
+Key files:
+- `Program.cs` — DI registration, Firebase JWT auth, CORS, GCS client
+- `Features/AuthenticatedBaseController.cs` — base for all authenticated endpoints; exposes `GetFirebaseUid()`
+- `Apotheca.Data/` — `IDbContextFactory` / `IDbContext` (Dapper over Npgsql)
 
-- **`src/composables/useAuth.js`** — Firebase auth singleton; supports Google, Microsoft, email/password. Errors shown via PrimeVue Toast.
-- **`src/composables/useProjects.js`** — Fetches the user's projects from the API; surfaces load errors via PrimeVue Toast.
+All authenticated controllers inherit `AuthenticatedBaseController` (carries `[Authorize]` + `[ApiController]`). Firebase JWT Bearer is configured for `securetoken.google.com/{projectId}` with `MapInboundClaims = false`.
 
-### Authentication (frontend)
+Data access: inject `IDbContextFactory`, call `CreateAsync()` to get an `IDbContext`, run Dapper queries. All `TIMESTAMPTZ` values are UTC. Methods on `IDbContext` are alphabetically ordered — follow this when adding new ones.
 
-Firebase Authentication handles all auth. The Firebase client is initialised in `src/firebase.js` and all auth logic lives in `src/composables/useAuth.js`.
+### Frontend (`source/web-frontend/`)
 
-Supported providers:
-- **Google** — OAuth via `GoogleAuthProvider`
-- **Microsoft** — OAuth via `OAuthProvider('microsoft.com')`
-- **Email/Password** — `signInWithEmailAndPassword` / `createUserWithEmailAndPassword`, with `sendPasswordResetEmail` for password reset
+Vue 3 + Vite + PrimeVue (Aura preset). Dark theme via `.app-dark` on the root element; brand colors are CSS custom properties in `src/assets/main.css`.
 
-Auth state is tracked via `onAuthStateChanged` as a module-level singleton so it is shared across all callers of `useAuth()`. Errors are surfaced to the user via PrimeVue Toast with Firebase error codes mapped to friendly messages in `EMAIL_ERRORS`.
+Layouts:
+- `PublicLayout.vue` — unauthenticated pages
+- `AppLayout.vue` — authenticated pages; nav tabs, project jump dropdown
+
+Router (`src/router/index.js`):
+- Public: `/home`, `/features`, `/about`, `/auth/login`, `/logging-in`
+- Authenticated (`requiresAuth: true`): `/dashboard`, `/notes`, `/tasks`, `/project/:id`
+
+Key composables:
+- `useAuth.js` — Firebase auth singleton (Google, Microsoft, email/password)
+- `useProjects.js` — loads the user's projects from the API
 
 ## Color Palette
 
-Defined as CSS custom properties in `source/web-frontend/src/assets/main.css`.
+Defined in `src/assets/main.css` as CSS custom properties.
 
 | Role | Hex |
 |---|---|
@@ -151,14 +86,12 @@ Defined as CSS custom properties in `source/web-frontend/src/assets/main.css`.
 | Text (dim) | `#524e65` |
 | Brand gradient | `#a855f7` → `#ec4899` (135°) |
 
-## Key Configuration
+## Local Configuration
 
 | Setting | Value |
 |---|---|
-| Frontend dev port | `5173` (Vite) |
-| API URL (local) | `https://localhost:6060` |
-| API URL (production) | `https://apotheca-api-fmoznjmzma-nw.a.run.app` |
-| API ping (production) | `https://apotheca-api-fmoznjmzma-nw.a.run.app/ping` |
-| Frontend URL (production) | `https://apotheca-490805.web.app` |
-| Firebase project | `apotheca-490805` |
+| API | `https://localhost:6060` |
+| Frontend | `http://localhost:5173` |
 | PostgreSQL | `Host=localhost;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca` |
+| GCS emulator | `http://localhost:4443` |
+| Pub/Sub emulator | `http://localhost:8085` |

@@ -11,7 +11,9 @@ using Apotheca.Api.Features.Documents.GetDocuments;
 using Apotheca.Api.Features.Documents.RestoreDocument;
 using Apotheca.Api.Features.Documents.SaveDocument;
 using Apotheca.Api.Features.Documents.SaveDocumentFolder;
+using Apotheca.Api.Features.Documents.UploadDocument;
 using Google.Cloud.Logging.Console;
+using Google.Cloud.Storage.V1;
 using Apotheca.Api.Features.Auth.Login;
 using Apotheca.Api.Utilities;
 using Apotheca.Api.Features.ProjectTasks.CompleteProjectTask;
@@ -86,6 +88,7 @@ builder.Services.AddTransient<SaveDocumentRepository>();
 builder.Services.AddTransient<SaveDocumentValidator>();
 builder.Services.AddTransient<SaveDocumentFolderRepository>();
 builder.Services.AddTransient<SaveDocumentFolderValidator>();
+builder.Services.AddTransient<UploadDocumentRepository>();
 builder.Services.AddTransient<LoginRepository>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -152,6 +155,21 @@ FirebaseApp.Create(new AppOptions
     Credential = credential,
     ProjectId = appSettings.FirebaseProjectId,
 });
+
+StorageClient storageClient;
+if (!string.IsNullOrEmpty(appSettings.StorageEmulatorHost))
+{
+    storageClient = new StorageClientBuilder
+    {
+        BaseUri = $"{appSettings.StorageEmulatorHost}/storage/v1/",
+        UnauthenticatedAccess = true,
+    }.Build();
+}
+else
+{
+    storageClient = StorageClient.Create(credential);
+}
+builder.Services.AddSingleton(storageClient);
 
 var app = builder.Build();
 
