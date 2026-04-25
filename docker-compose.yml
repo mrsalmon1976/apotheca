@@ -68,9 +68,11 @@ services:
     image: fsouza/fake-gcs-server:latest
     container_name: apotheca-gcs
     restart: unless-stopped
-    command: -scheme http -port 4443 -external-url http://localhost:4443
+    command: -scheme http -port 4443 -external-url http://localhost:4443 -filesystem-root /data
     ports:
       - "4443:4443"
+    volumes:
+      - ./temp/gcs:/data
 
   gcs-init:
     image: curlimages/curl:latest

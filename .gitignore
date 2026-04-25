@@ -352,3 +352,6 @@ MigrationBackup/
 src/web-frontend-old
 /secrets/apotheca-dev-key.json
 /secrets/deploy_secrets.json
+
+# GCS emulator local storage — ignore uploaded files, keep directory structure
+/temp/gcs/
