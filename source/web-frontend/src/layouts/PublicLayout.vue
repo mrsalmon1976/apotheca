@@ -1,5 +1,5 @@
 <template>
-  <div class="app-dark app-root">
+  <div class="app-root">
     <nav class="top-bar">
       <div class="logo-area">
         <span class="logo-text" @click="$router.push('/home')"><span class="logo-at">@</span>potheca</span>
@@ -31,6 +31,9 @@
         </button>
       </div>
       <div class="nav-actions">
+        <button class="theme-toggle" :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
+          <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></i>
+        </button>
         <template v-if="user">
           <button class="action-btn action-btn--ghost" :title="`Logged in as: ${user.displayName || user.email}`" @click="logout">Logout</button>
           <button class="action-btn action-btn--primary" @click="$router.push('/dashboard')">Dashboard</button>
@@ -49,8 +52,10 @@
 <script setup>
 import { RouterView } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { useTheme } from '../composables/useTheme'
 
 const { user, logout } = useAuth()
+const { isDark, toggleTheme } = useTheme()
 </script>
 
 <style scoped>
@@ -131,6 +136,27 @@ const { user, logout } = useAuth()
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--border-purple);
+  color: var(--color-purple);
+  background: var(--bg-hover);
 }
 
 .action-btn {
