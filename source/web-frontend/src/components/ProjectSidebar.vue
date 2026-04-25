@@ -29,11 +29,15 @@
         <i class="pi pi-file-edit"></i>
         <span>Notes</span>
       </a>
-      <span class="sidebar-item disabled">
+      <a
+        class="sidebar-item"
+        :class="{ active: $route.path.startsWith(`/project/${projectId}/documents`) }"
+        :href="`/project/${projectId}/documents`"
+        @click.prevent="router.push(`/project/${projectId}/documents`); closeSidebarOnMobile()"
+      >
         <i class="pi pi-folder-open"></i>
         <span>Documents</span>
-        <span class="coming-soon">Soon</span>
-      </span>
+      </a>
 
       <div class="nav-group-label" style="margin-top:1rem">Tasks</div>
       <a
