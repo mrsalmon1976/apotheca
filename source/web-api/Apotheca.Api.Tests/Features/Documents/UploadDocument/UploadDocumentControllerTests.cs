@@ -56,7 +56,11 @@ public class UploadDocumentControllerTests
     }
 
     [TearDown]
-    public void TearDown() => _dbContext.Dispose();
+    public void TearDown()
+    {
+        _dbContext.Dispose();
+        _storageClient.Dispose();
+    }
 
     private void SetAuthenticatedUser(string firebaseUid)
     {

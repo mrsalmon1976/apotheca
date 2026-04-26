@@ -15,6 +15,7 @@ using Apotheca.Api.Features.Documents.UploadDocument;
 using Google.Cloud.Logging.Console;
 using Google.Cloud.Storage.V1;
 using Apotheca.Api.Features.Auth.Login;
+using Apotheca.Api.Providers;
 using Apotheca.Api.Utilities;
 using Apotheca.Api.Features.ProjectTasks.CompleteProjectTask;
 using Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
@@ -57,6 +58,7 @@ builder.Services.AddTransient<HandleDocumentRestoredRepository>();
 builder.Services.AddTransient<HandleNoteDeletedRepository>();
 builder.Services.AddTransient<HandleNoteRestoredRepository>();
 builder.Services.AddTransient<INetworkProvider, NetworkProvider>();
+builder.Services.AddTransient<ISecurityProvider, SecurityProvider>();
 
 builder.Services.AddTransient<FirebaseService>();
 builder.Services.AddTransient<CompleteProjectTaskRepository>();

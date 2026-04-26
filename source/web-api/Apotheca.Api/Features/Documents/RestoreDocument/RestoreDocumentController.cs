@@ -1,5 +1,6 @@
 using Apotheca.Api.Events;
 using Apotheca.Api.Events.Documents;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,7 @@ namespace Apotheca.Api.Features.Documents.RestoreDocument;
 public class RestoreDocumentController(
     IDbContextFactory dbContextFactory,
     RestoreDocumentRepository repo,
+    ISecurityProvider securityProvider,
     IEventPublisher eventPublisher,
     ILogger<RestoreDocumentController> logger) : AuthenticatedBaseController
 {
@@ -18,19 +20,11 @@ public class RestoreDocumentController(
         string documentId,
         CancellationToken cancellationToken)
     {
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
-
-        var userId = await repo.GetUserIdAsync(db, firebaseUid);
-        if (userId is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
         var document = await repo.GetDeletedDocumentInfoAsync(db, projectId, documentId);
         if (document is null)
@@ -41,22 +35,23 @@ public class RestoreDocumentController(
         await repo.RestoreDocumentAsync(db, documentId);
         var restoredAncestors = await repo.RestoreAncestorsAsync(db, documentId);
 
-        await repo.InsertDocumentLogAsync(db, documentId, userId, projectId, document.Title, document.IsFolder);
+        await repo.InsertDocumentLogAsync(db, documentId, securityResult.UserId, projectId, document.Title, document.IsFolder);
 
         var logMessage = document.IsFolder
             ? $"Folder '{document.Title}' restored"
             : $"Document '{document.Title}' restored";
-        await repo.InsertProjectActivityLogAsync(db, projectId, documentId, userId, logMessage);
+        await repo.InsertProjectActivityLogAsync(db, projectId, documentId, securityResult.UserId, logMessage);
 
         await db.CommitAsync(cancellationToken);
 
-        logger.LogInformation("Document restored. DocumentId: {DocumentId}, ProjectId: {ProjectId}, UserId: {UserId}, AncestorsRestored: {AncestorCount}", documentId, projectId, userId, restoredAncestors.Count);
+        logger.LogInformation("Document restored. DocumentId: {DocumentId}, ProjectId: {ProjectId}, UserId: {UserId}, AncestorsRestored: {AncestorCount}",
+            documentId, projectId, securityResult.UserId, restoredAncestors.Count);
 
         await eventPublisher.PublishAsync(DocumentRestoredEvent.TopicId, new DocumentRestoredEvent
         {
             DocumentId        = documentId,
             ProjectId         = projectId,
-            UserId            = userId,
+            UserId            = securityResult.UserId,
             Title             = document.Title,
             IsFolder          = document.IsFolder,
             RestoredAncestors = restoredAncestors,
