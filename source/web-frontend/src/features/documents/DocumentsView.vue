@@ -94,65 +94,73 @@
             <span class="section-label">Folders</span>
           </div>
 
-          <div class="docs-grid">
-            <div
-              v-for="item in apiFolders"
-              :key="item.id"
-              class="doc-card folder-card"
-              @click="openFolder(item)"
-            >
-              <div class="doc-card-header">
-                <span class="doc-title"><i class="pi pi-folder folder-icon"></i> {{ item.title }}</span>
-                <button
-                  class="card-delete-btn"
-                  title="Delete folder"
-                  @click.stop="promptDelete(item)"
-                >
-                  <i class="pi pi-trash"></i>
-                </button>
-              </div>
-              <div v-if="item.labels?.length > 0" class="doc-labels">
-                <span v-for="label in item.labels" :key="label" class="label-chip">{{ label }}</span>
-              </div>
-              <p v-else class="doc-preview folder-hint">Click to browse contents</p>
-            </div>
-          </div>
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th class="col-name">Name</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in apiFolders"
+                :key="item.id"
+                class="doc-row folder-row"
+                @click="openFolder(item)"
+              >
+                <td class="col-name">
+                  <i class="pi pi-folder folder-icon"></i>
+                  <span class="row-title">{{ item.title }}</span>
+                </td>
+                <td class="col-actions">
+                  <button class="row-delete-btn" title="Delete folder" @click.stop="promptDelete(item)">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </template>
 
-        <!-- Documents section -->
+        <!-- Documents -->
         <div class="section-divider">
           <span class="section-label">Documents</span>
         </div>
 
-        <div v-if="apiDocumentItems.length > 0" class="docs-grid">
-          <div
-            v-for="item in apiDocumentItems"
-            :key="item.id"
-            class="doc-card"
-            @click="router.push(`/project/${projectId}/documents/${item.id}`)"
-          >
-            <div class="doc-card-header">
-              <div class="doc-title-row">
-                <i :class="`pi ${fileIcon(item.fileExtension)} file-icon`"></i>
-                <span class="doc-title">{{ item.title }}</span>
-              </div>
-              <div class="doc-card-header-right">
-                <span class="doc-date">{{ formatDate(item.updatedAt) }}</span>
-                <button
-                  class="card-delete-btn"
-                  title="Delete document"
-                  @click.stop="promptDelete(item)"
-                >
-                  <i class="pi pi-trash"></i>
-                </button>
-              </div>
-            </div>
-            <p v-if="item.fileName" class="doc-preview">{{ item.fileName }}</p>
-            <div v-if="item.labels?.length > 0" class="doc-labels">
-              <span v-for="label in item.labels" :key="label" class="label-chip">{{ label }}</span>
-            </div>
-          </div>
-        </div>
+        <template v-if="apiDocumentItems.length > 0">
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th class="col-name">Title</th>
+                <th class="col-filename">File Name</th>
+                <th class="col-size">Size</th>
+                <th class="col-date">Updated</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in apiDocumentItems"
+                :key="item.id"
+                class="doc-row"
+                @click="router.push(`/project/${projectId}/documents/${item.id}`)"
+              >
+                <td class="col-name">
+                  <i :class="`pi ${fileIcon(item.fileExtension)} file-icon`"></i>
+                  <span class="row-title">{{ item.title }}</span>
+                </td>
+                <td class="col-filename">{{ item.fileName ?? '—' }}</td>
+                <td class="col-size">{{ formatSize(item.fileLength) }}</td>
+                <td class="col-date">{{ formatDate(item.updatedAt) }}</td>
+                <td class="col-actions">
+                  <button class="row-delete-btn" title="Delete document" @click.stop="promptDelete(item)">
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
 
         <div v-else class="empty-state">
           <i class="pi pi-file empty-icon"></i>
@@ -273,6 +281,14 @@ async function onDeleteConfirm({ setError, done }) {
 function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function formatSize(bytes) {
+  if (bytes == null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
 function fileIcon(ext) {
@@ -448,43 +464,60 @@ onMounted(async () => {
 .empty-icon { font-size: 2rem; }
 .empty-hint { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.25rem; }
 
-/* Grid */
-.docs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.doc-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
+/* Table */
+.doc-table {
   width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
 }
-.doc-card:hover { border-color: var(--color-purple); box-shadow: 0 0 16px var(--glow-purple); transform: translateY(-2px); }
 
-.folder-card { background: rgba(168, 85, 247, 0.07); border-color: rgba(168, 85, 247, 0.35); }
-.folder-card:hover { background: rgba(168, 85, 247, 0.13); border-color: var(--color-purple); }
+.doc-table thead th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
 
-.doc-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+.doc-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s;
+}
+.doc-row:hover { background: var(--bg-card); }
+.folder-row:hover { background: rgba(168, 85, 247, 0.06); }
 
-.doc-title-row { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.doc-row td {
+  padding: 0.6rem 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+}
 
-.doc-title { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-name { width: 38%; }
+.col-filename { width: 30%; }
+.col-size { width: 10%; }
+.col-date { width: 14%; }
+.col-actions { width: 4%; text-align: right; }
 
-.folder-icon { color: var(--color-purple); margin-right: 0.4rem; flex-shrink: 0; }
-.file-icon { color: var(--text-muted); flex-shrink: 0; font-size: 0.9rem; }
+.row-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-.doc-card-header-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.folder-icon { color: var(--color-purple); margin-right: 0.6rem; }
+.file-icon { color: var(--text-muted); margin-right: 0.6rem; font-size: 0.9rem; }
 
-.doc-date { font-size: 0.75rem; color: var(--text-dim); white-space: nowrap; }
-
-.card-delete-btn {
+.row-delete-btn {
   background: transparent;
   border: none;
   color: var(--text-dim);
@@ -495,34 +528,9 @@ onMounted(async () => {
   line-height: 1;
   opacity: 0;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
-  flex-shrink: 0;
 }
-.doc-card:hover .card-delete-btn,
-.folder-card:hover .card-delete-btn { opacity: 1; }
-.card-delete-btn:hover { color: var(--color-pink-light); background: rgba(236, 72, 153, 0.12); }
-
-.doc-preview {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin: 0 0 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.folder-hint { color: var(--text-dim); font-style: italic; }
-
-.doc-labels { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.4rem; }
-
-.label-chip {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(168, 85, 247, 0.12);
-  color: var(--color-purple);
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  font-weight: 500;
-}
+.doc-row:hover .row-delete-btn { opacity: 1; }
+.row-delete-btn:hover { color: var(--color-pink-light); background: rgba(236, 72, 153, 0.12); }
 
 /* Section divider */
 .section-divider { display: flex; align-items: center; gap: 0.75rem; margin: 0.5rem 0 1rem; }

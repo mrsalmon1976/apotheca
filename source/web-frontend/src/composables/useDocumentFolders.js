@@ -66,6 +66,13 @@ export function useDocumentFolders() {
     })
   }
 
+  async function downloadDocument(projectId, documentId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/documents/${documentId}/download`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
   async function restoreDocument(projectId, documentId) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/documents/${documentId}/restore`, {
@@ -96,5 +103,5 @@ export function useDocumentFolders() {
     })
   }
 
-  return { getDocument, getDocuments, createFolder, createDocument, saveDocument, deleteDocument, restoreDocument, uploadDocument, searchLabels }
+  return { getDocument, getDocuments, createFolder, createDocument, saveDocument, deleteDocument, downloadDocument, restoreDocument, uploadDocument, searchLabels }
 }

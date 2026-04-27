@@ -8,6 +8,7 @@ public class GetDocumentsResponse
     public string Title { get; init; } = string.Empty;
     public string? FileName { get; init; }
     public string? FileExtension { get; init; }
+    public string? Mimetype { get; init; }
     public long? FileLength { get; init; }
     public IReadOnlyList<string> Labels { get; init; } = [];
     public DateTimeOffset CreatedAt { get; init; }

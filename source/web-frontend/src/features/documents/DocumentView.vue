@@ -19,11 +19,28 @@
 
       <template v-else-if="document">
 
-        <!-- Top bar -->
-        <div class="top-bar">
+        <!-- Header row -->
+        <div class="content-header">
           <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
             <i class="pi pi-bars"></i>
           </button>
+
+          <!-- Breadcrumbs -->
+          <nav class="breadcrumbs">
+            <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents`)">Documents</button>
+            <template v-for="crumb in breadcrumbs" :key="crumb.id">
+              <i class="pi pi-chevron-right breadcrumb-sep"></i>
+              <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents?folderId=${crumb.id}`)">
+                {{ crumb.title }}
+              </button>
+            </template>
+            <i class="pi pi-chevron-right breadcrumb-sep"></i>
+            <span class="breadcrumb-current">{{ document.title }}</span>
+          </nav>
+        </div>
+
+        <!-- Title -->
+        <div class="title-row">
           <input
             ref="titleInput"
             v-model="titleDraft"
@@ -39,26 +56,17 @@
             <i v-else-if="saveError" class="pi pi-exclamation-circle save-icon error" :title="saveError"></i>
             <i v-else-if="savedRecently" class="pi pi-check-circle save-icon saved"></i>
           </div>
-        </div>
-
-        <!-- Breadcrumb -->
-        <nav v-if="breadcrumbs.length > 0" class="breadcrumbs">
-          <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents`)">Documents</button>
-          <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
-            <i class="pi pi-chevron-right breadcrumb-sep"></i>
-            <button
-              class="breadcrumb-item"
-              @click="router.push(`/project/${projectId}/documents?folderId=${crumb.id}`)"
-            >
-              {{ crumb.title }}
-            </button>
-          </template>
-        </nav>
-        <nav v-else class="breadcrumbs">
-          <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents`)">
-            <i class="pi pi-arrow-left"></i> Documents
+          <button
+            v-if="document.fileName"
+            class="download-btn"
+            :disabled="downloading"
+            title="Download file"
+            @click="onDownload"
+          >
+            <i :class="downloading ? 'pi pi-spin pi-spinner' : 'pi pi-download'"></i>
+            {{ downloading ? 'Downloading…' : 'Download' }}
           </button>
-        </nav>
+        </div>
 
         <!-- Deleted banner -->
         <div v-if="document.deletedAt" class="deleted-banner">
@@ -114,19 +122,37 @@
           </div>
         </div>
 
-        <!-- File info -->
+        <!-- File details -->
         <div class="section">
-          <div class="section-label">File</div>
-          <div v-if="document.fileName" class="file-info">
-            <i :class="`pi ${fileIcon(document.fileExtension)} file-icon-lg`"></i>
-            <div class="file-details">
-              <span class="file-name">{{ document.fileName }}</span>
-              <span v-if="document.fileLength" class="file-size">{{ formatFileSize(document.fileLength) }}</span>
+          <div class="section-label">Details</div>
+          <div class="meta-grid">
+            <div class="meta-row">
+              <span class="meta-key">File name</span>
+              <span class="meta-val">
+                <i v-if="document.fileName" :class="`pi ${fileIcon(document.fileExtension)} meta-file-icon`"></i>
+                {{ document.fileName ?? '—' }}
+              </span>
             </div>
-          </div>
-          <div v-else class="file-placeholder">
-            <i class="pi pi-cloud-upload placeholder-icon"></i>
-            <p>File upload coming soon.</p>
+            <div class="meta-row">
+              <span class="meta-key">Size</span>
+              <span class="meta-val">{{ document.fileLength != null ? formatFileSize(document.fileLength) : '—' }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">Type</span>
+              <span class="meta-val">{{ document.mimetype ?? '—' }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">Extension</span>
+              <span class="meta-val">{{ document.fileExtension ?? '—' }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">Created</span>
+              <span class="meta-val">{{ formatDate(document.createdAt) }}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">Updated</span>
+              <span class="meta-val">{{ formatDate(document.updatedAt) }}</span>
+            </div>
           </div>
         </div>
 
@@ -148,7 +174,7 @@ const documentId = computed(() => route.params.documentId)
 
 const sidebarOpen = ref(window.innerWidth >= 768)
 
-const { getDocument, saveDocument, restoreDocument, searchLabels } = useDocumentFolders()
+const { getDocument, saveDocument, downloadDocument, restoreDocument, searchLabels } = useDocumentFolders()
 
 const document     = ref(null)
 const loading      = ref(false)
@@ -174,6 +200,9 @@ let labelDebounce = null
 
 // Restore
 const restoring = ref(false)
+
+// Download
+const downloading = ref(false)
 
 const permanentDeleteDate = computed(() => {
   if (!document.value?.deletedAt) return ''
@@ -319,6 +348,24 @@ function onLabelKeydown(e) {
   }
 }
 
+async function onDownload() {
+  if (downloading.value) return
+  downloading.value = true
+  try {
+    const res = await downloadDocument(projectId.value, documentId.value)
+    if (!res.ok) return
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = window.document.createElement('a')
+    a.href = url
+    a.download = document.value.fileName ?? 'download'
+    a.click()
+    URL.revokeObjectURL(url)
+  } finally {
+    downloading.value = false
+  }
+}
+
 async function onRestore() {
   restoring.value = true
   try {
@@ -340,6 +387,11 @@ function fileIcon(ext) {
   if (['mp4', 'mov', 'avi', 'mkv'].includes(e)) return 'pi-video'
   if (['mp3', 'wav', 'flac'].includes(e)) return 'pi-volume-up'
   return 'pi-file'
+}
+
+function formatDate(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 function formatFileSize(bytes) {
@@ -367,8 +419,8 @@ onMounted(load)
   background: var(--bg-primary);
 }
 
-/* Top bar */
-.top-bar {
+/* Header row */
+.content-header {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -389,6 +441,43 @@ onMounted(load)
   flex-shrink: 0;
 }
 .hamburger-btn:hover { color: var(--color-purple); }
+
+/* Breadcrumbs */
+.breadcrumbs { display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; }
+
+.breadcrumb-item {
+  background: transparent;
+  border: none;
+  color: var(--color-purple);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.breadcrumb-item:hover { background: var(--bg-active); }
+
+.breadcrumb-current {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 0.2rem 0.3rem;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumb-sep { color: var(--text-dim); font-size: 0.65rem; }
+
+/* Title row */
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
 
 .title-input {
   flex: 1;
@@ -413,26 +502,24 @@ onMounted(load)
 .save-icon.error { color: var(--color-pink); }
 .save-icon.saved { color: #4ade80; }
 
-/* Breadcrumbs */
-.breadcrumbs { display: flex; align-items: center; gap: 0.25rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-
-.breadcrumb-item {
-  background: transparent;
-  border: none;
-  color: var(--color-purple);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 0.2rem 0.3rem;
-  border-radius: 4px;
-  transition: background 0.15s, color 0.15s;
+.download-btn {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  background: transparent;
+  border: 1px solid var(--border-purple);
+  border-radius: 8px;
+  color: var(--color-purple);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.breadcrumb-item:hover { background: var(--bg-active); }
-
-.breadcrumb-sep { color: var(--text-dim); font-size: 0.65rem; }
+.download-btn:hover:not(:disabled) { background: var(--bg-active); box-shadow: 0 0 10px var(--glow-purple); }
+.download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Deleted banner */
 .deleted-banner {
@@ -535,36 +622,43 @@ onMounted(load)
 .suggestion-item { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--text-primary); font-size: 0.875rem; font-family: inherit; padding: 0.55rem 0.85rem; cursor: pointer; transition: background 0.15s; }
 .suggestion-item:hover, .suggestion-item.highlighted { background: var(--bg-active); color: var(--color-purple); }
 
-/* File info */
-.file-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+/* Metadata grid */
+.meta-grid {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 1rem 1.25rem;
+  overflow: hidden;
 }
 
-.file-icon-lg { font-size: 1.75rem; color: var(--text-muted); flex-shrink: 0; }
-
-.file-details { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
-.file-name { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-size { font-size: 0.78rem; color: var(--text-muted); }
-
-.file-placeholder {
+.meta-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 2rem;
-  background: var(--bg-card);
-  border: 1px dashed var(--border-color);
-  border-radius: 10px;
-  color: var(--text-dim);
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border-color);
   font-size: 0.875rem;
 }
-.placeholder-icon { font-size: 2rem; opacity: 0.5; }
+.meta-row:last-child { border-bottom: none; }
+
+.meta-key {
+  width: 120px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.meta-val {
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta-file-icon { color: var(--text-muted); font-size: 0.9rem; flex-shrink: 0; }
 
 /* States */
 .loading-state { display: flex; align-items: center; gap: 0.6rem; color: var(--text-muted); font-size: 0.875rem; padding: 1rem 0; }

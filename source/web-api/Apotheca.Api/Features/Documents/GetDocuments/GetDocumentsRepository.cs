@@ -13,6 +13,7 @@ public class GetDocumentsRepository
         public string Title { get; init; } = string.Empty;
         public string? FileName { get; init; }
         public string? FileExtension { get; init; }
+        public string? Mimetype { get; init; }
         public long? FileLength { get; init; }
         public string CreatedBy { get; init; } = string.Empty;
         public DateTimeOffset CreatedAt { get; init; }
@@ -35,6 +36,7 @@ public class GetDocumentsRepository
                          d.title               AS Title,
                          d.file_name           AS FileName,
                          d.file_extension      AS FileExtension,
+                         d.mimetype            AS Mimetype,
                          d.file_length         AS FileLength,
                          d.created_by          AS CreatedBy,
                          d.created_at          AS CreatedAt,
@@ -60,6 +62,7 @@ public class GetDocumentsRepository
                          d.title               AS Title,
                          d.file_name           AS FileName,
                          d.file_extension      AS FileExtension,
+                         d.mimetype            AS Mimetype,
                          d.file_length         AS FileLength,
                          d.created_by          AS CreatedBy,
                          d.created_at          AS CreatedAt,
@@ -84,6 +87,7 @@ public class GetDocumentsRepository
             Title            = r.Title,
             FileName         = r.FileName,
             FileExtension    = r.FileExtension,
+            Mimetype         = r.Mimetype,
             FileLength       = r.FileLength,
             Labels           = r.LabelsCsv?.Split(',') ?? [],
             CreatedAt        = r.CreatedAt,

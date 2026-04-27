@@ -123,4 +123,22 @@ public class GetDocumentsControllerTests
         Assert.That(response, Is.Not.Null);
         Assert.That(response!.Count(), Is.EqualTo(2));
     }
+
+    [Test]
+    public async Task GetDocuments_ReturnsMimetypeOnDocuments()
+    {
+        AllowProjectAccess();
+
+        var documents = new List<GetDocumentsResponse>
+        {
+            new() { Id = "doc-1", Title = "Spec", IsFolder = false, Mimetype = "application/pdf" },
+        };
+        _repository.GetDocumentsAsync(_dbContext, Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(Task.FromResult<IEnumerable<GetDocumentsResponse>>(documents));
+
+        var result   = (OkObjectResult)await _controller.GetDocuments("proj-1", null, CancellationToken.None);
+        var response = (result.Value as IEnumerable<GetDocumentsResponse>)!.ToList();
+
+        Assert.That(response[0].Mimetype, Is.EqualTo("application/pdf"));
+    }
 }
