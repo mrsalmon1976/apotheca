@@ -41,11 +41,11 @@
           <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/notes`)">
             Notes
           </button>
-          <template v-for="crumb in folderCrumbs" :key="crumb.id">
+          <template v-for="(crumb, index) in folderCrumbs" :key="crumb.id">
             <i class="pi pi-chevron-right breadcrumb-sep"></i>
             <button
               class="breadcrumb-item"
-              @click="router.push(`/project/${projectId}/notes?folderId=${crumb.id}`)"
+              @click="router.push(`/project/${projectId}/notes/f/${folderCrumbs.slice(0, index + 1).map(c => c.id).join('/')}`)"
             >
               {{ crumb.title }}
             </button>

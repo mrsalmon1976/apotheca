@@ -146,7 +146,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewFolderDialog from './NewFolderDialog.vue'
@@ -167,7 +167,14 @@ const createNoteError = ref(null)
 const showDeleteDialog = ref(false)
 const deleteTarget     = ref(null)   // { id, title, isFolder }
 
-const currentFolderId = ref(null)
+const folderIds = computed(() => {
+  const f = route.params.folders
+  if (!f) return []
+  if (Array.isArray(f)) return f.filter(Boolean)
+  return f ? [f] : []
+})
+
+const currentFolderId = computed(() => folderIds.value.at(-1) ?? null)
 const breadcrumbs     = ref([])   // [{ id, title }, ...]
 const apiNotes        = ref([])
 const loading         = ref(false)
@@ -194,21 +201,16 @@ async function loadNotes(parentId = null) {
 }
 
 function openFolder(folder) {
-  breadcrumbs.value.push({ id: folder.id, title: folder.title })
-  currentFolderId.value = folder.id
-  loadNotes(folder.id)
+  const path = [...folderIds.value, folder.id].join('/')
+  router.push(`/project/${projectId.value}/notes/f/${path}`)
 }
 
 function navigateTo(index) {
   if (index === -1) {
-    // Back to root
-    breadcrumbs.value     = []
-    currentFolderId.value = null
-    loadNotes(null)
+    router.push(`/project/${projectId.value}/notes`)
   } else {
-    breadcrumbs.value     = breadcrumbs.value.slice(0, index + 1)
-    currentFolderId.value = breadcrumbs.value[index].id
-    loadNotes(currentFolderId.value)
+    const path = folderIds.value.slice(0, index + 1).join('/')
+    router.push(`/project/${projectId.value}/notes/f/${path}`)
   }
 }
 
@@ -275,27 +277,25 @@ async function onDeleteConfirm({ setError, done }) {
   }
 }
 
-async function buildBreadcrumbsFromFolder(folderId) {
-  const chain = []
-  let currentId = folderId
-  while (currentId) {
-    const response = await getNote(projectId.value, currentId)
-    if (!response.ok) break
-    const folder = await response.json()
-    chain.unshift({ id: folder.id, title: folder.title })
-    currentId = folder.parentNoteId ?? null
+async function buildBreadcrumbsFromPath(ids) {
+  const crumbs = []
+  for (const id of ids) {
+    const res = await getNote(projectId.value, id)
+    if (!res.ok) break
+    const folder = await res.json()
+    crumbs.push({ id: folder.id, title: folder.title })
   }
-  return chain
+  return crumbs
 }
 
-onMounted(async () => {
-  const folderId = route.query.folderId ?? null
-  if (folderId) {
-    breadcrumbs.value     = await buildBreadcrumbsFromFolder(folderId)
-    currentFolderId.value = folderId
+watch(folderIds, async (ids) => {
+  if (ids.length > 0) {
+    breadcrumbs.value = await buildBreadcrumbsFromPath(ids)
+  } else {
+    breadcrumbs.value = []
   }
-  loadNotes(folderId)
-})
+  loadNotes(ids.at(-1) ?? null)
+}, { immediate: true })
 
 </script>
 

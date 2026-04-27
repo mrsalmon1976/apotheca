@@ -54,8 +54,9 @@
       </div>
 
       <!-- Breadcrumb -->
-      <nav v-if="breadcrumbs.length > 0" class="breadcrumbs">
-        <button class="breadcrumb-item" @click="navigateTo(-1)">Documents</button>
+      <nav class="breadcrumbs">
+        <span v-if="breadcrumbs.length === 0" class="breadcrumb-item breadcrumb-current">Root</span>
+        <button v-else class="breadcrumb-item" @click="navigateTo(-1)">Documents</button>
         <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
           <i class="pi pi-chevron-right breadcrumb-sep"></i>
           <button
@@ -113,7 +114,7 @@
                   <span class="row-title">{{ item.title }}</span>
                 </td>
                 <td class="col-actions">
-                  <button class="row-delete-btn" title="Delete folder" @click.stop="promptDelete(item)">
+                  <button class="row-action-btn row-delete-btn" title="Delete folder" @click.stop="promptDelete(item)">
                     <i class="pi pi-trash"></i>
                   </button>
                 </td>
@@ -153,7 +154,10 @@
                 <td class="col-size">{{ formatSize(item.fileLength) }}</td>
                 <td class="col-date">{{ formatDate(item.updatedAt) }}</td>
                 <td class="col-actions">
-                  <button class="row-delete-btn" title="Delete document" @click.stop="promptDelete(item)">
+                  <button class="row-action-btn" title="Download document" @click.stop="downloadItem(item)">
+                    <i class="pi pi-download"></i>
+                  </button>
+                  <button class="row-action-btn row-delete-btn" title="Delete document" @click.stop="promptDelete(item)">
                     <i class="pi pi-trash"></i>
                   </button>
                 </td>
@@ -173,7 +177,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewFolderDialog from './NewFolderDialog.vue'
@@ -189,14 +193,21 @@ const showNewFolderDialog    = ref(false)
 const showAddDocumentDialog  = ref(false)
 const droppedFile            = ref(null)
 
-const { getDocument, getDocuments, deleteDocument } = useDocumentFolders()
+const { getDocument, getDocuments, deleteDocument, downloadDocument } = useDocumentFolders()
 
 const isDragging = ref(false)
 
 const showDeleteDialog = ref(false)
 const deleteTarget     = ref(null)
 
-const currentFolderId = ref(null)
+const folderIds = computed(() => {
+  const f = route.params.folders
+  if (!f) return []
+  if (Array.isArray(f)) return f.filter(Boolean)
+  return f ? [f] : []
+})
+
+const currentFolderId = computed(() => folderIds.value.at(-1) ?? null)
 const breadcrumbs     = ref([])
 const apiDocuments    = ref([])
 const loading         = ref(false)
@@ -223,20 +234,16 @@ async function loadDocuments(parentId = null) {
 }
 
 function openFolder(folder) {
-  breadcrumbs.value.push({ id: folder.id, title: folder.title })
-  currentFolderId.value = folder.id
-  loadDocuments(folder.id)
+  const path = [...folderIds.value, folder.id].join('/')
+  router.push(`/project/${projectId.value}/documents/f/${path}`)
 }
 
 function navigateTo(index) {
   if (index === -1) {
-    breadcrumbs.value     = []
-    currentFolderId.value = null
-    loadDocuments(null)
+    router.push(`/project/${projectId.value}/documents`)
   } else {
-    breadcrumbs.value     = breadcrumbs.value.slice(0, index + 1)
-    currentFolderId.value = breadcrumbs.value[index].id
-    loadDocuments(currentFolderId.value)
+    const path = folderIds.value.slice(0, index + 1).join('/')
+    router.push(`/project/${projectId.value}/documents/f/${path}`)
   }
 }
 
@@ -253,6 +260,18 @@ function onDrop(e) {
   const files = Array.from(e.dataTransfer?.files ?? [])
   droppedFile.value           = files[0] ?? null
   showAddDocumentDialog.value = true
+}
+
+async function downloadItem(item) {
+  const res = await downloadDocument(projectId.value, item.id)
+  if (!res.ok) return
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = window.document.createElement('a')
+  a.href = url
+  a.download = item.fileName ?? item.title
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function promptDelete(item) {
@@ -304,27 +323,25 @@ function fileIcon(ext) {
   return 'pi-file'
 }
 
-async function buildBreadcrumbsFromFolder(folderId) {
-  const chain = []
-  let currentId = folderId
-  while (currentId) {
-    const response = await getDocument(projectId.value, currentId)
-    if (!response.ok) break
-    const folder = await response.json()
-    chain.unshift({ id: folder.id, title: folder.title })
-    currentId = folder.parentDocumentId ?? null
+async function buildBreadcrumbsFromPath(ids) {
+  const crumbs = []
+  for (const id of ids) {
+    const res = await getDocument(projectId.value, id)
+    if (!res.ok) break
+    const folder = await res.json()
+    crumbs.push({ id: folder.id, title: folder.title })
   }
-  return chain
+  return crumbs
 }
 
-onMounted(async () => {
-  const folderId = route.query.folderId ?? null
-  if (folderId) {
-    breadcrumbs.value     = await buildBreadcrumbsFromFolder(folderId)
-    currentFolderId.value = folderId
+watch(folderIds, async (ids) => {
+  if (ids.length > 0) {
+    breadcrumbs.value = await buildBreadcrumbsFromPath(ids)
+  } else {
+    breadcrumbs.value = []
   }
-  loadDocuments(folderId)
-})
+  loadDocuments(ids.at(-1) ?? null)
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -439,7 +456,7 @@ onMounted(async () => {
   transition: background 0.15s, color 0.15s;
 }
 .breadcrumb-item:hover { background: var(--bg-active); }
-.breadcrumb-current { color: var(--text-primary); cursor: default; }
+.breadcrumb-current { color: var(--text-primary); cursor: default; font-weight: 400; }
 .breadcrumb-current:hover { background: transparent; }
 
 .breadcrumb-sep { color: var(--text-dim); font-size: 0.65rem; }
@@ -500,11 +517,11 @@ onMounted(async () => {
   max-width: 0;
 }
 
-.col-name { width: 38%; }
-.col-filename { width: 30%; }
+.col-name { width: 34%; }
+.col-filename { width: 26%; }
 .col-size { width: 10%; }
 .col-date { width: 14%; }
-.col-actions { width: 4%; text-align: right; }
+.col-actions { width: 8%; text-align: right; white-space: nowrap; }
 
 .row-title {
   font-weight: 600;
@@ -517,7 +534,7 @@ onMounted(async () => {
 .folder-icon { color: var(--color-purple); margin-right: 0.6rem; }
 .file-icon { color: var(--text-muted); margin-right: 0.6rem; font-size: 0.9rem; }
 
-.row-delete-btn {
+.row-action-btn {
   background: transparent;
   border: none;
   color: var(--text-dim);
@@ -529,7 +546,8 @@ onMounted(async () => {
   opacity: 0;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
-.doc-row:hover .row-delete-btn { opacity: 1; }
+.doc-row:hover .row-action-btn { opacity: 1; }
+.row-action-btn:hover { color: var(--text-secondary); background: var(--bg-active); }
 .row-delete-btn:hover { color: var(--color-pink-light); background: rgba(236, 72, 153, 0.12); }
 
 /* Section divider */

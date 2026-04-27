@@ -57,9 +57,9 @@
         <div class="breadcrumbs-row">
           <nav class="breadcrumbs">
             <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents`)">Documents</button>
-            <template v-for="crumb in breadcrumbs" :key="crumb.id">
+            <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
               <i class="pi pi-chevron-right breadcrumb-sep"></i>
-              <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents?folderId=${crumb.id}`)">
+              <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents/f/${breadcrumbs.slice(0, index + 1).map(c => c.id).join('/')}`)">
                 {{ crumb.title }}
               </button>
             </template>
