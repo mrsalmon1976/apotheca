@@ -1,3 +1,4 @@
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,7 +7,8 @@ namespace Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 [Route("projects/{projectId}/tasks")]
 public class GetProjectTasksController(
     IDbContextFactory dbContextFactory,
-    GetProjectTasksRepository repo) : AuthenticatedBaseController
+    GetProjectTasksRepository repo,
+    ISecurityProvider securityProvider) : AuthenticatedBaseController
 {
     [HttpGet]
     public async Task<IActionResult> GetProjectTasks(
@@ -14,21 +16,17 @@ public class GetProjectTasksController(
         [FromQuery] string? filter,
         CancellationToken cancellationToken)
     {
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
         var tasks = filter?.ToLowerInvariant() switch
         {
-            "today"    => await repo.GetTasksDueTodayAsync(db, firebaseUid, projectId),
-            "upcoming" => await repo.GetTasksDueUpcomingAsync(db, firebaseUid, projectId),
-            _          => await repo.GetAllOpenTasksAsync(db, firebaseUid, projectId),
+            "today"    => await repo.GetTasksDueTodayAsync(db, securityResult.FirebaseUid, projectId),
+            "upcoming" => await repo.GetTasksDueUpcomingAsync(db, securityResult.FirebaseUid, projectId),
+            _          => await repo.GetAllOpenTasksAsync(db, securityResult.FirebaseUid, projectId),
         };
 
         return Ok(tasks.ToResponse());

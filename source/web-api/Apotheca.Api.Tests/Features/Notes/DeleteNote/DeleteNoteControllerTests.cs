@@ -1,7 +1,7 @@
-using System.Security.Claims;
 using Apotheca.Api.Events;
 using Apotheca.Api.Events.Notes;
 using Apotheca.Api.Features.Notes.DeleteNote;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +16,7 @@ public class DeleteNoteControllerTests
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
     private DeleteNoteRepository _repository = null!;
+    private ISecurityProvider _securityProvider = null!;
     private IEventPublisher _eventPublisher = null!;
     private DeleteNoteController _controller = null!;
 
@@ -25,33 +26,30 @@ public class DeleteNoteControllerTests
         _dbContextFactory = Substitute.For<IDbContextFactory>();
         _dbContext        = Substitute.For<IDbContext>();
         _repository       = Substitute.For<DeleteNoteRepository>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
         _eventPublisher   = Substitute.For<IEventPublisher>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
-        _controller = new DeleteNoteController(_dbContextFactory, _repository, _eventPublisher, Substitute.For<ILogger<DeleteNoteController>>());
+        _controller = new DeleteNoteController(_dbContextFactory, _repository, _securityProvider, _eventPublisher, Substitute.For<ILogger<DeleteNoteController>>());
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     [TearDown]
-    public void TearDown()
-    {
-        _dbContext.Dispose();
-    }
-
-    private void SetAuthenticatedUser(string firebaseUid)
-    {
-        var claims   = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
+    public void TearDown() => _dbContext.Dispose();
 
     private void AllowProjectAccess(string userId = "user-id-123")
     {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
-        _repository.GetUserIdAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult<string?>(userId));
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success("firebase-uid", userId)));
+    }
+
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
+    {
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
     }
 
     private void NoteExists(string title = "My Note", bool isFolder = false)
@@ -60,12 +58,12 @@ public class DeleteNoteControllerTests
             .Returns(Task.FromResult<NoteInfo?>(new NoteInfo(title, isFolder)));
     }
 
-    // --- Identity ---
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task DeleteNote_Returns401_WhenSubClaimIsMissing()
+    public async Task DeleteNote_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
 
@@ -73,9 +71,9 @@ public class DeleteNoteControllerTests
     }
 
     [Test]
-    public async Task DeleteNote_Returns401_WithErrorMessage_WhenSubClaimIsMissing()
+    public async Task DeleteNote_Returns401_WithErrorMessage_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = (UnauthorizedObjectResult)await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
         var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
@@ -83,42 +81,10 @@ public class DeleteNoteControllerTests
         Assert.That(error, Is.EqualTo("User identity could not be determined."));
     }
 
-    // --- Access control ---
-
     [Test]
-    public async Task DeleteNote_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task DeleteNote_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        var result = await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
-
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    [Test]
-    public async Task DeleteNote_ChecksAccessWithCorrectFirebaseUidAndProjectId()
-    {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        await _controller.DeleteNote("proj-xyz", "note-1", CancellationToken.None);
-
-        await _repository.Received(1).UserHasProjectAccessAsync(_dbContext, "uid-abc", "proj-xyz");
-    }
-
-    // --- User lookup ---
-
-    [Test]
-    public async Task DeleteNote_Returns401_WhenUserIdCannotBeResolved()
-    {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
-        _repository.GetUserIdAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult<string?>(null));
+        DenyProjectAccess();
 
         var result = await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
 
@@ -130,7 +96,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_Returns404_WhenNoteDoesNotExist()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetNoteInfoAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult<NoteInfo?>(null));
@@ -143,7 +108,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_FetchesNoteInfoWithCorrectProjectIdAndNoteId()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetNoteInfoAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult<NoteInfo?>(null));
@@ -158,7 +122,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_Returns204_WhenNoteIsDeleted()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         NoteExists();
 
@@ -170,7 +133,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_CallsSoftDelete_WithCorrectNoteId()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         NoteExists();
 
@@ -182,9 +144,7 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_DoesNotSoftDelete_WhenAccessIsDenied()
     {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
 
@@ -194,7 +154,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_DoesNotSoftDelete_WhenNoteDoesNotExist()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         _repository.GetNoteInfoAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult<NoteInfo?>(null));
@@ -209,7 +168,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_BeginsTransaction_BeforeWriting()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         NoteExists();
 
@@ -221,7 +179,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_CommitsTransaction_AfterWriting()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         NoteExists();
 
@@ -235,7 +192,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_WritesNoteLog_WhenNoteIsDeleted()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
         NoteExists("My Note", isFolder: false);
 
@@ -247,7 +203,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_WritesNoteLog_WhenFolderIsDeleted()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
         NoteExists("My Folder", isFolder: true);
 
@@ -259,9 +214,7 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_DoesNotWriteNoteLog_WhenAccessIsDenied()
     {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.DeleteNote("proj-xyz", "note-1", CancellationToken.None);
 
@@ -275,7 +228,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_WritesActivityLog_WithNoteTitle()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
         NoteExists("Meeting Notes", isFolder: false);
 
@@ -288,7 +240,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_WritesActivityLog_WithFolderTitle()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
         NoteExists("Project Docs", isFolder: true);
 
@@ -301,9 +252,7 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_DoesNotWriteActivityLog_WhenAccessIsDenied()
     {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.DeleteNote("proj-xyz", "note-1", CancellationToken.None);
 
@@ -317,7 +266,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_PublishesNoteDeletedEvent_WithCorrectNoteId()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         NoteExists();
 
@@ -332,7 +280,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_PublishesNoteDeletedEvent_WithCorrectProjectIdAndUserId()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
         NoteExists();
 
@@ -347,7 +294,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_PublishesNoteDeletedEvent_WithCorrectTitleAndIsFolder()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         NoteExists("My Folder", isFolder: true);
 
@@ -362,7 +308,6 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_DoesNotPublishEvent_WhenNoteDoesNotExist()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         _repository.GetNoteInfoAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult<NoteInfo?>(null));
@@ -376,9 +321,7 @@ public class DeleteNoteControllerTests
     [Test]
     public async Task DeleteNote_DoesNotPublishEvent_WhenAccessIsDenied()
     {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.DeleteNote("proj-1", "note-1", CancellationToken.None);
 

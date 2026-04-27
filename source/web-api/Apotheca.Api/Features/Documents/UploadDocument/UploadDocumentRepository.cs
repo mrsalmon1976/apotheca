@@ -5,26 +5,6 @@ namespace Apotheca.Api.Features.Documents.UploadDocument;
 
 public class UploadDocumentRepository
 {
-    public virtual async Task<bool> UserHasProjectAccessAsync(
-        IDbContext db, string firebaseUid, string projectId)
-    {
-        var count = await db.QueryFirstOrDefaultAsync<int>(
-            @"SELECT COUNT(1)
-              FROM user_projects up
-              INNER JOIN user_firebase_identities ufi ON ufi.user_id = up.user_id
-              WHERE ufi.firebase_uid = @FirebaseUid
-                AND up.project_id = @ProjectId",
-            new { FirebaseUid = firebaseUid, ProjectId = projectId });
-        return count > 0;
-    }
-
-    public virtual async Task<string?> GetUserIdAsync(IDbContext db, string firebaseUid)
-    {
-        return await db.QueryFirstOrDefaultAsync<string?>(
-            "SELECT user_id FROM user_firebase_identities WHERE firebase_uid = @FirebaseUid",
-            new { FirebaseUid = firebaseUid });
-    }
-
     public virtual async Task<string> InsertDocumentWithIdAsync(
         IDbContext db, string id, string projectId, string userId, string? parentDocumentId,
         string title, string fileName, string fileExtension, string mimetype,

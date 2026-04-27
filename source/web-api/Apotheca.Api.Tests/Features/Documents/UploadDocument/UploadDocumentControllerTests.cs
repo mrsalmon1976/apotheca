@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Apotheca.Api.Configuration;
 using Apotheca.Api.Features.Documents.UploadDocument;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Google.Apis.Upload;
 using Google.Cloud.Storage.V1;
@@ -19,6 +19,7 @@ public class UploadDocumentControllerTests
     private IAppSettings _appSettings = null!;
     private StorageClient _storageClient = null!;
     private UploadDocumentRepository _repository = null!;
+    private ISecurityProvider _securityProvider = null!;
     private UploadDocumentController _controller = null!;
     private IFormFile _file = null!;
 
@@ -30,6 +31,7 @@ public class UploadDocumentControllerTests
         _appSettings      = Substitute.For<IAppSettings>();
         _storageClient    = Substitute.For<StorageClient>();
         _repository       = Substitute.For<UploadDocumentRepository>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
         _appSettings.StorageBucketName.Returns("test-bucket");
@@ -51,6 +53,7 @@ public class UploadDocumentControllerTests
             _appSettings,
             _storageClient,
             _repository,
+            _securityProvider,
             Substitute.For<ILogger<UploadDocumentController>>());
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
@@ -62,19 +65,18 @@ public class UploadDocumentControllerTests
         _storageClient.Dispose();
     }
 
-    private void SetAuthenticatedUser(string firebaseUid)
-    {
-        var claims   = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
-
     private void AllowProjectAccess(string userId = "user-id-123")
     {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
-        _repository.GetUserIdAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult<string?>(userId));
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success("firebase-uid", userId)));
+    }
+
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
+    {
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
     }
 
     private void SetupInsert(string documentId = "new-doc-id")
@@ -87,12 +89,12 @@ public class UploadDocumentControllerTests
             .Returns(Task.FromResult(documentId));
     }
 
-    // --- Identity ---
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task UploadDocument_Returns401_WhenSubClaimIsMissing()
+    public async Task UploadDocument_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.UploadDocument("proj-1", null, _file, null, CancellationToken.None);
 
@@ -100,9 +102,9 @@ public class UploadDocumentControllerTests
     }
 
     [Test]
-    public async Task UploadDocument_Returns401_WithErrorMessage_WhenSubClaimIsMissing()
+    public async Task UploadDocument_Returns401_WithErrorMessage_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = (UnauthorizedObjectResult)await _controller.UploadDocument("proj-1", null, _file, null, CancellationToken.None);
         var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
@@ -115,8 +117,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_Returns400_WhenFileIsNull()
     {
-        SetAuthenticatedUser("firebase-uid");
-
         var result = await _controller.UploadDocument("proj-1", null, null!, null, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
@@ -125,7 +125,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_Returns400_WhenFileLengthIsZero()
     {
-        SetAuthenticatedUser("firebase-uid");
         _file.Length.Returns(0L);
 
         var result = await _controller.UploadDocument("proj-1", null, _file, null, CancellationToken.None);
@@ -136,8 +135,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_Returns400_WithErrorMessage_WhenFileIsInvalid()
     {
-        SetAuthenticatedUser("firebase-uid");
-
         var result = (BadRequestObjectResult)await _controller.UploadDocument("proj-1", null, null!, null, CancellationToken.None);
         var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
 
@@ -147,39 +144,9 @@ public class UploadDocumentControllerTests
     // --- Access control ---
 
     [Test]
-    public async Task UploadDocument_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task UploadDocument_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        var result = await _controller.UploadDocument("proj-1", null, _file, null, CancellationToken.None);
-
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    [Test]
-    public async Task UploadDocument_ChecksAccessWithCorrectFirebaseUidAndProjectId()
-    {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        await _controller.UploadDocument("proj-xyz", null, _file, null, CancellationToken.None);
-
-        await _repository.Received(1).UserHasProjectAccessAsync(_dbContext, "uid-abc", "proj-xyz");
-    }
-
-    // --- User lookup ---
-
-    [Test]
-    public async Task UploadDocument_Returns401_WhenUserIdCannotBeResolved()
-    {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
-        _repository.GetUserIdAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult<string?>(null));
+        DenyProjectAccess();
 
         var result = await _controller.UploadDocument("proj-1", null, _file, null, CancellationToken.None);
 
@@ -191,7 +158,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_UploadsToCorrectBucket()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         SetupInsert();
 
@@ -205,7 +171,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_UploadsWithObjectNameScopedToProjectAndDocument()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         SetupInsert();
         _file.FileName.Returns("report.pdf");
@@ -222,7 +187,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_UploadsWithCorrectContentType()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         SetupInsert();
         _file.ContentType.Returns("image/png");
@@ -237,9 +201,7 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_DoesNotUploadToStorage_WhenAccessIsDenied()
     {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.UploadDocument("proj-1", null, _file, null, CancellationToken.None);
 
@@ -253,7 +215,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_InsertsWithCorrectProjectIdAndUserId()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
         SetupInsert();
 
@@ -268,7 +229,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_InsertsWithProvidedTitle()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         SetupInsert();
 
@@ -283,7 +243,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_UseFilenameWithoutExtension_WhenTitleIsNull()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         SetupInsert();
         _file.FileName.Returns("quarterly-report.pdf");
@@ -299,7 +258,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_UseFilenameWithoutExtension_WhenTitleIsWhitespace()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         SetupInsert();
         _file.FileName.Returns("quarterly-report.pdf");
@@ -315,7 +273,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_ForwardsParentId_ToRepository()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         SetupInsert();
 
@@ -330,7 +287,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_PassesNullParentId_WhenNotProvided()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         SetupInsert();
 
@@ -347,7 +303,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_WritesDocumentLog_WhenUploadSucceeds()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
         SetupInsert("new-doc-id");
 
@@ -359,9 +314,7 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_DoesNotWriteDocumentLog_WhenAccessIsDenied()
     {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.UploadDocument("proj-xyz", null, _file, null, CancellationToken.None);
 
@@ -374,7 +327,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_WritesProjectActivityLog_WhenUploadSucceeds()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess("user-id-xyz");
         SetupInsert("new-doc-id");
 
@@ -387,9 +339,7 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_DoesNotWriteActivityLog_WhenAccessIsDenied()
     {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.UploadDocument("proj-xyz", null, _file, null, CancellationToken.None);
 
@@ -402,7 +352,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_Returns201_WhenUploadSucceeds()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         SetupInsert();
 
@@ -414,7 +363,6 @@ public class UploadDocumentControllerTests
     [Test]
     public async Task UploadDocument_ReturnsDocumentId_WhenUploadSucceeds()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         SetupInsert("uploaded-doc-id");
 

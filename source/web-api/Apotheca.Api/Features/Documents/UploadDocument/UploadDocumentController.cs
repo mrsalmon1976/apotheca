@@ -1,4 +1,5 @@
 using Apotheca.Api.Configuration;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Google.Cloud.Storage.V1;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ public class UploadDocumentController(
     IAppSettings appSettings,
     StorageClient storageClient,
     UploadDocumentRepository repo,
+    ISecurityProvider securityProvider,
     ILogger<UploadDocumentController> logger) : AuthenticatedBaseController
 {
     [HttpPost("upload")]
@@ -22,31 +24,19 @@ public class UploadDocumentController(
         [FromForm] string? title,
         CancellationToken cancellationToken)
     {
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         if (file is null || file.Length == 0)
             return BadRequest(new { error = "No file provided." });
 
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
-
-        var userId = await repo.GetUserIdAsync(db, firebaseUid);
-        if (userId is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
         var fileName      = Path.GetFileName(file.FileName);
         var fileExtension = Path.GetExtension(fileName);
         var resolvedTitle = !string.IsNullOrWhiteSpace(title) ? title.Trim() : Path.GetFileNameWithoutExtension(fileName);
 
-        // Generate a provisional ID so the object name is known before the DB insert.
-        // The repository will use its own Nanoid call, so we pass the object name prefix
-        // and let the repo return the final ID.
-        // Simpler: upload after DB insert using the returned ID.
         var documentId = NanoidDotNet.Nanoid.Generate();
         var objectName = $"{projectId}/{documentId}/{fileName}";
 
@@ -58,15 +48,15 @@ public class UploadDocumentController(
             stream,
             cancellationToken: cancellationToken);
 
-        var insertedId = await repo.InsertDocumentWithIdAsync(db, documentId, projectId, userId, parentId,
+        var insertedId = await repo.InsertDocumentWithIdAsync(db, documentId, projectId, securityResult.UserId, parentId,
             resolvedTitle, fileName, fileExtension, file.ContentType, file.Length, objectName);
 
-        await repo.InsertDocumentLogAsync(db, insertedId, userId, projectId);
-        await repo.InsertProjectActivityLogAsync(db, projectId, insertedId, userId, "Document uploaded");
+        await repo.InsertDocumentLogAsync(db, insertedId, securityResult.UserId, projectId);
+        await repo.InsertProjectActivityLogAsync(db, projectId, insertedId, securityResult.UserId, "Document uploaded");
 
         logger.LogInformation(
             "Document uploaded. DocumentId: {DocumentId}, ProjectId: {ProjectId}, UserId: {UserId}, ObjectName: {ObjectName}",
-            insertedId, projectId, userId, objectName);
+            insertedId, projectId, securityResult.UserId, objectName);
 
         return CreatedAtAction(nameof(UploadDocument), new { projectId }, new { id = insertedId });
     }

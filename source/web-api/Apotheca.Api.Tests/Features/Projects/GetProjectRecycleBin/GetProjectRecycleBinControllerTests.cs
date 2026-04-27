@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Apotheca.Api.Features.Projects.GetProjectRecycleBin;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +13,7 @@ public class GetProjectRecycleBinControllerTests
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
     private GetProjectRecycleBinRepository _repository = null!;
+    private ISecurityProvider _securityProvider = null!;
     private GetProjectRecycleBinController _controller = null!;
 
     [SetUp]
@@ -21,40 +22,39 @@ public class GetProjectRecycleBinControllerTests
         _dbContextFactory = Substitute.For<IDbContextFactory>();
         _dbContext        = Substitute.For<IDbContext>();
         _repository       = Substitute.For<GetProjectRecycleBinRepository>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
         _repository.GetDeletedNotesAsync(_dbContext, Arg.Any<string>())
             .Returns(Task.FromResult(Enumerable.Empty<GetProjectRecycleBinResponse>()));
 
-        _controller = new GetProjectRecycleBinController(_dbContextFactory, _repository);
+        _controller = new GetProjectRecycleBinController(_dbContextFactory, _repository, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     [TearDown]
-    public void TearDown()
-    {
-        _dbContext.Dispose();
-    }
-
-    private void SetAuthenticatedUser(string firebaseUid)
-    {
-        var claims   = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
+    public void TearDown() => _dbContext.Dispose();
 
     private void AllowProjectAccess()
     {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success("firebase-uid", "user-id-123")));
     }
 
-    // --- Identity ---
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
+    {
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
+    }
+
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task GetProjectRecycleBin_Returns401_WhenSubClaimIsMissing()
+    public async Task GetProjectRecycleBin_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.GetProjectRecycleBin("proj-1", CancellationToken.None);
 
@@ -62,9 +62,9 @@ public class GetProjectRecycleBinControllerTests
     }
 
     [Test]
-    public async Task GetProjectRecycleBin_Returns401_WithErrorMessage_WhenSubClaimIsMissing()
+    public async Task GetProjectRecycleBin_Returns401_WithErrorMessage_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = (UnauthorizedObjectResult)await _controller.GetProjectRecycleBin("proj-1", CancellationToken.None);
         var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
@@ -72,30 +72,14 @@ public class GetProjectRecycleBinControllerTests
         Assert.That(error, Is.EqualTo("User identity could not be determined."));
     }
 
-    // --- Access control ---
-
     [Test]
-    public async Task GetProjectRecycleBin_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task GetProjectRecycleBin_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         var result = await _controller.GetProjectRecycleBin("proj-1", CancellationToken.None);
 
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    [Test]
-    public async Task GetProjectRecycleBin_ChecksAccessWithCorrectFirebaseUidAndProjectId()
-    {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        await _controller.GetProjectRecycleBin("proj-xyz", CancellationToken.None);
-
-        await _repository.Received(1).UserHasProjectAccessAsync(_dbContext, "uid-abc", "proj-xyz");
+        Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
 
     // --- Result shape ---
@@ -103,7 +87,6 @@ public class GetProjectRecycleBinControllerTests
     [Test]
     public async Task GetProjectRecycleBin_ReturnsOk_WhenUserHasAccess()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var result = await _controller.GetProjectRecycleBin("proj-1", CancellationToken.None);
@@ -114,7 +97,6 @@ public class GetProjectRecycleBinControllerTests
     [Test]
     public async Task GetProjectRecycleBin_ReturnsEmptyList_WhenNoDeletedNotesExist()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var result  = (OkObjectResult)await _controller.GetProjectRecycleBin("proj-1", CancellationToken.None);
@@ -126,7 +108,6 @@ public class GetProjectRecycleBinControllerTests
     [Test]
     public async Task GetProjectRecycleBin_QueriesWithCorrectProjectId()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         await _controller.GetProjectRecycleBin("proj-xyz", CancellationToken.None);
@@ -137,7 +118,6 @@ public class GetProjectRecycleBinControllerTests
     [Test]
     public async Task GetProjectRecycleBin_ReturnsDeletedNotes()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var now = DateTimeOffset.UtcNow;

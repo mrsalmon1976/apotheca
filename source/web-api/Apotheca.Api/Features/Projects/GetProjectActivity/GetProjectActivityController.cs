@@ -1,3 +1,4 @@
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,22 +7,19 @@ namespace Apotheca.Api.Features.Projects.GetProjectActivity;
 [Route("projects/{projectId}/activity")]
 public class GetProjectActivityController(
     IDbContextFactory dbContextFactory,
-    GetProjectActivityRepository repo) : AuthenticatedBaseController
+    GetProjectActivityRepository repo,
+    ISecurityProvider securityProvider) : AuthenticatedBaseController
 {
     [HttpGet]
     public async Task<IActionResult> GetProjectActivity(
         string projectId,
         CancellationToken cancellationToken)
     {
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
         var entries = await repo.GetProjectActivityAsync(db, projectId);
         return Ok(entries.ToResponse());

@@ -5,19 +5,6 @@ namespace Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 
 public class GetProjectTasksRepository
 {
-    public virtual async Task<bool> UserHasProjectAccessAsync(
-        IDbContext db, string firebaseUid, string projectId)
-    {
-        var count = await db.QueryFirstOrDefaultAsync<int>(
-            @"SELECT COUNT(1)
-              FROM user_projects up
-              INNER JOIN user_firebase_identities ufi ON ufi.user_id = up.user_id
-              WHERE ufi.firebase_uid = @FirebaseUid
-                AND up.project_id = @ProjectId",
-            new { FirebaseUid = firebaseUid, ProjectId = projectId });
-        return count > 0;
-    }
-
     private const string BaseQuery =
         @"SELECT t.id              AS Id,
                  t.project_id     AS ProjectId,

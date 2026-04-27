@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Apotheca.Api.Features.Labels.SearchLabels;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,40 +13,40 @@ public class SearchLabelsControllerTests
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
     private SearchLabelsRepository _repository = null!;
+    private ISecurityProvider _securityProvider = null!;
     private SearchLabelsController _controller = null!;
 
     [SetUp]
     public void SetUp()
     {
         _dbContextFactory = Substitute.For<IDbContextFactory>();
-        _dbContext = Substitute.For<IDbContext>();
-        _repository = Substitute.For<SearchLabelsRepository>();
+        _dbContext        = Substitute.For<IDbContext>();
+        _repository       = Substitute.For<SearchLabelsRepository>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
-        _controller = new SearchLabelsController(_dbContextFactory, _repository);
+        _controller = new SearchLabelsController(_dbContextFactory, _repository, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     [TearDown]
-    public void TearDown()
-    {
-        _dbContext.Dispose();
-    }
-
-    private void SetAuthenticatedUser(string firebaseUid)
-    {
-        var claims = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
+    public void TearDown() => _dbContext.Dispose();
 
     private void AllowProjectAccess()
     {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success("firebase-uid", "user-id-123")));
         _repository.SearchAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(Enumerable.Empty<SearchLabelsResponse>()));
+    }
+
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
+    {
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
     }
 
     // --- Empty query short-circuit ---
@@ -67,7 +67,7 @@ public class SearchLabelsControllerTests
     public async Task SearchLabels_ReturnsEmptyList_WhenQueryIsNullOrWhitespace(string? q)
     {
         var result = (OkObjectResult)await _controller.SearchLabels("proj-1", q, CancellationToken.None);
-        var items = result.Value as IEnumerable<SearchLabelsResponse>;
+        var items  = result.Value as IEnumerable<SearchLabelsResponse>;
 
         Assert.That(items, Is.Empty);
     }
@@ -82,12 +82,12 @@ public class SearchLabelsControllerTests
         await _dbContextFactory.DidNotReceive().CreateAsync(Arg.Any<CancellationToken>());
     }
 
-    // --- Identity ---
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task SearchLabels_Returns401_WhenSubClaimIsMissing()
+    public async Task SearchLabels_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.SearchLabels("proj-1", "plan", CancellationToken.None);
 
@@ -95,48 +95,30 @@ public class SearchLabelsControllerTests
     }
 
     [Test]
-    public async Task SearchLabels_Returns401_WithErrorMessage_WhenSubClaimIsMissing()
+    public async Task SearchLabels_Returns401_WithErrorMessage_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = (UnauthorizedObjectResult)await _controller.SearchLabels("proj-1", "plan", CancellationToken.None);
-        var error = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
+        var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
 
         Assert.That(error, Is.EqualTo("User identity could not be determined."));
     }
 
-    // --- Access control ---
-
     [Test]
-    public async Task SearchLabels_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task SearchLabels_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         var result = await _controller.SearchLabels("proj-1", "plan", CancellationToken.None);
 
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    [Test]
-    public async Task SearchLabels_ChecksAccessWithCorrectFirebaseUidAndProjectId()
-    {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        await _controller.SearchLabels("proj-xyz", "plan", CancellationToken.None);
-
-        await _repository.Received(1).UserHasProjectAccessAsync(_dbContext, "uid-abc", "proj-xyz");
+        Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
 
     [Test]
     public async Task SearchLabels_DoesNotSearch_WhenAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.SearchLabels("proj-1", "plan", CancellationToken.None);
 
@@ -148,7 +130,6 @@ public class SearchLabelsControllerTests
     [Test]
     public async Task SearchLabels_PassesProjectIdAndTrimmedQuery_ToRepository()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         await _controller.SearchLabels("proj-xyz", "  plan  ", CancellationToken.None);
@@ -159,7 +140,6 @@ public class SearchLabelsControllerTests
     [Test]
     public async Task SearchLabels_TrimsQuery_BeforePassingToRepository()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         await _controller.SearchLabels("proj-1", "  frontend  ", CancellationToken.None);
@@ -172,7 +152,6 @@ public class SearchLabelsControllerTests
     [Test]
     public async Task SearchLabels_ReturnsOk_WhenQueryIsProvided()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var result = await _controller.SearchLabels("proj-1", "plan", CancellationToken.None);
@@ -183,11 +162,10 @@ public class SearchLabelsControllerTests
     [Test]
     public async Task SearchLabels_ReturnsEmptyList_WhenNoLabelsMatch()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var result = (OkObjectResult)await _controller.SearchLabels("proj-1", "plan", CancellationToken.None);
-        var items = result.Value as IEnumerable<SearchLabelsResponse>;
+        var items  = result.Value as IEnumerable<SearchLabelsResponse>;
 
         Assert.That(items, Is.Empty);
     }
@@ -195,9 +173,7 @@ public class SearchLabelsControllerTests
     [Test]
     public async Task SearchLabels_ReturnsMappedLabels()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
+        AllowProjectAccess();
 
         var repoResults = new[]
         {
@@ -208,12 +184,12 @@ public class SearchLabelsControllerTests
             .Returns(Task.FromResult<IEnumerable<SearchLabelsResponse>>(repoResults));
 
         var result = (OkObjectResult)await _controller.SearchLabels("proj-1", "pla", CancellationToken.None);
-        var items = (result.Value as IEnumerable<SearchLabelsResponse>)!.ToList();
+        var items  = (result.Value as IEnumerable<SearchLabelsResponse>)!.ToList();
 
         Assert.That(items, Has.Count.EqualTo(2));
-        Assert.That(items[0].Id, Is.EqualTo("lbl-1"));
+        Assert.That(items[0].Id,        Is.EqualTo("lbl-1"));
         Assert.That(items[0].LabelText, Is.EqualTo("planning"));
-        Assert.That(items[1].Id, Is.EqualTo("lbl-2"));
+        Assert.That(items[1].Id,        Is.EqualTo("lbl-2"));
         Assert.That(items[1].LabelText, Is.EqualTo("platform"));
     }
 }

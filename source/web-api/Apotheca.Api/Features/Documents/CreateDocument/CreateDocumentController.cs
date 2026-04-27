@@ -1,3 +1,4 @@
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +8,7 @@ namespace Apotheca.Api.Features.Documents.CreateDocument;
 public class CreateDocumentController(
     IDbContextFactory dbContextFactory,
     CreateDocumentRepository repo,
+    ISecurityProvider securityProvider,
     ILogger<CreateDocumentController> logger) : AuthenticatedBaseController
 {
     [HttpPost]
@@ -15,25 +17,17 @@ public class CreateDocumentController(
         [FromBody] CreateDocumentRequest request,
         CancellationToken cancellationToken)
     {
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
-        var userId = await repo.GetUserIdAsync(db, firebaseUid);
-        if (userId is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
+        var id = await repo.InsertDocumentAsync(db, projectId, securityResult.UserId, request.ParentDocumentId);
+        await repo.InsertDocumentLogAsync(db, id, securityResult.UserId, projectId);
+        await repo.InsertProjectActivityLogAsync(db, projectId, id, securityResult.UserId, "Document added");
 
-        var id = await repo.InsertDocumentAsync(db, projectId, userId, request.ParentDocumentId);
-        await repo.InsertDocumentLogAsync(db, id, userId, projectId);
-        await repo.InsertProjectActivityLogAsync(db, projectId, id, userId, "Document added");
-
-        logger.LogInformation("Document created. DocumentId: {DocumentId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, userId);
+        logger.LogInformation("Document created. DocumentId: {DocumentId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, securityResult.UserId);
 
         return CreatedAtAction(nameof(CreateDocument), new { projectId }, new { id });
     }

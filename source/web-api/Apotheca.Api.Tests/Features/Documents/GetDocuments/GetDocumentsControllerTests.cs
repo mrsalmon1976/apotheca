@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Apotheca.Api.Features.Documents.GetDocuments;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +13,7 @@ public class GetDocumentsControllerTests
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
     private GetDocumentsRepository _repository = null!;
+    private ISecurityProvider _securityProvider = null!;
     private GetDocumentsController _controller = null!;
 
     [SetUp]
@@ -21,68 +22,54 @@ public class GetDocumentsControllerTests
         _dbContextFactory = Substitute.For<IDbContextFactory>();
         _dbContext        = Substitute.For<IDbContext>();
         _repository       = Substitute.For<GetDocumentsRepository>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
         _repository.GetDocumentsAsync(_dbContext, Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult<IEnumerable<GetDocumentsResponse>>([]));
 
-        _controller = new GetDocumentsController(_dbContextFactory, _repository);
+        _controller = new GetDocumentsController(_dbContextFactory, _repository, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     [TearDown]
     public void TearDown() => _dbContext.Dispose();
 
-    private void SetAuthenticatedUser(string firebaseUid)
-    {
-        var claims   = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
-
     private void AllowProjectAccess()
     {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success("firebase-uid", "user-id-123")));
     }
 
-    // --- Identity ---
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
+    {
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
+    }
+
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task GetDocuments_Returns401_WhenSubClaimIsMissing()
+    public async Task GetDocuments_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.GetDocuments("proj-1", null, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
 
-    // --- Access control ---
-
     [Test]
-    public async Task GetDocuments_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task GetDocuments_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         var result = await _controller.GetDocuments("proj-1", null, CancellationToken.None);
 
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    [Test]
-    public async Task GetDocuments_ChecksAccessWithCorrectFirebaseUidAndProjectId()
-    {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        await _controller.GetDocuments("proj-xyz", null, CancellationToken.None);
-
-        await _repository.Received(1).UserHasProjectAccessAsync(_dbContext, "uid-abc", "proj-xyz");
+        Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
 
     // --- Success ---
@@ -90,7 +77,6 @@ public class GetDocumentsControllerTests
     [Test]
     public async Task GetDocuments_ReturnsOk_WhenAccessIsAllowed()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var result = await _controller.GetDocuments("proj-1", null, CancellationToken.None);
@@ -101,7 +87,6 @@ public class GetDocumentsControllerTests
     [Test]
     public async Task GetDocuments_QueriesWithCorrectProjectIdAndNullParent()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         await _controller.GetDocuments("proj-xyz", null, CancellationToken.None);
@@ -112,7 +97,6 @@ public class GetDocumentsControllerTests
     [Test]
     public async Task GetDocuments_QueriesWithCorrectProjectIdAndParentId()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         await _controller.GetDocuments("proj-xyz", "folder-abc", CancellationToken.None);
@@ -123,7 +107,6 @@ public class GetDocumentsControllerTests
     [Test]
     public async Task GetDocuments_ReturnsDocumentList()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var documents = new List<GetDocumentsResponse>

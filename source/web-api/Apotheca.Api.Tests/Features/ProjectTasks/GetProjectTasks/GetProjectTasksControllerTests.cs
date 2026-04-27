@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Apotheca.Data.DbEntities;
 using Microsoft.AspNetCore.Http;
@@ -14,48 +14,48 @@ public class GetProjectTasksControllerTests
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
     private GetProjectTasksRepository _repository = null!;
+    private ISecurityProvider _securityProvider = null!;
     private GetProjectTasksController _controller = null!;
 
     [SetUp]
     public void SetUp()
     {
         _dbContextFactory = Substitute.For<IDbContextFactory>();
-        _dbContext = Substitute.For<IDbContext>();
-        _repository = Substitute.For<GetProjectTasksRepository>();
+        _dbContext        = Substitute.For<IDbContext>();
+        _repository       = Substitute.For<GetProjectTasksRepository>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
-        _controller = new GetProjectTasksController(_dbContextFactory, _repository);
+        _controller = new GetProjectTasksController(_dbContextFactory, _repository, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     [TearDown]
-    public void TearDown()
-    {
-        _dbContext.Dispose();
-    }
-
-    private void SetAuthenticatedUser(string firebaseUid)
-    {
-        var claims = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
+    public void TearDown() => _dbContext.Dispose();
 
     private static IEnumerable<TaskDbEntity> EmptyTasks() => Enumerable.Empty<TaskDbEntity>();
 
-    private void AllowProjectAccess()
+    private void AllowProjectAccess(string firebaseUid = "firebase-uid")
     {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success(firebaseUid, "user-id-123")));
     }
 
-    // --- Identity ---
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
+    {
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
+    }
+
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task GetProjectTasks_Returns401_WhenSubClaimIsMissing()
+    public async Task GetProjectTasks_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
 
@@ -63,48 +63,30 @@ public class GetProjectTasksControllerTests
     }
 
     [Test]
-    public async Task GetProjectTasks_Returns401_WithErrorMessage_WhenSubClaimIsMissing()
+    public async Task GetProjectTasks_Returns401_WithErrorMessage_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = (UnauthorizedObjectResult)await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
-        var error = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
+        var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
 
         Assert.That(error, Is.EqualTo("User identity could not be determined."));
     }
 
-    // --- Access control ---
-
     [Test]
-    public async Task GetProjectTasks_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task GetProjectTasks_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         var result = await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
 
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    [Test]
-    public async Task GetProjectTasks_ChecksAccessWithCorrectFirebaseUidAndProjectId()
-    {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        await _controller.GetProjectTasks("proj-xyz", null, CancellationToken.None);
-
-        await _repository.Received(1).UserHasProjectAccessAsync(_dbContext, "uid-abc", "proj-xyz");
+        Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
 
     [Test]
     public async Task GetProjectTasks_DoesNotQueryTasks_WhenAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
 
@@ -118,7 +100,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_ReturnsOk()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
@@ -131,13 +112,12 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_ReturnsEmptyList_WhenNoTasksExist()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
 
         var result = (OkObjectResult)await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
-        var tasks = result.Value as IEnumerable<GetProjectTasksResponse>;
+        var tasks  = result.Value as IEnumerable<GetProjectTasksResponse>;
 
         Assert.That(tasks, Is.Empty);
     }
@@ -147,7 +127,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_CallsGetAllOpenTasks_WhenFilterIsNull()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
@@ -160,7 +139,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_CallsGetAllOpenTasks_WhenFilterIsUnrecognised()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
@@ -173,7 +151,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_CallsGetTasksDueToday_WhenFilterIsToday()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetTasksDueTodayAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
@@ -186,7 +163,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_CallsGetTasksDueToday_WhenFilterIsTodayUpperCase()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetTasksDueTodayAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
@@ -199,7 +175,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_CallsGetTasksDueUpcoming_WhenFilterIsUpcoming()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetTasksDueUpcomingAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
@@ -212,7 +187,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_CallsGetTasksDueUpcoming_WhenFilterIsUpcomingUpperCase()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetTasksDueUpcomingAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
@@ -227,8 +201,7 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_PassesFirebaseUidToRepository()
     {
-        SetAuthenticatedUser("uid-abc");
-        AllowProjectAccess();
+        AllowProjectAccess("uid-abc");
         _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
 
@@ -240,7 +213,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_PassesProjectIdToRepository()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
             .Returns(Task.FromResult(EmptyTasks()));
@@ -255,7 +227,6 @@ public class GetProjectTasksControllerTests
     [Test]
     public async Task GetProjectTasks_ReturnsMappedTasks()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var dbResults = new[]
@@ -267,7 +238,7 @@ public class GetProjectTasksControllerTests
             .Returns(Task.FromResult<IEnumerable<TaskDbEntity>>(dbResults));
 
         var result = (OkObjectResult)await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
-        var tasks = (result.Value as IEnumerable<GetProjectTasksResponse>)!.ToList();
+        var tasks  = (result.Value as IEnumerable<GetProjectTasksResponse>)!.ToList();
 
         Assert.That(tasks, Has.Count.EqualTo(2));
         Assert.That(tasks[0].Id, Is.EqualTo("t1"));

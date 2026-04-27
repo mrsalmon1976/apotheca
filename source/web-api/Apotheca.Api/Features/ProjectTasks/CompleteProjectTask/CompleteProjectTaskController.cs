@@ -1,3 +1,4 @@
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,7 +7,8 @@ namespace Apotheca.Api.Features.ProjectTasks.CompleteProjectTask;
 [Route("projects/{projectId}/tasks/{taskId}/complete")]
 public class CompleteProjectTaskController(
     IDbContextFactory dbContextFactory,
-    CompleteProjectTaskRepository repo) : AuthenticatedBaseController
+    CompleteProjectTaskRepository repo,
+    ISecurityProvider securityProvider) : AuthenticatedBaseController
 {
     [HttpPatch]
     public async Task<IActionResult> CompleteProjectTask(
@@ -14,15 +16,11 @@ public class CompleteProjectTaskController(
         string taskId,
         CancellationToken cancellationToken)
     {
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
         var found = await repo.CompleteTaskAsync(db, taskId, projectId);
         if (!found)

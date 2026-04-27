@@ -1,3 +1,4 @@
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +8,8 @@ namespace Apotheca.Api.Features.Notes.SaveNote;
 public class SaveNoteController(
     IDbContextFactory dbContextFactory,
     SaveNoteRepository repo,
-    SaveNoteValidator validator) : AuthenticatedBaseController
+    SaveNoteValidator validator,
+    ISecurityProvider securityProvider) : AuthenticatedBaseController
 {
     [HttpPatch]
     public async Task<IActionResult> SaveNote(
@@ -20,19 +22,11 @@ public class SaveNoteController(
         if (validationErrors.Count > 0)
             return BadRequest(new { errors = validationErrors });
 
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
-
-        var userId = await repo.GetUserIdAsync(db, firebaseUid);
-        if (userId is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
         var noteExists = await repo.NoteExistsAsync(db, projectId, noteId);
         if (!noteExists)
@@ -52,7 +46,7 @@ public class SaveNoteController(
                 .Distinct(StringComparer.OrdinalIgnoreCase);
             foreach (var labelText in labelTexts)
             {
-                var labelId = await repo.UpsertLabelAsync(db, projectId, userId, labelText);
+                var labelId = await repo.UpsertLabelAsync(db, projectId, securityResult.UserId, labelText);
                 await repo.InsertNoteLabelAsync(db, noteId, labelId);
             }
         }

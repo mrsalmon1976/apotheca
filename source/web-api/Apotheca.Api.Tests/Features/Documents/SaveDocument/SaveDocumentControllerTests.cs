@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Apotheca.Api.Features.Documents.SaveDocument;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +14,7 @@ public class SaveDocumentControllerTests
     private IDbContext _dbContext = null!;
     private SaveDocumentRepository _repository = null!;
     private SaveDocumentValidator _validator = null!;
+    private ISecurityProvider _securityProvider = null!;
     private SaveDocumentController _controller = null!;
 
     [SetUp]
@@ -23,30 +24,30 @@ public class SaveDocumentControllerTests
         _dbContext        = Substitute.For<IDbContext>();
         _repository       = Substitute.For<SaveDocumentRepository>();
         _validator        = Substitute.For<SaveDocumentValidator>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
         _validator.Validate(Arg.Any<SaveDocumentRequest>()).Returns([]);
 
-        _controller = new SaveDocumentController(_dbContextFactory, _repository, _validator);
+        _controller = new SaveDocumentController(_dbContextFactory, _repository, _validator, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     [TearDown]
     public void TearDown() => _dbContext.Dispose();
 
-    private void SetAuthenticatedUser(string firebaseUid)
-    {
-        var claims   = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
-
     private void AllowProjectAccess(string userId = "user-id-123")
     {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
-        _repository.GetUserIdAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult<string?>(userId));
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success("firebase-uid", userId)));
+    }
+
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
+    {
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
     }
 
     private void DocumentExists(bool exists = true)
@@ -77,42 +78,22 @@ public class SaveDocumentControllerTests
         await _dbContextFactory.DidNotReceive().CreateAsync(Arg.Any<CancellationToken>());
     }
 
-    // --- Identity ---
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task SaveDocument_Returns401_WhenSubClaimIsMissing()
+    public async Task SaveDocument_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.SaveDocument("proj-1", "doc-1", new SaveDocumentRequest { Title = "Title" }, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
 
-    // --- Access control ---
-
     [Test]
-    public async Task SaveDocument_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task SaveDocument_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        var result = await _controller.SaveDocument("proj-1", "doc-1", new SaveDocumentRequest { Title = "Title" }, CancellationToken.None);
-
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    // --- User lookup ---
-
-    [Test]
-    public async Task SaveDocument_Returns401_WhenUserIdCannotBeResolved()
-    {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
-        _repository.GetUserIdAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult<string?>(null));
+        DenyProjectAccess();
 
         var result = await _controller.SaveDocument("proj-1", "doc-1", new SaveDocumentRequest { Title = "Title" }, CancellationToken.None);
 
@@ -124,7 +105,6 @@ public class SaveDocumentControllerTests
     [Test]
     public async Task SaveDocument_Returns404_WhenDocumentDoesNotExist()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         DocumentExists(false);
 
@@ -138,7 +118,6 @@ public class SaveDocumentControllerTests
     [Test]
     public async Task SaveDocument_Returns200_WhenDocumentIsUpdated()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         DocumentExists();
 
@@ -152,7 +131,6 @@ public class SaveDocumentControllerTests
     [Test]
     public async Task SaveDocument_CallsUpdateTitle_WhenTitleIsProvided()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         DocumentExists();
 
@@ -164,7 +142,6 @@ public class SaveDocumentControllerTests
     [Test]
     public async Task SaveDocument_TrimsTitle_BeforeCallingRepository()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         DocumentExists();
 
@@ -176,7 +153,6 @@ public class SaveDocumentControllerTests
     [Test]
     public async Task SaveDocument_DoesNotCallUpdateTitle_WhenOnlyLabelsAreProvided()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         DocumentExists();
 
@@ -190,7 +166,6 @@ public class SaveDocumentControllerTests
     [Test]
     public async Task SaveDocument_DeletesAndResyncsLabels_WhenLabelsAreProvided()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         DocumentExists();
         _repository.UpsertLabelAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
@@ -206,7 +181,6 @@ public class SaveDocumentControllerTests
     [Test]
     public async Task SaveDocument_DoesNotSyncLabels_WhenLabelsAreNull()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         DocumentExists();
 
@@ -218,7 +192,6 @@ public class SaveDocumentControllerTests
     [Test]
     public async Task SaveDocument_ClearsAllLabels_WhenEmptyLabelsListIsProvided()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         DocumentExists();
 

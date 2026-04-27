@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Apotheca.Api.Features.Projects.SaveProject;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -14,45 +14,45 @@ public class SaveProjectControllerTests
     private IDbContext _dbContext = null!;
     private SaveProjectRepository _repository = null!;
     private SaveProjectValidator _validator = null!;
+    private ISecurityProvider _securityProvider = null!;
     private SaveProjectController _controller = null!;
 
     [SetUp]
     public void SetUp()
     {
         _dbContextFactory = Substitute.For<IDbContextFactory>();
-        _dbContext = Substitute.For<IDbContext>();
-        _repository = Substitute.For<SaveProjectRepository>();
-        _validator = Substitute.For<SaveProjectValidator>();
+        _dbContext        = Substitute.For<IDbContext>();
+        _repository       = Substitute.For<SaveProjectRepository>();
+        _validator        = Substitute.For<SaveProjectValidator>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
         _validator.Validate(Arg.Any<SaveProjectRequest>()).Returns([]);
 
-        _controller = new SaveProjectController(_dbContextFactory, _repository, _validator);
+        _controller = new SaveProjectController(_dbContextFactory, _repository, _validator, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     [TearDown]
-    public void TearDown()
-    {
-        _dbContext.Dispose();
-    }
-
-    private void SetAuthenticatedUser(string firebaseUid)
-    {
-        var claims = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
+    public void TearDown() => _dbContext.Dispose();
 
     private void AllowProjectAccess()
     {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success("firebase-uid", "user-id-123")));
+    }
+
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
+    {
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
     }
 
     private static SaveProjectRequest ValidRequest() => new()
     {
-        Name = "My Project",
+        Name    = "My Project",
         Summary = "A brief description.",
     };
 
@@ -89,12 +89,12 @@ public class SaveProjectControllerTests
         await _dbContextFactory.DidNotReceive().CreateAsync(Arg.Any<CancellationToken>());
     }
 
-    // --- Identity ---
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task SaveProject_Returns401_WhenSubClaimIsMissing()
+    public async Task SaveProject_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.SaveProject("proj-1", ValidRequest(), CancellationToken.None);
 
@@ -102,40 +102,24 @@ public class SaveProjectControllerTests
     }
 
     [Test]
-    public async Task SaveProject_Returns401_WithErrorMessage_WhenSubClaimIsMissing()
+    public async Task SaveProject_Returns401_WithErrorMessage_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = (UnauthorizedObjectResult)await _controller.SaveProject("proj-1", ValidRequest(), CancellationToken.None);
-        var error = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
+        var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
 
         Assert.That(error, Is.EqualTo("User identity could not be determined."));
     }
 
-    // --- Access control ---
-
     [Test]
-    public async Task SaveProject_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task SaveProject_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         var result = await _controller.SaveProject("proj-1", ValidRequest(), CancellationToken.None);
 
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    [Test]
-    public async Task SaveProject_ChecksAccessWithCorrectFirebaseUidAndProjectId()
-    {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        await _controller.SaveProject("proj-xyz", ValidRequest(), CancellationToken.None);
-
-        await _repository.Received(1).UserHasProjectAccessAsync(_dbContext, "uid-abc", "proj-xyz");
+        Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
 
     // --- Success ---
@@ -143,7 +127,6 @@ public class SaveProjectControllerTests
     [Test]
     public async Task SaveProject_Returns200_WhenProjectIsSaved()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.SaveProjectAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult(true));
@@ -156,7 +139,6 @@ public class SaveProjectControllerTests
     [Test]
     public async Task SaveProject_TrimsNameAndSummary_BeforeCallingRepository()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         _repository.SaveProjectAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult(true));
@@ -170,7 +152,6 @@ public class SaveProjectControllerTests
     [Test]
     public async Task SaveProject_PassesNullSummary_WhenSummaryIsNull()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         _repository.SaveProjectAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult(true));
@@ -186,7 +167,6 @@ public class SaveProjectControllerTests
     [Test]
     public async Task SaveProject_Returns404_WhenProjectIsNotFound()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.SaveProjectAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult(false));
@@ -199,13 +179,12 @@ public class SaveProjectControllerTests
     [Test]
     public async Task SaveProject_Returns404_WithErrorMessage_ContainingProjectId()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
         _repository.SaveProjectAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
             .Returns(Task.FromResult(false));
 
         var result = (NotFoundObjectResult)await _controller.SaveProject("not-found-id", ValidRequest(), CancellationToken.None);
-        var error = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
+        var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
 
         Assert.That(error, Does.Contain("not-found-id"));
     }

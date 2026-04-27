@@ -1,3 +1,4 @@
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +8,8 @@ namespace Apotheca.Api.Features.ProjectTasks.SaveProjectTask;
 public class SaveProjectTaskController(
     IDbContextFactory dbContextFactory,
     SaveProjectTaskRepository repo,
-    SaveProjectTaskValidator validator) : AuthenticatedBaseController
+    SaveProjectTaskValidator validator,
+    ISecurityProvider securityProvider) : AuthenticatedBaseController
 {
     [HttpPost]
     public async Task<IActionResult> SaveProjectTask(
@@ -19,25 +21,17 @@ public class SaveProjectTaskController(
         if (validationErrors.Count > 0)
             return BadRequest(new { errors = validationErrors });
 
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
         var isNew = string.IsNullOrEmpty(request.Id);
 
         if (isNew)
         {
-            var userId = await repo.GetUserIdAsync(db, firebaseUid);
-            if (userId is null)
-                return Unauthorized(new { error = "User identity could not be determined." });
-
-            var newId = await repo.InsertTaskAsync(db, projectId, userId, request);
+            var newId = await repo.InsertTaskAsync(db, projectId, securityResult.UserId, request);
             return CreatedAtAction(nameof(SaveProjectTask), new { projectId }, new { id = newId });
         }
         else

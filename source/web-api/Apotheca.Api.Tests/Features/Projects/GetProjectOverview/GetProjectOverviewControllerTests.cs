@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Apotheca.Api.Features.Projects.GetProjectOverview;
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +13,7 @@ public class GetProjectOverviewControllerTests
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
     private GetProjectOverviewRepository _repository = null!;
+    private ISecurityProvider _securityProvider = null!;
     private GetProjectOverviewController _controller = null!;
 
     [SetUp]
@@ -21,41 +22,40 @@ public class GetProjectOverviewControllerTests
         _dbContextFactory = Substitute.For<IDbContextFactory>();
         _dbContext        = Substitute.For<IDbContext>();
         _repository       = Substitute.For<GetProjectOverviewRepository>();
+        _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
         _repository.GetOpenTaskCountAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(0));
         _repository.GetNoteCountAsync(_dbContext, Arg.Any<string>()).Returns(Task.FromResult(0));
         _repository.GetDocumentCountAsync(_dbContext, Arg.Any<string>()).Returns(Task.FromResult(0));
 
-        _controller = new GetProjectOverviewController(_dbContextFactory, _repository);
+        _controller = new GetProjectOverviewController(_dbContextFactory, _repository, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
 
     [TearDown]
-    public void TearDown()
+    public void TearDown() => _dbContext.Dispose();
+
+    private void AllowProjectAccess(string firebaseUid = "firebase-uid")
     {
-        _dbContext.Dispose();
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Success(firebaseUid, "user-id-123")));
     }
 
-    private void SetAuthenticatedUser(string firebaseUid)
+    private void DenyProjectAccess(string errorMessage = "User does not have access to this project.")
     {
-        var claims   = new[] { new Claim("sub", firebaseUid) };
-        var identity = new ClaimsIdentity(claims, "test");
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
+        _securityProvider
+            .AuthorizeProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SecurityResult.Failure(errorMessage)));
     }
 
-    private void AllowProjectAccess()
-    {
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(true));
-    }
-
-    // --- Identity ---
+    // --- Identity / Access control ---
 
     [Test]
-    public async Task GetProjectOverview_Returns401_WhenSubClaimIsMissing()
+    public async Task GetProjectOverview_Returns401_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = await _controller.GetProjectOverview("proj-1", CancellationToken.None);
 
@@ -63,9 +63,9 @@ public class GetProjectOverviewControllerTests
     }
 
     [Test]
-    public async Task GetProjectOverview_Returns401_WithErrorMessage_WhenSubClaimIsMissing()
+    public async Task GetProjectOverview_Returns401_WithErrorMessage_WhenIdentityFails()
     {
-        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        DenyProjectAccess("User identity could not be determined.");
 
         var result = (UnauthorizedObjectResult)await _controller.GetProjectOverview("proj-1", CancellationToken.None);
         var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
@@ -73,30 +73,14 @@ public class GetProjectOverviewControllerTests
         Assert.That(error, Is.EqualTo("User identity could not be determined."));
     }
 
-    // --- Access control ---
-
     [Test]
-    public async Task GetProjectOverview_Returns403_WhenUserDoesNotHaveProjectAccess()
+    public async Task GetProjectOverview_Returns401_WhenProjectAccessDenied()
     {
-        SetAuthenticatedUser("firebase-uid");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
+        DenyProjectAccess();
 
         var result = await _controller.GetProjectOverview("proj-1", CancellationToken.None);
 
-        Assert.That(result, Is.InstanceOf<ForbidResult>());
-    }
-
-    [Test]
-    public async Task GetProjectOverview_ChecksAccessWithCorrectFirebaseUidAndProjectId()
-    {
-        SetAuthenticatedUser("uid-abc");
-        _repository.UserHasProjectAccessAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult(false));
-
-        await _controller.GetProjectOverview("proj-xyz", CancellationToken.None);
-
-        await _repository.Received(1).UserHasProjectAccessAsync(_dbContext, "uid-abc", "proj-xyz");
+        Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
 
     // --- Result shape ---
@@ -104,7 +88,6 @@ public class GetProjectOverviewControllerTests
     [Test]
     public async Task GetProjectOverview_ReturnsOk_WhenUserHasAccess()
     {
-        SetAuthenticatedUser("firebase-uid");
         AllowProjectAccess();
 
         var result = await _controller.GetProjectOverview("proj-1", CancellationToken.None);
@@ -115,11 +98,10 @@ public class GetProjectOverviewControllerTests
     [Test]
     public async Task GetProjectOverview_ReturnsOpenTaskCount()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         _repository.GetOpenTaskCountAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>()).Returns(Task.FromResult(7));
 
-        var result  = (OkObjectResult)await _controller.GetProjectOverview("proj-1", CancellationToken.None);
+        var result   = (OkObjectResult)await _controller.GetProjectOverview("proj-1", CancellationToken.None);
         var response = result.Value as GetProjectOverviewResponse;
 
         Assert.That(response!.OpenTaskCount, Is.EqualTo(7));
@@ -128,7 +110,6 @@ public class GetProjectOverviewControllerTests
     [Test]
     public async Task GetProjectOverview_ReturnsNoteCount()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         _repository.GetNoteCountAsync(_dbContext, Arg.Any<string>()).Returns(Task.FromResult(12));
 
@@ -141,7 +122,6 @@ public class GetProjectOverviewControllerTests
     [Test]
     public async Task GetProjectOverview_ReturnsDocumentCount()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
         _repository.GetDocumentCountAsync(_dbContext, Arg.Any<string>()).Returns(Task.FromResult(3));
 
@@ -154,8 +134,7 @@ public class GetProjectOverviewControllerTests
     [Test]
     public async Task GetProjectOverview_QueriesOpenTasksWithCorrectFirebaseUidAndProjectId()
     {
-        SetAuthenticatedUser("uid-abc");
-        AllowProjectAccess();
+        AllowProjectAccess("uid-abc");
 
         await _controller.GetProjectOverview("proj-xyz", CancellationToken.None);
 
@@ -165,7 +144,6 @@ public class GetProjectOverviewControllerTests
     [Test]
     public async Task GetProjectOverview_QueriesNotesWithCorrectProjectId()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
 
         await _controller.GetProjectOverview("proj-xyz", CancellationToken.None);
@@ -176,7 +154,6 @@ public class GetProjectOverviewControllerTests
     [Test]
     public async Task GetProjectOverview_QueriesDocumentsWithCorrectProjectId()
     {
-        SetAuthenticatedUser("uid-abc");
         AllowProjectAccess();
 
         await _controller.GetProjectOverview("proj-xyz", CancellationToken.None);

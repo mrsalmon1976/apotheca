@@ -1,3 +1,4 @@
+using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,6 +8,7 @@ namespace Apotheca.Api.Features.Notes.CreateNote;
 public class CreateNoteController(
     IDbContextFactory dbContextFactory,
     CreateNoteRepository repo,
+    ISecurityProvider securityProvider,
     ILogger<CreateNoteController> logger) : AuthenticatedBaseController
 {
     [HttpPost]
@@ -15,25 +17,17 @@ public class CreateNoteController(
         [FromBody] CreateNoteRequest request,
         CancellationToken cancellationToken)
     {
-        var firebaseUid = GetFirebaseUid();
-        if (firebaseUid is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
-
         await using var db = await dbContextFactory.CreateAsync(cancellationToken);
 
-        var hasAccess = await repo.UserHasProjectAccessAsync(db, firebaseUid, projectId);
-        if (!hasAccess)
-            return Forbid();
+        var securityResult = await securityProvider.AuthorizeProjectAccessAsync(db, projectId, cancellationToken);
+        if (!securityResult.IsAuthorized)
+            return Unauthorized(new { error = securityResult.ErrorMessage });
 
-        var userId = await repo.GetUserIdAsync(db, firebaseUid);
-        if (userId is null)
-            return Unauthorized(new { error = "User identity could not be determined." });
+        var id = await repo.InsertNoteAsync(db, projectId, securityResult.UserId, request.ParentNoteId);
+        await repo.InsertNoteLogAsync(db, id, securityResult.UserId, projectId);
+        await repo.InsertProjectActivityLogAsync(db, projectId, id, securityResult.UserId, "Note added");
 
-        var id = await repo.InsertNoteAsync(db, projectId, userId, request.ParentNoteId);
-        await repo.InsertNoteLogAsync(db, id, userId, projectId);
-        await repo.InsertProjectActivityLogAsync(db, projectId, id, userId, "Note added");
-
-        logger.LogInformation("Note created. NoteId: {NoteId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, userId);
+        logger.LogInformation("Note created. NoteId: {NoteId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, securityResult.UserId);
 
         return CreatedAtAction(nameof(CreateNote), new { projectId }, new { id });
     }
