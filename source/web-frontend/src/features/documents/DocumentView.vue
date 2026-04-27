@@ -21,40 +21,25 @@
 
         <!-- Header row -->
         <div class="content-header">
-          <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
-            <i class="pi pi-bars"></i>
-          </button>
-
-          <!-- Breadcrumbs -->
-          <nav class="breadcrumbs">
-            <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents`)">Documents</button>
-            <template v-for="crumb in breadcrumbs" :key="crumb.id">
-              <i class="pi pi-chevron-right breadcrumb-sep"></i>
-              <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents?folderId=${crumb.id}`)">
-                {{ crumb.title }}
-              </button>
-            </template>
-            <i class="pi pi-chevron-right breadcrumb-sep"></i>
-            <span class="breadcrumb-current">{{ document.title }}</span>
-          </nav>
-        </div>
-
-        <!-- Title -->
-        <div class="title-row">
-          <input
-            ref="titleInput"
-            v-model="titleDraft"
-            class="title-input"
-            type="text"
-            placeholder="Document title"
-            maxlength="200"
-            @blur="saveTitle"
-            @keydown.enter="titleInput?.blur()"
-          />
-          <div class="save-status">
-            <i v-if="saving" class="pi pi-spin pi-spinner save-icon saving"></i>
-            <i v-else-if="saveError" class="pi pi-exclamation-circle save-icon error" :title="saveError"></i>
-            <i v-else-if="savedRecently" class="pi pi-check-circle save-icon saved"></i>
+          <div class="content-header-left">
+            <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
+              <i class="pi pi-bars"></i>
+            </button>
+            <div class="title-wrap">
+              <input
+                ref="titleInput"
+                v-model="titleDraft"
+                class="title-input"
+                type="text"
+                placeholder="Document title"
+                maxlength="200"
+                @blur="saveTitle"
+                @keydown.enter="titleInput?.blur()"
+              />
+              <span v-if="saving" class="title-status saving"><i class="pi pi-spin pi-spinner"></i></span>
+              <span v-else-if="saveError" class="title-status error" :title="saveError"><i class="pi pi-exclamation-triangle"></i></span>
+              <span v-else-if="savedRecently" class="title-status saved"><i class="pi pi-check"></i></span>
+            </div>
           </div>
           <button
             v-if="document.fileName"
@@ -66,6 +51,21 @@
             <i :class="downloading ? 'pi pi-spin pi-spinner' : 'pi pi-download'"></i>
             {{ downloading ? 'Downloading…' : 'Download' }}
           </button>
+        </div>
+
+        <!-- Breadcrumbs row -->
+        <div class="breadcrumbs-row">
+          <nav class="breadcrumbs">
+            <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents`)">Documents</button>
+            <template v-for="crumb in breadcrumbs" :key="crumb.id">
+              <i class="pi pi-chevron-right breadcrumb-sep"></i>
+              <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents?folderId=${crumb.id}`)">
+                {{ crumb.title }}
+              </button>
+            </template>
+            <i class="pi pi-chevron-right breadcrumb-sep"></i>
+            <span class="breadcrumb-item breadcrumb-current">{{ document.title }}</span>
+          </nav>
         </div>
 
         <!-- Deleted banner -->
@@ -423,8 +423,16 @@ onMounted(load)
 .content-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.content-header-left {
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .hamburger-btn {
@@ -442,7 +450,39 @@ onMounted(load)
 }
 .hamburger-btn:hover { color: var(--color-purple); }
 
-/* Breadcrumbs */
+.title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.title-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: inherit;
+  outline: none;
+  padding: 0.1rem 0.4rem;
+  min-width: 0;
+  flex: 1;
+  transition: border-color 0.2s;
+}
+.title-input:hover { border-color: var(--border-color); }
+.title-input:focus  { border-color: var(--color-purple); }
+
+.title-status { font-size: 0.9rem; display: flex; align-items: center; flex-shrink: 0; }
+.title-status.saving { color: var(--text-muted); }
+.title-status.saved  { color: #4ade80; }
+.title-status.error  { color: var(--color-pink-light); cursor: default; }
+
+/* Breadcrumbs row */
+.breadcrumbs-row { display: flex; align-items: center; margin-bottom: 1.25rem; }
+
 .breadcrumbs { display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap; }
 
 .breadcrumb-item {
@@ -457,50 +497,10 @@ onMounted(load)
   transition: background 0.15s, color 0.15s;
 }
 .breadcrumb-item:hover { background: var(--bg-active); }
-
-.breadcrumb-current {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  padding: 0.2rem 0.3rem;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.breadcrumb-current { color: var(--text-primary); cursor: default; }
+.breadcrumb-current:hover { background: transparent; }
 
 .breadcrumb-sep { color: var(--text-dim); font-size: 0.65rem; }
-
-/* Title row */
-.title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-.title-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  color: var(--text-primary);
-  font-size: 1.4rem;
-  font-weight: 700;
-  font-family: inherit;
-  outline: none;
-  padding: 0.2rem 0;
-  transition: border-color 0.2s;
-  min-width: 0;
-}
-.title-input::placeholder { color: var(--text-dim); }
-.title-input:focus { border-bottom-color: var(--color-purple); }
-
-.save-status { display: flex; align-items: center; width: 1.25rem; flex-shrink: 0; }
-.save-icon { font-size: 0.95rem; }
-.save-icon.saving { color: var(--text-muted); }
-.save-icon.error { color: var(--color-pink); }
-.save-icon.saved { color: #4ade80; }
 
 .download-btn {
   display: flex;
