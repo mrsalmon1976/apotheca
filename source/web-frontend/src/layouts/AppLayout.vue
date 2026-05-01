@@ -14,6 +14,7 @@
           Dashboard
         </button>
 <ProjectMenu />
+        <HeaderSearch />
       </div>
       <div class="nav-user">
         <button class="theme-toggle" :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
@@ -36,6 +37,7 @@ import { RouterView, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useTheme } from '../composables/useTheme'
 import ProjectMenu from '../components/ProjectMenu.vue'
+import HeaderSearch from '../components/HeaderSearch.vue'
 
 const { user, logout } = useAuth()
 const { isDark, toggleTheme } = useTheme()
