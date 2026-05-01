@@ -20,8 +20,6 @@ CREATE TABLE IF NOT EXISTS documents (
     CONSTRAINT fk_documents_created_by      FOREIGN KEY (created_by)            REFERENCES users (id)
 );
 
-CREATE INDEX IF NOT EXISTS ix_documents_project_id          ON documents (project_id);
-CREATE INDEX IF NOT EXISTS ix_documents_parent_document_id  ON documents (parent_document_id);
 
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS parent_document_id TEXT NULL;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL;
@@ -36,4 +34,5 @@ BEGIN
     END IF;
 END$$;
 
+CREATE INDEX IF NOT EXISTS ix_documents_project_id          ON documents (project_id);
 CREATE INDEX IF NOT EXISTS ix_documents_parent_document_id  ON documents (parent_document_id);

@@ -32,11 +32,13 @@ public class SaveProjectTaskController(
         if (isNew)
         {
             var newId = await repo.InsertTaskAsync(db, projectId, securityResult.UserId, request);
+            await repo.UpsertSearchAsync(db, projectId, newId, request.Title, request.Notes ?? "");
             return CreatedAtAction(nameof(SaveProjectTask), new { projectId }, new { id = newId });
         }
         else
         {
             await repo.UpdateTaskAsync(db, request.Id!, projectId, request);
+            await repo.UpsertSearchAsync(db, projectId, request.Id!, request.Title, request.Notes ?? "");
             return Ok();
         }
     }

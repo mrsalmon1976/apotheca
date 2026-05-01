@@ -211,4 +211,53 @@ public class SaveProjectTaskControllerTests
 
         await _repository.DidNotReceive().InsertTaskAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<SaveProjectTaskRequest>());
     }
+
+    // --- Search ---
+
+    [Test]
+    public async Task SaveProjectTask_UpsertsSearchRecord_WhenTaskIsNew()
+    {
+        AllowProjectAccess();
+        _repository.InsertTaskAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<SaveProjectTaskRequest>())
+            .Returns(Task.FromResult("new-task-id"));
+
+        await _controller.SaveProjectTask("proj-1", NewTask(), CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-1", "new-task-id", "Test task", "");
+    }
+
+    [Test]
+    public async Task SaveProjectTask_UpsertsSearchRecord_WhenTaskIsExisting()
+    {
+        AllowProjectAccess();
+        _repository.UpdateTaskAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<SaveProjectTaskRequest>())
+            .Returns(Task.CompletedTask);
+
+        await _controller.SaveProjectTask("proj-1", NewTask("existing-id"), CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-1", "existing-id", "Test task", "");
+    }
+
+    [Test]
+    public async Task SaveProjectTask_UpsertsSearchRecord_WithNotes_WhenNotesAreProvided()
+    {
+        AllowProjectAccess();
+        _repository.InsertTaskAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<SaveProjectTaskRequest>())
+            .Returns(Task.FromResult("new-task-id"));
+
+        var request = new SaveProjectTaskRequest { Title = "Task with notes", Notes = "Some notes", Priority = "NONE" };
+        await _controller.SaveProjectTask("proj-1", request, CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-1", "new-task-id", "Task with notes", "Some notes");
+    }
+
+    [Test]
+    public async Task SaveProjectTask_DoesNotUpsertSearchRecord_WhenAccessIsDenied()
+    {
+        DenyProjectAccess();
+
+        await _controller.SaveProjectTask("proj-1", NewTask(), CancellationToken.None);
+
+        await _repository.DidNotReceive().UpsertSearchAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
 }

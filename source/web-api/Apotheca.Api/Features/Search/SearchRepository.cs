@@ -36,17 +36,10 @@ public class SearchRepository
                 s.text_title     AS Title,
                 ts_headline('english', {headlineSource}, plainto_tsquery('english', @Query),
                     'MaxWords=35,MinWords=15,MaxFragments=2,StartSel=<b>,StopSel=</b>') AS Snippet,
-                COALESCE(n.project_id, t.project_id) AS ProjectId
+                s.project_id     AS ProjectId
             FROM search s
-            LEFT JOIN notes n
-                ON s.reference_id = n.id
-               AND LOWER(s.reference_type) = 'note'
-               AND n.deleted_at IS NULL
-            LEFT JOIN tasks t
-                ON s.reference_id = t.id
-               AND LOWER(s.reference_type) = 'task'
             INNER JOIN user_projects up
-                ON COALESCE(n.project_id, t.project_id) = up.project_id
+                ON s.project_id = up.project_id
                AND up.user_id = @UserId
             WHERE {vectorCondition}
               AND LOWER(s.reference_type) = ANY(@Types)

@@ -51,6 +51,9 @@ public class SaveNoteController(
             }
         }
 
+        var (title, body) = await repo.GetNoteTitleBodyAsync(db, noteId);
+        await repo.UpsertSearchAsync(db, projectId, noteId, title, body);
+
         await db.CommitAsync(cancellationToken);
 
         return Ok();

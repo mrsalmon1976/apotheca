@@ -5,6 +5,28 @@ namespace Apotheca.Api.Features.Notes.SaveNote;
 
 public class SaveNoteRepository
 {
+    public virtual async Task DeleteNoteLabelsAsync(IDbContext db, string noteId)
+    {
+        await db.ExecuteAsync(
+            "DELETE FROM note_labels WHERE note_id = @NoteId",
+            new { NoteId = noteId });
+    }
+
+    public virtual async Task<(string Title, string Body)> GetNoteTitleBodyAsync(IDbContext db, string noteId)
+    {
+        var note = await db.QueryFirstOrDefaultAsync<NoteContent>(
+            "SELECT title, body FROM notes WHERE id = @NoteId",
+            new { NoteId = noteId });
+        return (note?.Title ?? string.Empty, note?.Body ?? string.Empty);
+    }
+
+    public virtual async Task InsertNoteLabelAsync(IDbContext db, string noteId, string labelId)
+    {
+        await db.ExecuteAsync(
+            "INSERT INTO note_labels (note_id, label_id) VALUES (@NoteId, @LabelId) ON CONFLICT DO NOTHING",
+            new { NoteId = noteId, LabelId = labelId });
+    }
+
     public virtual async Task<bool> NoteExistsAsync(IDbContext db, string projectId, string noteId)
     {
         var count = await db.QueryFirstOrDefaultAsync<int>(
@@ -24,13 +46,6 @@ public class SaveNoteRepository
               WHERE id = @NoteId
                 AND project_id = @ProjectId",
             new { Title = title, Body = body, NoteId = noteId, ProjectId = projectId });
-    }
-
-    public virtual async Task DeleteNoteLabelsAsync(IDbContext db, string noteId)
-    {
-        await db.ExecuteAsync(
-            "DELETE FROM note_labels WHERE note_id = @NoteId",
-            new { NoteId = noteId });
     }
 
     public virtual async Task<string> UpsertLabelAsync(
@@ -53,10 +68,18 @@ public class SaveNoteRepository
             new { ProjectId = projectId, LabelText = labelText }))!;
     }
 
-    public virtual async Task InsertNoteLabelAsync(IDbContext db, string noteId, string labelId)
+    public virtual async Task UpsertSearchAsync(IDbContext db, string projectId, string noteId, string title, string body)
     {
         await db.ExecuteAsync(
-            "INSERT INTO note_labels (note_id, label_id) VALUES (@NoteId, @LabelId) ON CONFLICT DO NOTHING",
-            new { NoteId = noteId, LabelId = labelId });
+            @"INSERT INTO search (reference_id, reference_type, project_id, text_title, text_body, updated_at)
+              VALUES (@ReferenceId, 'note', @ProjectId, @Title, @Body, now())
+              ON CONFLICT (reference_id, reference_type) DO UPDATE
+              SET project_id = EXCLUDED.project_id,
+                  text_title = EXCLUDED.text_title,
+                  text_body  = EXCLUDED.text_body,
+                  updated_at = now()",
+            new { ReferenceId = noteId, ProjectId = projectId, Title = title, Body = body });
     }
+
+    private record NoteContent(string Title, string? Body);
 }

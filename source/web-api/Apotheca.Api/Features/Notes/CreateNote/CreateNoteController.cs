@@ -26,6 +26,7 @@ public class CreateNoteController(
         var id = await repo.InsertNoteAsync(db, projectId, securityResult.UserId, request.ParentNoteId);
         await repo.InsertNoteLogAsync(db, id, securityResult.UserId, projectId);
         await repo.InsertProjectActivityLogAsync(db, projectId, id, securityResult.UserId, "Note added");
+        await repo.UpsertSearchAsync(db, projectId, id, "New Note", "");
 
         logger.LogInformation("Note created. NoteId: {NoteId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, securityResult.UserId);
 

@@ -28,6 +28,8 @@ public class SaveNoteControllerTests
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
         _validator.Validate(Arg.Any<SaveNoteRequest>()).Returns([]);
+        _repository.GetNoteTitleBodyAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult(("Note Title", "Note body")));
 
         _controller = new SaveNoteController(_dbContextFactory, _repository, _validator, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
@@ -210,5 +212,56 @@ public class SaveNoteControllerTests
 
         await _repository.Received(1).DeleteNoteLabelsAsync(_dbContext, "note-1");
         await _repository.DidNotReceive().UpsertLabelAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    // --- Search ---
+
+    [Test]
+    public async Task SaveNote_UpsertsSearchRecord_UsingCurrentTitleAndBody()
+    {
+        AllowProjectAccess();
+        NoteExists();
+        _repository.GetNoteTitleBodyAsync(_dbContext, "note-1")
+            .Returns(Task.FromResult(("My Note", "Some content")));
+
+        await _controller.SaveNote("proj-1", "note-1", new SaveNoteRequest { Title = "My Note" }, CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-1", "note-1", "My Note", "Some content");
+    }
+
+    [Test]
+    public async Task SaveNote_UpsertsSearchRecord_WhenOnlyLabelsAreUpdated()
+    {
+        AllowProjectAccess();
+        NoteExists();
+        _repository.UpsertLabelAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.FromResult("label-id"));
+        _repository.GetNoteTitleBodyAsync(_dbContext, "note-1")
+            .Returns(Task.FromResult(("Existing Title", "Existing body")));
+
+        await _controller.SaveNote("proj-1", "note-1", new SaveNoteRequest { Labels = ["tag"] }, CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-1", "note-1", "Existing Title", "Existing body");
+    }
+
+    [Test]
+    public async Task SaveNote_DoesNotUpsertSearchRecord_WhenAccessIsDenied()
+    {
+        DenyProjectAccess();
+
+        await _controller.SaveNote("proj-1", "note-1", new SaveNoteRequest { Title = "Title" }, CancellationToken.None);
+
+        await _repository.DidNotReceive().UpsertSearchAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Test]
+    public async Task SaveNote_DoesNotUpsertSearchRecord_WhenNoteDoesNotExist()
+    {
+        AllowProjectAccess();
+        NoteExists(false);
+
+        await _controller.SaveNote("proj-1", "note-1", new SaveNoteRequest { Title = "Title" }, CancellationToken.None);
+
+        await _repository.DidNotReceive().UpsertSearchAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
     }
 }

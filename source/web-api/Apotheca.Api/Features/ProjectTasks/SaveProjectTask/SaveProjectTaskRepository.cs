@@ -56,4 +56,17 @@ public class SaveProjectTaskRepository
         if (rows == 0)
             throw new InvalidOperationException($"Task '{taskId}' was not found in project '{projectId}'.");
     }
+
+    public virtual async Task UpsertSearchAsync(IDbContext db, string projectId, string taskId, string title, string body)
+    {
+        await db.ExecuteAsync(
+            @"INSERT INTO search (reference_id, reference_type, project_id, text_title, text_body, updated_at)
+              VALUES (@ReferenceId, 'task', @ProjectId, @Title, @Body, now())
+              ON CONFLICT (reference_id, reference_type) DO UPDATE
+              SET project_id = EXCLUDED.project_id,
+                  text_title = EXCLUDED.text_title,
+                  text_body  = EXCLUDED.text_body,
+                  updated_at = now()",
+            new { ReferenceId = taskId, ProjectId = projectId, Title = title, Body = body });
+    }
 }

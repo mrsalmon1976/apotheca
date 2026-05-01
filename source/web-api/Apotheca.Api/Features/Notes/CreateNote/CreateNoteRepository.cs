@@ -39,4 +39,17 @@ public class CreateNoteRepository
             "INSERT INTO audit.project_activity_logs (project_id, ref_id, ref_type, log_message, user_id) VALUES (@ProjectId, @RefId, 'NOTE', @LogMessage, @UserId)",
             new { ProjectId = projectId, RefId = noteId, LogMessage = logMessage, UserId = userId });
     }
+
+    public virtual async Task UpsertSearchAsync(IDbContext db, string projectId, string noteId, string title, string body)
+    {
+        await db.ExecuteAsync(
+            @"INSERT INTO search (reference_id, reference_type, project_id, text_title, text_body, updated_at)
+              VALUES (@ReferenceId, 'note', @ProjectId, @Title, @Body, now())
+              ON CONFLICT (reference_id, reference_type) DO UPDATE
+              SET project_id = EXCLUDED.project_id,
+                  text_title = EXCLUDED.text_title,
+                  text_body  = EXCLUDED.text_body,
+                  updated_at = now()",
+            new { ReferenceId = noteId, ProjectId = projectId, Title = title, Body = body });
+    }
 }

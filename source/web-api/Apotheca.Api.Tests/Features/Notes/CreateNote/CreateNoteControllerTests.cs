@@ -192,4 +192,28 @@ public class CreateNoteControllerTests
 
         await _repository.DidNotReceive().InsertProjectActivityLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
     }
+
+    // --- Search ---
+
+    [Test]
+    public async Task CreateNote_UpsertsSearchRecord_WhenNoteIsCreated()
+    {
+        AllowProjectAccess();
+        _repository.InsertNoteAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(Task.FromResult("new-note-id"));
+
+        await _controller.CreateNote("proj-1", new CreateNoteRequest(), CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-1", "new-note-id", "New Note", "");
+    }
+
+    [Test]
+    public async Task CreateNote_DoesNotUpsertSearchRecord_WhenAccessIsDenied()
+    {
+        DenyProjectAccess();
+
+        await _controller.CreateNote("proj-1", new CreateNoteRequest(), CancellationToken.None);
+
+        await _repository.DidNotReceive().UpsertSearchAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
 }
