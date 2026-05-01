@@ -184,3 +184,101 @@ html, body {
   color: var(--text-primary) !important;
   background: var(--bg-hover) !important;
 }
+
+/* ── PrimeVue MultiSelect – Apotheca branding ── */
+.p-multiselect {
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  color: var(--text-primary) !important;
+  transition: border-color 0.15s !important;
+}
+
+.p-multiselect:not(.p-disabled):hover,
+.p-multiselect.p-focus {
+  border-color: var(--color-purple) !important;
+  box-shadow: none !important;
+}
+
+.p-multiselect-label {
+  color: var(--text-secondary) !important;
+  font-size: 0.875rem !important;
+  padding: 0.5rem 0.75rem !important;
+}
+
+.p-multiselect-label.p-placeholder {
+  color: var(--text-dim) !important;
+}
+
+.p-multiselect-dropdown {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  width: 2rem !important;
+}
+
+.p-multiselect-overlay {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-purple) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 24px var(--glow-purple), 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  margin-top: 4px;
+}
+
+.p-multiselect-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  padding: 0.5rem 0.75rem !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.p-multiselect-header::after {
+  content: 'All';
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-left: 0.5rem;
+}
+
+.p-multiselect-list {
+  padding: 0.35rem !important;
+}
+
+.p-multiselect-option {
+  font-size: 0.875rem !important;
+  color: var(--text-secondary) !important;
+  border-radius: 6px !important;
+  padding: 0.5rem 0.75rem !important;
+  transition: background 0.15s, color 0.15s !important;
+  gap: 0.6rem !important;
+}
+
+.p-multiselect-option:not(.p-disabled):hover,
+.p-multiselect-option.p-focus {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.p-multiselect-option.p-selected {
+  background: var(--bg-active) !important;
+  color: var(--color-purple-light) !important;
+}
+
+.p-checkbox-box {
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border-purple) !important;
+  border-radius: 4px !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  transition: background 0.15s, border-color 0.15s !important;
+}
+
+.p-checkbox-box.p-checked {
+  background: var(--color-purple) !important;
+  border-color: var(--color-purple) !important;
+}
+
+.p-checkbox-icon {
+  color: #fff !important;
+  font-size: 0.65rem !important;
+}

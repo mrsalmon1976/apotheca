@@ -17,7 +17,8 @@
       "Bash(grep -i \"\\\\.cs$\")",
       "Bash(xargs grep:*)",
       "Bash(grep -E \"\\\\.\\(vue|ts|js\\)$\")",
-      "Bash(grep -E \"\\\\.cs$\")"
+      "Bash(grep -E \"\\\\.cs$\")",
+      "Bash(xargs cat *)"
     ]
   }
 }

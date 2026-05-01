@@ -27,3 +27,4 @@ END;
 $$;
 
 CREATE INDEX IF NOT EXISTS ix_search_vector ON search USING GIN (search_vector);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_search_reference ON search (reference_id, reference_type);
