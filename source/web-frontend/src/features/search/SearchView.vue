@@ -99,7 +99,7 @@ const { user }  = useAuth()
 const router    = useRouter()
 
 const query         = ref('')
-const selectedTypes  = ref(['note', 'task'])
+const selectedTypes  = ref(['note', 'task', 'document'])
 const selectedFields = ref(['title', 'body'])
 const results       = ref([])
 const loading       = ref(false)
@@ -107,21 +107,39 @@ const searched      = ref(false)
 let debounceTimer   = null
 
 const typeOptions  = [
-  { label: 'Notes', value: 'note' },
-  { label: 'Tasks', value: 'task' },
+  { label: 'Notes',     value: 'note'     },
+  { label: 'Tasks',     value: 'task'     },
+  { label: 'Documents', value: 'document' },
 ]
 const fieldOptions = [
   { label: 'Title', value: 'title' },
   { label: 'Body',  value: 'body'  },
 ]
 
-function typeLabel(t) { return t.toLowerCase() === 'note' ? 'Note' : 'Task' }
-function typeIcon(t)  { return t.toLowerCase() === 'note' ? 'pi pi-file-edit' : 'pi pi-check-square' }
+function typeLabel(t) {
+  switch (t.toLowerCase()) {
+    case 'note':     return 'Note'
+    case 'task':     return 'Task'
+    case 'document': return 'Document'
+    default:         return t
+  }
+}
+function typeIcon(t) {
+  switch (t.toLowerCase()) {
+    case 'note':     return 'pi pi-file-edit'
+    case 'task':     return 'pi pi-check-square'
+    case 'document': return 'pi pi-file'
+    default:         return 'pi pi-circle'
+  }
+}
 
 function navigateTo(result) {
   if (!result.projectId) return
-  if (result.referenceType.toLowerCase() === 'note') {
+  const type = result.referenceType.toLowerCase()
+  if (type === 'note') {
     router.push(`/project/${result.projectId}/notes/${result.referenceId}`)
+  } else if (type === 'document') {
+    router.push(`/project/${result.projectId}/documents/${result.referenceId}`)
   }
 }
 
@@ -139,7 +157,7 @@ async function runSearch() {
   if (!query.value || query.value.trim().length < 2) return
   if (!user.value) return
 
-  const types  = selectedTypes.value.length  > 0 ? selectedTypes.value.join(',')  : 'note,task'
+  const types  = selectedTypes.value.length  > 0 ? selectedTypes.value.join(',')  : 'note,task,document'
   const fields = selectedFields.value.length > 0 ? selectedFields.value.join(',') : 'title,body'
 
   loading.value  = true
@@ -358,6 +376,11 @@ function clearSearch() {
   background: rgba(236, 72, 153, 0.12);
   color: var(--color-pink-light);
   border: 1px solid rgba(236, 72, 153, 0.25);
+}
+.type-badge.document {
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.25);
 }
 
 .result-title {

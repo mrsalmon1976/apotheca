@@ -200,4 +200,39 @@ public class SaveDocumentControllerTests
         await _repository.Received(1).DeleteDocumentLabelsAsync(_dbContext, "doc-1");
         await _repository.DidNotReceive().UpsertLabelAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
     }
+
+    // --- Search index ---
+
+    [Test]
+    public async Task SaveDocument_UpsertSearch_WhenTitleIsProvided()
+    {
+        AllowProjectAccess();
+        DocumentExists();
+
+        await _controller.SaveDocument("proj-1", "doc-1", new SaveDocumentRequest { Title = "New Title" }, CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-1", "doc-1", "New Title");
+    }
+
+    [Test]
+    public async Task SaveDocument_UpsertSearch_WithTrimmedTitle()
+    {
+        AllowProjectAccess();
+        DocumentExists();
+
+        await _controller.SaveDocument("proj-1", "doc-1", new SaveDocumentRequest { Title = "  My Doc  " }, CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), "My Doc");
+    }
+
+    [Test]
+    public async Task SaveDocument_DoesNotUpsertSearch_WhenOnlyLabelsAreProvided()
+    {
+        AllowProjectAccess();
+        DocumentExists();
+
+        await _controller.SaveDocument("proj-1", "doc-1", new SaveDocumentRequest { Labels = ["tag"] }, CancellationToken.None);
+
+        await _repository.DidNotReceive().UpsertSearchAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
 }

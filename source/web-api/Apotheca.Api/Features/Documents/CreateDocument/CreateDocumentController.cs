@@ -26,6 +26,7 @@ public class CreateDocumentController(
         var id = await repo.InsertDocumentAsync(db, projectId, securityResult.UserId, request.ParentDocumentId);
         await repo.InsertDocumentLogAsync(db, id, securityResult.UserId, projectId);
         await repo.InsertProjectActivityLogAsync(db, projectId, id, securityResult.UserId, "Document added");
+        await repo.UpsertSearchAsync(db, projectId, id, "New Document");
 
         logger.LogInformation("Document created. DocumentId: {DocumentId}, ProjectId: {ProjectId}, UserId: {UserId}", id, projectId, securityResult.UserId);
 

@@ -347,6 +347,41 @@ public class UploadDocumentControllerTests
             Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
     }
 
+    // --- Search index ---
+
+    [Test]
+    public async Task UploadDocument_UpsertSearch_WithProvidedTitle()
+    {
+        AllowProjectAccess();
+        SetupInsert("new-doc-id");
+
+        await _controller.UploadDocument("proj-xyz", null, _file, "My Report", CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-xyz", "new-doc-id", "My Report");
+    }
+
+    [Test]
+    public async Task UploadDocument_UpsertSearch_WithFilenameTitle_WhenTitleIsNull()
+    {
+        AllowProjectAccess();
+        SetupInsert("new-doc-id");
+        _file.FileName.Returns("quarterly-report.pdf");
+
+        await _controller.UploadDocument("proj-xyz", null, _file, null, CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-xyz", "new-doc-id", "quarterly-report");
+    }
+
+    [Test]
+    public async Task UploadDocument_DoesNotUpsertSearch_WhenAccessIsDenied()
+    {
+        DenyProjectAccess();
+
+        await _controller.UploadDocument("proj-xyz", null, _file, null, CancellationToken.None);
+
+        await _repository.DidNotReceive().UpsertSearchAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
+
     // --- Response ---
 
     [Test]

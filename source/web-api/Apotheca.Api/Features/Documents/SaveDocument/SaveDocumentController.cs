@@ -35,7 +35,10 @@ public class SaveDocumentController(
         await db.BeginTransactionAsync(cancellationToken);
 
         if (request.Title is not null)
+        {
             await repo.UpdateDocumentTitleAsync(db, projectId, documentId, request.Title.Trim());
+            await repo.UpsertSearchAsync(db, projectId, documentId, request.Title.Trim());
+        }
 
         if (request.Labels is not null)
         {

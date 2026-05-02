@@ -58,4 +58,16 @@ public class SaveDocumentRepository
             "INSERT INTO document_labels (document_id, label_id) VALUES (@DocumentId, @LabelId) ON CONFLICT DO NOTHING",
             new { DocumentId = documentId, LabelId = labelId });
     }
+
+    public virtual async Task UpsertSearchAsync(IDbContext db, string projectId, string documentId, string title)
+    {
+        await db.ExecuteAsync(
+            @"INSERT INTO search (reference_id, reference_type, project_id, text_title, text_body, updated_at)
+              VALUES (@ReferenceId, 'document', @ProjectId, @Title, '', now())
+              ON CONFLICT (reference_id, reference_type) DO UPDATE
+              SET project_id = EXCLUDED.project_id,
+                  text_title = EXCLUDED.text_title,
+                  updated_at = now()",
+            new { ReferenceId = documentId, ProjectId = projectId, Title = title });
+    }
 }

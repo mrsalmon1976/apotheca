@@ -18,7 +18,10 @@
       "Bash(xargs grep:*)",
       "Bash(grep -E \"\\\\.\\(vue|ts|js\\)$\")",
       "Bash(grep -E \"\\\\.cs$\")",
-      "Bash(xargs cat *)"
+      "Bash(xargs cat *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\\\\src\" -Recurse -Include \"*.vue\", \"*.ts\")",
+      "Bash(Select-String -Pattern \"search\" -List)",
+      "Bash(Select-Object Path)"
     ]
   }
 }

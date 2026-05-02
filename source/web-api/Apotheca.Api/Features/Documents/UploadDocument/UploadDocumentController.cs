@@ -53,6 +53,7 @@ public class UploadDocumentController(
 
         await repo.InsertDocumentLogAsync(db, insertedId, securityResult.UserId, projectId);
         await repo.InsertProjectActivityLogAsync(db, projectId, insertedId, securityResult.UserId, "Document uploaded");
+        await repo.UpsertSearchAsync(db, projectId, insertedId, resolvedTitle);
 
         logger.LogInformation(
             "Document uploaded. DocumentId: {DocumentId}, ProjectId: {ProjectId}, UserId: {UserId}, ObjectName: {ObjectName}",

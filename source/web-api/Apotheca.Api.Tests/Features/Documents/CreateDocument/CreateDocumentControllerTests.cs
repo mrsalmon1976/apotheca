@@ -192,4 +192,28 @@ public class CreateDocumentControllerTests
 
         await _repository.DidNotReceive().InsertProjectActivityLogAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
     }
+
+    // --- Search index ---
+
+    [Test]
+    public async Task CreateDocument_UpsertSearch_WhenDocumentIsCreated()
+    {
+        AllowProjectAccess("user-id-xyz");
+        _repository.InsertDocumentAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(Task.FromResult("new-doc-id"));
+
+        await _controller.CreateDocument("proj-xyz", new CreateDocumentRequest(), CancellationToken.None);
+
+        await _repository.Received(1).UpsertSearchAsync(_dbContext, "proj-xyz", "new-doc-id", "New Document");
+    }
+
+    [Test]
+    public async Task CreateDocument_DoesNotUpsertSearch_WhenAccessIsDenied()
+    {
+        DenyProjectAccess();
+
+        await _controller.CreateDocument("proj-xyz", new CreateDocumentRequest(), CancellationToken.None);
+
+        await _repository.DidNotReceive().UpsertSearchAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+    }
 }

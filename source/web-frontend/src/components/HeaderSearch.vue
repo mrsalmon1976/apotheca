@@ -128,12 +128,28 @@ function navigate(result) {
     router.push(`/project/${result.projectId}/notes/${result.referenceId}`)
   } else if (type === 'task') {
     router.push(`/project/${result.projectId}/tasks/all`)
+  } else if (type === 'document') {
+    router.push(`/project/${result.projectId}/documents/${result.referenceId}`)
   }
   close()
 }
 
-function typeLabel(t) { return t.toLowerCase() === 'note' ? 'Note' : 'Task' }
-function typeIcon(t)  { return t.toLowerCase() === 'note' ? 'pi pi-file-edit' : 'pi pi-check-square' }
+function typeLabel(t) {
+  switch (t.toLowerCase()) {
+    case 'note':     return 'Note'
+    case 'task':     return 'Task'
+    case 'document': return 'Document'
+    default:         return t
+  }
+}
+function typeIcon(t) {
+  switch (t.toLowerCase()) {
+    case 'note':     return 'pi pi-file-edit'
+    case 'task':     return 'pi pi-check-square'
+    case 'document': return 'pi pi-file'
+    default:         return 'pi pi-circle'
+  }
+}
 
 function clear() {
   query.value    = ''
@@ -265,6 +281,11 @@ function close() {
   background: rgba(236, 72, 153, 0.12);
   color: var(--color-pink-light);
   border: 1px solid rgba(236, 72, 153, 0.25);
+}
+.hs-badge.document {
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.25);
 }
 
 .hs-title {
