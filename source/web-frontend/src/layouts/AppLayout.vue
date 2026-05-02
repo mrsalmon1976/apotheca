@@ -94,6 +94,7 @@ async function handleLogout() {
   display: flex;
   gap: 0.25rem;
   flex: 1;
+  padding-right: 1.5rem;
 }
 
 .nav-tab {

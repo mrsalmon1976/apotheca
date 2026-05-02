@@ -167,8 +167,8 @@ function close() {
 <style scoped>
 .header-search {
   position: relative;
-  width: 300px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   margin-left: 20px;
 }
 
