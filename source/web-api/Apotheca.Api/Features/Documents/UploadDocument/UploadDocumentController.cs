@@ -38,7 +38,7 @@ public class UploadDocumentController(
         var resolvedTitle = !string.IsNullOrWhiteSpace(title) ? title.Trim() : Path.GetFileNameWithoutExtension(fileName);
 
         var documentId = NanoidDotNet.Nanoid.Generate();
-        var objectName = $"{projectId}/{documentId}/{fileName}";
+        var objectName = $"projects/{projectId}/documents/{documentId}/{fileName}";
 
         await using var stream = file.OpenReadStream();
         await storageClient.UploadObjectAsync(

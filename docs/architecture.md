@@ -85,7 +85,14 @@ Methods on `IDbContext` are ordered alphabetically — follow this when adding n
 
 `StorageClient` is registered as a singleton in `Program.cs`. When `Storage:EmulatorHost` is configured it uses `StorageClientBuilder` with `UnauthenticatedAccess = true`; otherwise it uses the application default credential.
 
-Object naming convention: `{projectId}/{documentId}/{filename}` — the `/` separator creates a virtual folder hierarchy per project. The `blob_reference` column on the `documents` table stores this object name.
+Object naming conventions (all under the single `apotheca` bucket):
+
+| Type | GCS path |
+|---|---|
+| Document file | `projects/{projectId}/documents/{documentId}/{filename}` |
+| Note attachment | `projects/{projectId}/notes/{noteId}/{attachmentId}{ext}` |
+
+The `/` separator creates a virtual folder hierarchy. The `blob_reference` column on `documents` and `note_attachments` tables stores the full object path.
 
 ### Logging
 

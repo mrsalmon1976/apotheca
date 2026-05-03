@@ -179,7 +179,7 @@ public class UploadDocumentControllerTests
 
         await _storageClient.Received(1).UploadObjectAsync(
             Arg.Any<string>(),
-            Arg.Is<string>(name => name.StartsWith("proj-xyz/") && name.EndsWith("/report.pdf")),
+            Arg.Is<string>(name => name.StartsWith("projects/proj-xyz/documents/") && name.EndsWith("/report.pdf")),
             Arg.Any<string>(), Arg.Any<Stream>(),
             Arg.Any<UploadObjectOptions>(), Arg.Any<CancellationToken>(), Arg.Any<IProgress<IUploadProgress>>());
     }
