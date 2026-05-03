@@ -21,7 +21,11 @@
       "Bash(xargs cat *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\\\\src\" -Recurse -Include \"*.vue\", \"*.ts\")",
       "Bash(Select-String -Pattern \"search\" -List)",
-      "Bash(Select-Object Path)"
+      "Bash(Select-Object Path)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\" -Directory)",
+      "Bash(Select-Object Name)",
+      "PowerShell(ls \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\\\\src\\\\features\\\\notes\" -Recurse | Where-Object {$_.Extension -eq \".vue\"})",
+      "PowerShell(ls \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\\\\src\\\\features\\\\documents\" -Recurse | Where-Object {$_.Extension -eq \".vue\"})"
     ]
   }
 }

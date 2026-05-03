@@ -166,7 +166,7 @@ const projectId   = computed(() => route.params.id)
 const noteId      = computed(() => route.params.noteId)
 const sidebarOpen = ref(window.innerWidth >= 768)
 
-const { getNote, saveNote, searchLabels } = useNoteFolders()
+const { getNote, saveNote, searchLabels, uploadNoteAttachment } = useNoteFolders()
 
 const permanentDeletionDate = computed(() => {
   if (!note.value?.deletedAt) return ''
@@ -263,6 +263,16 @@ onMounted(async () => {
       initialValue: note.value.body ?? '',
       theme: 'dark',
       hideModeSwitch: false,
+      hooks: {
+        addImageBlobHook: async (blob, callback) => {
+          try {
+            const url = await uploadNoteAttachment(projectId.value, noteId.value, blob)
+            callback(url, blob.name ?? 'image')
+          } catch (err) {
+            console.error('Image upload failed:', err)
+          }
+        },
+      },
     })
     editorInstance.on('change', () => {
       clearTimeout(bodyDebounce)

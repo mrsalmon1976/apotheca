@@ -73,5 +73,19 @@ export function useNoteFolders() {
     })
   }
 
-  return { getNote, getNotes, createFolder, createNote, saveNote, deleteNote, searchLabels }
+  async function uploadNoteAttachment(projectId, noteId, file) {
+    const token = await user.value.getIdToken()
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`${API_URL}/projects/${projectId}/notes/${noteId}/attachments`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+    if (!res.ok) throw new Error(`Attachment upload failed (${res.status})`)
+    const data = await res.json()
+    return `${API_URL}${data.url}`
+  }
+
+  return { getNote, getNotes, createFolder, createNote, saveNote, deleteNote, searchLabels, uploadNoteAttachment }
 }
