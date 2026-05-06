@@ -1,8 +1,20 @@
 <template>
-  <div class="dashboard">
-    <div class="dashboard-header">
-      <h1 class="dashboard-title">Dashboard</h1>
-      <span class="dashboard-date">{{ today }}</span>
+  <div class="page-layout">
+    <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
+
+    <AccountSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
+
+    <div class="main-body">
+    <div class="content-header">
+      <div class="content-header-left">
+        <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
+          <i class="pi pi-bars"></i>
+        </button>
+        <div class="dashboard-header">
+          <h1 class="dashboard-title">Dashboard</h1>
+          <span class="dashboard-date">{{ today }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- Quick stats -->
@@ -87,11 +99,15 @@
 
       </div>
     </div>
-  </div>
+    </div><!-- end main-body -->
+  </div><!-- end page-layout -->
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
+import AccountSidebar from '../../components/AccountSidebar.vue'
+
+const sidebarOpen = ref(window.innerWidth >= 768)
 
 const today = computed(() => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))
 
@@ -126,19 +142,55 @@ function priorityColor(priority) {
 </script>
 
 <style scoped>
-.dashboard {
+/* ── Page layout (sidebar + body) ── */
+.page-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 60px);
+}
+
+.sidebar-backdrop { display: none; }
+
+.main-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1.75rem 2rem;
+  padding: 1.5rem 2rem;
   background: var(--bg-primary);
 }
+
+.content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+}
+
+.content-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hamburger-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.25rem;
+  border-radius: 6px;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+.hamburger-btn:hover { color: var(--color-purple); }
 
 /* ── Header ── */
 .dashboard-header {
   display: flex;
   align-items: baseline;
   gap: 1rem;
-  margin-bottom: 1.75rem;
 }
 
 .dashboard-title {
@@ -151,6 +203,18 @@ function priorityColor(priority) {
 .dashboard-date {
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+@media (max-width: 767px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: 60px;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+  }
+  .main-body { padding: 1rem; }
 }
 
 /* ── Stat row ── */
@@ -416,17 +480,7 @@ function priorityColor(priority) {
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-  .stat-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 767px) {
-  .dashboard {
-    padding: 1rem;
-  }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: 1fr; }
 }
 </style>

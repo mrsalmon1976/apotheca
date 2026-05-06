@@ -46,6 +46,8 @@ const routes = [
       { path: 'project/:id/documents', component: DocumentsView },
       { path: 'project/:id/documents/f/:folders(.*)*', component: DocumentsView },
       { path: 'project/:id/documents/:documentId', component: DocumentView },
+      { path: 'tasks', redirect: '/tasks/all' },
+      { path: 'tasks/:filter', component: TasksView },
       { path: 'project/:id/tasks', redirect: to => `/project/${to.params.id}/tasks/all` },
       { path: 'project/:id/tasks/:filter', component: TasksView },
       { path: 'project/:id/settings', component: ProjectSettingsView },
