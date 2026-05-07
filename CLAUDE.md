@@ -38,6 +38,8 @@ dotnet run --project source/web-api/Apotheca.Migrations -- "Host=localhost;Port=
 
 ## Architecture
 
+Detailed documentation: [Architecture](./docs/architecture.md)
+
 ### Backend (`source/web-api/`)
 
 **Vertical slice architecture** — each feature is self-contained under `Features/DomainArea/FeatureName/` with its own controller and repository. No shared service layer.
@@ -53,19 +55,35 @@ Data access: inject `IDbContextFactory`, call `CreateAsync()` to get an `IDbCont
 
 ### Frontend (`source/web-frontend/`)
 
-Vue 3 + Vite + PrimeVue (Aura preset). Dark theme via `.app-dark` on the root element; brand colors are CSS custom properties in `src/assets/main.css`.
+Vue 3 + Vite + PrimeVue (Aura preset). Dark theme toggled via `.app-dark` on `<html>` (`useTheme.js`); brand colors are CSS custom properties in `src/assets/main.css`.
 
 Layouts:
 - `PublicLayout.vue` — unauthenticated pages
-- `AppLayout.vue` — authenticated pages; nav tabs, project jump dropdown
+- `AppLayout.vue` — authenticated pages; Dashboard nav tab, project jump dropdown (`ProjectMenu`), header search, theme toggle
+
+Sidebars (rendered inside views, not the layout):
+- `ProjectSidebar.vue` — project-scoped nav (Overview, Workspace, Tasks sections)
+- `AccountSidebar.vue` — account nav for Dashboard (My Account, Tasks sections)
 
 Router (`src/router/index.js`):
 - Public: `/home`, `/features`, `/about`, `/auth/login`, `/logging-in`
-- Authenticated (`requiresAuth: true`): `/dashboard`, `/notes`, `/tasks`, `/project/:id`
+- Authenticated (`requiresAuth: true`):
+  - `/dashboard` — DashboardView
+  - `/search` — SearchView
+  - `/tasks/:filter` — TasksView (global, no project context)
+  - `/project/:id` — ProjectView
+  - `/project/:id/notes[/f/:folders*]`, `/project/:id/notes/:noteId`
+  - `/project/:id/documents[/f/:folders*]`, `/project/:id/documents/:documentId`
+  - `/project/:id/tasks/:filter`
+  - `/project/:id/settings`
 
 Key composables:
 - `useAuth.js` — Firebase auth singleton (Google, Microsoft, email/password)
 - `useProjects.js` — loads the user's projects from the API
+- `useTheme.js` — dark/light theme toggle, persisted to `localStorage`
+- `useProjectTasks.js` — task loading and completion for a project
+- `useNoteFolders.js` — note folder and note CRUD
+- `useDocumentFolders.js` — document folder CRUD and file upload
 
 ## Color Palette
 
