@@ -25,12 +25,9 @@ public class GetNoteAttachmentController(
         if (attachment is null)
             return NotFound();
 
+        var gcsObject = new Google.Apis.Storage.v1.Data.Object { Bucket = appSettings.StorageBucketName, Name = attachment.BlobReference };
         var memStream = new MemoryStream();
-        await storageClient.DownloadObjectAsync(
-            appSettings.StorageBucketName,
-            attachment.BlobReference,
-            memStream,
-            cancellationToken: cancellationToken);
+        await storageClient.DownloadObjectAsync(gcsObject, memStream, cancellationToken: cancellationToken);
 
         memStream.Position = 0;
         return File(memStream, attachment.Mimetype, attachment.FileName);

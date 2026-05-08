@@ -7,6 +7,7 @@ import AboutView from '../features/about/AboutView.vue'
 import FeaturesView from '../features/features/FeaturesView.vue'
 import DashboardView from '../features/dashboard/DashboardView.vue'
 import TasksView from '../features/tasks/TasksView.vue'
+import UserTasksView from '../features/tasks/UserTasksView.vue'
 import ProjectView from '../features/projects/ProjectView.vue'
 import NotesView from '../features/notes/NotesView.vue'
 import NoteView from '../features/notes/NoteView.vue'
@@ -47,7 +48,7 @@ const routes = [
       { path: 'project/:id/documents/f/:folders(.*)*', component: DocumentsView },
       { path: 'project/:id/documents/:documentId', component: DocumentView },
       { path: 'tasks', redirect: '/tasks/all' },
-      { path: 'tasks/:filter', component: TasksView },
+      { path: 'tasks/:filter', component: UserTasksView },
       { path: 'project/:id/tasks', redirect: to => `/project/${to.params.id}/tasks/all` },
       { path: 'project/:id/tasks/:filter', component: TasksView },
       { path: 'project/:id/settings', component: ProjectSettingsView },

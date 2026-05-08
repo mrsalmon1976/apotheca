@@ -19,7 +19,13 @@
 
     <!-- Quick stats -->
     <div class="stat-row">
-      <div class="stat-card" v-for="stat in stats" :key="stat.label">
+      <div
+        class="stat-card"
+        v-for="stat in stats"
+        :key="stat.label"
+        :class="{ clickable: !!stat.link }"
+        @click="stat.link && $router.push(stat.link)"
+      >
         <div class="stat-icon" :style="{ background: stat.iconBg }">
           <i :class="`pi ${stat.icon}`" :style="{ color: stat.iconColor }"></i>
         </div>
@@ -86,10 +92,15 @@
             <h2 class="section-title">
               <i class="pi pi-check-square"></i> Upcoming Tasks
             </h2>
-            <button class="link-btn" @click="$router.push('/tasks')">View all</button>
+            <button class="link-btn" @click="$router.push('/tasks/upcoming')">View all</button>
           </div>
           <div class="task-list">
-            <div class="task-row" v-for="task in upcomingTasks" :key="task.id">
+            <div
+              class="task-row"
+              v-for="task in upcomingTasks"
+              :key="task.id"
+              @click="$router.push('/tasks/upcoming')"
+            >
               <span class="task-priority-dot" :style="{ background: priorityColor(task.priority) }"></span>
               <span class="task-row-title">{{ task.title }}</span>
               <span class="task-due" :class="{ overdue: task.overdue }">{{ task.due }}</span>
@@ -114,7 +125,7 @@ const today = computed(() => new Date().toLocaleDateString('en-US', { weekday: '
 const stats = [
   { label: 'Projects', value: 3, icon: 'pi-folder', iconColor: '#a855f7', iconBg: 'rgba(168,85,247,0.12)' },
   { label: 'Notes', value: 12, icon: 'pi-file-edit', iconColor: '#ec4899', iconBg: 'rgba(236,72,153,0.12)' },
-  { label: 'Open Tasks', value: 5, icon: 'pi-check-square', iconColor: '#c084fc', iconBg: 'rgba(192,132,252,0.12)' },
+  { label: 'Open Tasks', value: 5, icon: 'pi-check-square', iconColor: '#c084fc', iconBg: 'rgba(192,132,252,0.12)', link: '/tasks/all' },
 ]
 
 const projects = [
@@ -236,6 +247,7 @@ function priorityColor(priority) {
   transition: border-color 0.2s;
 }
 .stat-card:hover { border-color: var(--border-purple); }
+.stat-card.clickable { cursor: pointer; }
 
 .stat-icon {
   width: 42px;
