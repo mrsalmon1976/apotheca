@@ -1,4 +1,6 @@
 using Apotheca.Api.Configuration;
+using Apotheca.Api.Events;
+using Apotheca.Api.Events.Documents.DocumentUploaded;
 using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Google.Cloud.Storage.V1;
@@ -13,6 +15,7 @@ public class UploadDocumentController(
     StorageClient storageClient,
     UploadDocumentRepository repo,
     ISecurityProvider securityProvider,
+    IEventPublisher eventPublisher,
     ILogger<UploadDocumentController> logger) : AuthenticatedBaseController
 {
     [HttpPost("upload")]
@@ -54,6 +57,14 @@ public class UploadDocumentController(
         await repo.InsertDocumentLogAsync(db, insertedId, securityResult.UserId, projectId);
         await repo.InsertProjectActivityLogAsync(db, projectId, insertedId, securityResult.UserId, "Document uploaded");
         await repo.UpsertSearchAsync(db, projectId, insertedId, resolvedTitle);
+
+        await eventPublisher.PublishAsync(DocumentUploadedEvent.TopicId, new DocumentUploadedEvent
+        {
+            DocumentId    = insertedId,
+            ProjectId     = projectId,
+            BlobReference = objectName,
+            FileExtension = fileExtension,
+        }, cancellationToken);
 
         logger.LogInformation(
             "Document uploaded. DocumentId: {DocumentId}, ProjectId: {ProjectId}, UserId: {UserId}, ObjectName: {ObjectName}",

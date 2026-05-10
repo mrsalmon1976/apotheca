@@ -1,5 +1,6 @@
 using Apotheca.Api.Configuration;
 using Apotheca.Api.Events;
+using Apotheca.Api.Events.Documents.DocumentUploaded;
 using Apotheca.Api.Events.Documents.HandleDocumentDeleted;
 using Apotheca.Api.Events.Documents.HandleDocumentRestored;
 using Apotheca.Api.Events.Notes.HandleNoteDeleted;
@@ -62,6 +63,7 @@ builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IDbContextFactory, DbContextFactory>();
 builder.Services.AddSingleton<IEventPublisher, PubSubEventPublisher>();
+builder.Services.AddTransient<DocumentUploadedEventRepository>();
 builder.Services.AddTransient<HandleDocumentDeletedRepository>();
 builder.Services.AddTransient<HandleDocumentRestoredRepository>();
 builder.Services.AddTransient<HandleNoteDeletedRepository>();

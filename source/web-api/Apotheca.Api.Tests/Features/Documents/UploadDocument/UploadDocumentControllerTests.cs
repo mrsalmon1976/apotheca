@@ -1,4 +1,6 @@
 using Apotheca.Api.Configuration;
+using Apotheca.Api.Events;
+using Apotheca.Api.Events.Documents.DocumentUploaded;
 using Apotheca.Api.Features.Documents.UploadDocument;
 using Apotheca.Api.Providers;
 using Apotheca.Data;
@@ -20,6 +22,7 @@ public class UploadDocumentControllerTests
     private StorageClient _storageClient = null!;
     private UploadDocumentRepository _repository = null!;
     private ISecurityProvider _securityProvider = null!;
+    private IEventPublisher _eventPublisher = null!;
     private UploadDocumentController _controller = null!;
     private IFormFile _file = null!;
 
@@ -32,6 +35,7 @@ public class UploadDocumentControllerTests
         _storageClient    = Substitute.For<StorageClient>();
         _repository       = Substitute.For<UploadDocumentRepository>();
         _securityProvider = Substitute.For<ISecurityProvider>();
+        _eventPublisher   = Substitute.For<IEventPublisher>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
         _appSettings.StorageBucketName.Returns("test-bucket");
@@ -54,6 +58,7 @@ public class UploadDocumentControllerTests
             _storageClient,
             _repository,
             _securityProvider,
+            _eventPublisher,
             Substitute.For<ILogger<UploadDocumentController>>());
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
     }
@@ -405,5 +410,78 @@ public class UploadDocumentControllerTests
         var id     = result.Value?.GetType().GetProperty("id")?.GetValue(result.Value)?.ToString();
 
         Assert.That(id, Is.EqualTo("uploaded-doc-id"));
+    }
+
+    // --- Event publishing ---
+
+    [Test]
+    public async Task UploadDocument_PublishesDocumentUploadedEvent_WithCorrectDocumentId()
+    {
+        AllowProjectAccess();
+        SetupInsert("new-doc-id");
+
+        await _controller.UploadDocument("proj-1", null, _file, "My Doc", CancellationToken.None);
+
+        await _eventPublisher.Received(1).PublishAsync(
+            DocumentUploadedEvent.TopicId,
+            Arg.Is<DocumentUploadedEvent>(e => e.DocumentId == "new-doc-id"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task UploadDocument_PublishesDocumentUploadedEvent_WithCorrectProjectId()
+    {
+        AllowProjectAccess();
+        SetupInsert();
+
+        await _controller.UploadDocument("proj-xyz", null, _file, "My Doc", CancellationToken.None);
+
+        await _eventPublisher.Received(1).PublishAsync(
+            DocumentUploadedEvent.TopicId,
+            Arg.Is<DocumentUploadedEvent>(e => e.ProjectId == "proj-xyz"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task UploadDocument_PublishesDocumentUploadedEvent_WithCorrectBlobReference()
+    {
+        AllowProjectAccess();
+        SetupInsert("doc-id-123");
+        _file.FileName.Returns("report.pdf");
+
+        await _controller.UploadDocument("proj-xyz", null, _file, "My Doc", CancellationToken.None);
+
+        await _eventPublisher.Received(1).PublishAsync(
+            DocumentUploadedEvent.TopicId,
+            Arg.Is<DocumentUploadedEvent>(e =>
+                e.BlobReference.StartsWith("projects/proj-xyz/documents/") &&
+                e.BlobReference.EndsWith("/report.pdf")),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task UploadDocument_PublishesDocumentUploadedEvent_WithCorrectFileExtension()
+    {
+        AllowProjectAccess();
+        SetupInsert();
+        _file.FileName.Returns("report.pdf");
+
+        await _controller.UploadDocument("proj-xyz", null, _file, "My Doc", CancellationToken.None);
+
+        await _eventPublisher.Received(1).PublishAsync(
+            DocumentUploadedEvent.TopicId,
+            Arg.Is<DocumentUploadedEvent>(e => e.FileExtension == ".pdf"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task UploadDocument_DoesNotPublishEvent_WhenAccessIsDenied()
+    {
+        DenyProjectAccess();
+
+        await _controller.UploadDocument("proj-1", null, _file, null, CancellationToken.None);
+
+        await _eventPublisher.DidNotReceive().PublishAsync(
+            Arg.Any<string>(), Arg.Any<DocumentUploadedEvent>(), Arg.Any<CancellationToken>());
     }
 }

@@ -111,5 +111,6 @@ Defined in `src/assets/main.css` as CSS custom properties.
 | API | `https://localhost:6060` |
 | Frontend | `http://localhost:5173` |
 | PostgreSQL | `Host=localhost;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca` |
+| PGAdmin | `Host=apotheca-postgres;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca` |
 | GCS emulator | `http://localhost:4443` |
 | Pub/Sub emulator | `http://localhost:8085` |
