@@ -315,10 +315,11 @@ if ($deployApi -eq 'Y' -or $deployApi -eq 'y') {
 
     # Create topics and push subscriptions
     $pubsubTopics = @(
-        @{ TopicId = "note-deleted";      Path = "/events/notes/note-deleted" },
-        @{ TopicId = "note-restored";     Path = "/events/notes/note-restored" },
-        @{ TopicId = "document-deleted";  Path = "/events/documents/document-deleted" },
-        @{ TopicId = "document-restored"; Path = "/events/documents/document-restored" }
+        @{ TopicId = "note-deleted";       Path = "/events/notes/note-deleted" },
+        @{ TopicId = "note-restored";      Path = "/events/notes/note-restored" },
+        @{ TopicId = "document-deleted";   Path = "/events/documents/document-deleted" },
+        @{ TopicId = "document-restored";  Path = "/events/documents/document-restored" },
+        @{ TopicId = "document-uploaded";  Path = "/events/documents/document-uploaded" }
     )
 
     foreach ($entry in $pubsubTopics) {
