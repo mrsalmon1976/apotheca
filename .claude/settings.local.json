@@ -25,7 +25,11 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\" -Directory)",
       "Bash(Select-Object Name)",
       "PowerShell(ls \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\\\\src\\\\features\\\\notes\" -Recurse | Where-Object {$_.Extension -eq \".vue\"})",
-      "PowerShell(ls \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\\\\src\\\\features\\\\documents\" -Recurse | Where-Object {$_.Extension -eq \".vue\"})"
+      "PowerShell(ls \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\\\\src\\\\features\\\\documents\" -Recurse | Where-Object {$_.Extension -eq \".vue\"})",
+      "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-api\" -Directory)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\" -Directory)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\" -Recurse -Directory -Filter \"*Test*\")",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }

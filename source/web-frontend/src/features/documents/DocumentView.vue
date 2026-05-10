@@ -156,6 +156,31 @@
           </div>
         </div>
 
+        <!-- Links -->
+        <div v-if="!document.isFolder" class="section">
+          <div class="links-header">
+            <div class="section-label">Links</div>
+            <button class="add-link-btn" :disabled="addingLink" @click="onAddLink">
+              <i :class="addingLink ? 'pi pi-spin pi-spinner' : 'pi pi-plus'"></i>
+              {{ addingLink ? 'Adding…' : 'Add link' }}
+            </button>
+          </div>
+          <div v-if="links.length === 0" class="links-empty">No links yet.</div>
+          <div v-else class="links-list">
+            <div v-for="link in links" :key="link.id" class="link-row">
+              <span class="link-url">{{ buildLinkUrl(link.id) }}</span>
+              <div class="link-actions">
+                <button class="link-action-btn" title="Copy link" @click="copyLink(link.id)">
+                  <i class="pi pi-copy"></i>
+                </button>
+                <button class="link-action-btn link-action-delete" title="Delete link" @click="onDeleteLink(link.id)">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </template>
     </div>
   </div>
@@ -164,17 +189,21 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import { useDocumentFolders } from '../../composables/useDocumentFolders'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const projectId  = computed(() => route.params.id)
 const documentId = computed(() => route.params.documentId)
 
 const sidebarOpen = ref(window.innerWidth >= 768)
 
-const { getDocument, saveDocument, downloadDocument, restoreDocument, searchLabels } = useDocumentFolders()
+const { getDocument, saveDocument, downloadDocument, restoreDocument, searchLabels, getDocumentLinks, createDocumentLink, deleteDocumentLink } = useDocumentFolders()
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
 const document     = ref(null)
 const loading      = ref(false)
@@ -204,6 +233,10 @@ const restoring = ref(false)
 // Download
 const downloading = ref(false)
 
+// Links
+const links      = ref([])
+const addingLink = ref(false)
+
 const permanentDeleteDate = computed(() => {
   if (!document.value?.deletedAt) return ''
   const d = new Date(document.value.deletedAt)
@@ -223,6 +256,7 @@ async function load() {
     if (document.value.parentDocumentId) {
       breadcrumbs.value = await buildBreadcrumbs(document.value.parentDocumentId)
     }
+    if (!document.value.isFolder) await loadLinks()
     if (route.query.new === 'true') nextTick(() => titleInput.value?.select())
   } catch {
     loadError.value = 'Could not connect to the server.'
@@ -373,6 +407,61 @@ async function onRestore() {
     if (res.ok) await load()
   } finally {
     restoring.value = false
+  }
+}
+
+function buildLinkUrl(linkId) {
+  return `${API_URL}/documents/public/${linkId}`
+}
+
+async function loadLinks() {
+  try {
+    const res = await getDocumentLinks(projectId.value, documentId.value)
+    if (res.ok) links.value = await res.json()
+  } catch {
+    // silently ignore
+  }
+}
+
+async function onAddLink() {
+  if (addingLink.value) return
+  addingLink.value = true
+  try {
+    const res = await createDocumentLink(projectId.value, documentId.value)
+    if (res.ok) {
+      const link = await res.json()
+      links.value.unshift(link)
+      toast.add({ severity: 'success', summary: 'Link created', life: 2500 })
+    } else {
+      toast.add({ severity: 'error', summary: 'Could not create link', life: 4000 })
+    }
+  } catch {
+    toast.add({ severity: 'error', summary: 'Could not create link', life: 4000 })
+  } finally {
+    addingLink.value = false
+  }
+}
+
+async function onDeleteLink(linkId) {
+  try {
+    const res = await deleteDocumentLink(projectId.value, documentId.value, linkId)
+    if (res.ok) {
+      links.value = links.value.filter(l => l.id !== linkId)
+      toast.add({ severity: 'success', summary: 'Link deleted', life: 2500 })
+    } else {
+      toast.add({ severity: 'error', summary: 'Could not delete link', life: 4000 })
+    }
+  } catch {
+    toast.add({ severity: 'error', summary: 'Could not delete link', life: 4000 })
+  }
+}
+
+async function copyLink(linkId) {
+  try {
+    await navigator.clipboard.writeText(buildLinkUrl(linkId))
+    toast.add({ severity: 'success', summary: 'Link copied to clipboard', life: 2500 })
+  } catch {
+    toast.add({ severity: 'error', summary: 'Could not copy link', life: 4000 })
   }
 }
 
@@ -659,6 +748,85 @@ onMounted(load)
 }
 
 .meta-file-icon { color: var(--text-muted); font-size: 0.9rem; flex-shrink: 0; }
+
+/* Links section */
+.links-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.links-header .section-label { margin-bottom: 0; }
+
+.add-link-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border-purple);
+  border-radius: 7px;
+  color: var(--color-purple);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.add-link-btn:hover:not(:disabled) { background: var(--bg-active); box-shadow: 0 0 8px var(--glow-purple); }
+.add-link-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.links-empty {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  padding: 0.5rem 0;
+}
+
+.links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+}
+
+.link-url {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+}
+
+.link-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.link-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+.link-action-btn:hover { color: var(--color-purple); background: var(--bg-active); }
+.link-action-delete:hover { color: var(--color-pink-light); }
 
 /* States */
 .loading-state { display: flex; align-items: center; gap: 0.6rem; color: var(--text-muted); font-size: 0.875rem; padding: 1rem 0; }

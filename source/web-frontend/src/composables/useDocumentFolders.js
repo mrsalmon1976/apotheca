@@ -103,5 +103,28 @@ export function useDocumentFolders() {
     })
   }
 
-  return { getDocument, getDocuments, createFolder, createDocument, saveDocument, deleteDocument, downloadDocument, restoreDocument, uploadDocument, searchLabels }
+  async function getDocumentLinks(projectId, documentId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/documents/${documentId}/links`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
+  async function createDocumentLink(projectId, documentId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/documents/${documentId}/links`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
+  async function deleteDocumentLink(projectId, documentId, linkId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/documents/${documentId}/links/${linkId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
+  return { getDocument, getDocuments, createFolder, createDocument, saveDocument, deleteDocument, downloadDocument, restoreDocument, uploadDocument, searchLabels, getDocumentLinks, createDocumentLink, deleteDocumentLink }
 }
