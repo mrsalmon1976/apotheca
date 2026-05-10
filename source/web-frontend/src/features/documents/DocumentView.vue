@@ -165,7 +165,7 @@
               {{ addingLink ? 'Adding…' : 'Add link' }}
             </button>
           </div>
-          <div v-if="links.length === 0" class="links-empty">No links yet.</div>
+          <div v-if="links.length === 0" class="links-empty">You can share this document by creating public links and sending them to your friends and colleagues. No links have been added yet.</div>
           <div v-else class="links-list">
             <div v-for="link in links" :key="link.id" class="link-row">
               <span class="link-url">{{ buildLinkUrl(link.id) }}</span>

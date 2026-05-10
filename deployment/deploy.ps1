@@ -32,7 +32,8 @@ function Invoke-GCloud {
 function Test-GCloudResource {
     param([scriptblock]$Command)
     $ErrorActionPreference = "Continue"
-    & $gcloud @Command 2>$null | Out-Null
+    $cmdArgs = & $Command
+    & $gcloud @cmdArgs 2>$null | Out-Null
     $exists = $LASTEXITCODE -eq 0
     $ErrorActionPreference = "Stop"
     return $exists
