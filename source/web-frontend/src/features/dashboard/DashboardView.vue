@@ -64,51 +64,27 @@
         </div>
       </section>
 
-      <!-- Right column -->
-      <div class="right-column">
-
-        <!-- Recent Notes -->
-        <section class="dash-section">
-          <div class="section-header">
-            <h2 class="section-title">
-              <i class="pi pi-file-edit"></i> Recent Notes
-            </h2>
-            <button class="link-btn" @click="$router.push('/notes')">View all</button>
+      <!-- Upcoming Tasks -->
+      <section class="dash-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="pi pi-check-square"></i> Upcoming Tasks
+          </h2>
+          <button class="link-btn" @click="$router.push('/tasks/upcoming')">View all</button>
+        </div>
+        <div class="task-list">
+          <div
+            class="task-row"
+            v-for="task in upcomingTasks"
+            :key="task.id"
+            @click="$router.push('/tasks/upcoming')"
+          >
+            <span class="task-priority-dot" :style="{ background: priorityColor(task.priority) }"></span>
+            <span class="task-row-title">{{ task.title }}</span>
+            <span class="task-due" :class="{ overdue: task.overdue }">{{ task.due }}</span>
           </div>
-          <div class="note-list">
-            <div class="note-row" v-for="note in recentNotes" :key="note.id">
-              <div class="note-row-body">
-                <span class="note-row-title">{{ note.title }}</span>
-                <span class="note-row-preview">{{ note.preview }}</span>
-              </div>
-              <span class="note-row-date">{{ note.date }}</span>
-            </div>
-          </div>
-        </section>
-
-        <!-- Upcoming Tasks -->
-        <section class="dash-section">
-          <div class="section-header">
-            <h2 class="section-title">
-              <i class="pi pi-check-square"></i> Upcoming Tasks
-            </h2>
-            <button class="link-btn" @click="$router.push('/tasks/upcoming')">View all</button>
-          </div>
-          <div class="task-list">
-            <div
-              class="task-row"
-              v-for="task in upcomingTasks"
-              :key="task.id"
-              @click="$router.push('/tasks/upcoming')"
-            >
-              <span class="task-priority-dot" :style="{ background: priorityColor(task.priority) }"></span>
-              <span class="task-row-title">{{ task.title }}</span>
-              <span class="task-due" :class="{ overdue: task.overdue }">{{ task.due }}</span>
-            </div>
-          </div>
-        </section>
-
-      </div>
+        </div>
+      </section>
     </div>
     </div><!-- end main-body -->
   </div><!-- end page-layout -->
@@ -132,12 +108,6 @@ const projects = [
   { id: 1, name: 'My Project', role: 'Owner', openTasks: 5, members: 1, progress: 30 },
   { id: 2, name: 'Apotheca', role: 'Owner', openTasks: 12, members: 2, progress: 55 },
   { id: 3, name: 'Learning', role: 'Viewer', openTasks: 2, members: 4, progress: 80 },
-]
-
-const recentNotes = [
-  { id: 1, title: 'Project Kickoff', preview: 'Initial planning and requirements...', date: 'Mar 12' },
-  { id: 2, title: 'Architecture Notes', preview: 'Thoughts on microservices approach...', date: 'Mar 8' },
-  { id: 3, title: 'API Design', preview: 'REST vs GraphQL considerations...', date: 'Mar 5' },
 ]
 
 const upcomingTasks = [
@@ -288,12 +258,6 @@ function priorityColor(priority) {
   align-items: start;
 }
 
-.right-column {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
 /* ── Sections ── */
 .dash-section {
   background: var(--bg-card);
@@ -400,56 +364,6 @@ function priorityColor(priority) {
   background: var(--gradient-brand);
   border-radius: 999px;
   transition: width 0.4s ease;
-}
-
-/* ── Notes list ── */
-.note-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.note-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.note-row:hover { background: var(--bg-primary); }
-
-.note-row-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.note-row-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.note-row-preview {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.note-row-date {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 /* ── Tasks list ── */

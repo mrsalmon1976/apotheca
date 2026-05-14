@@ -26,12 +26,58 @@
       </div>
 
       <!-- Quick links -->
-      <div class="section-title">Quick Links</div>
+      <div class="section-label">Quick Links</div>
       <div class="quick-links">
         <button v-for="link in quickLinks" :key="link.label" class="quick-link-card" @click="router.push(link.to)">
           <i :class="`pi ${link.icon}`"></i>
           <span>{{ link.label }}</span>
         </button>
+      </div>
+
+      <!-- Content grid -->
+      <div class="content-grid">
+
+        <!-- Recent Notes -->
+        <section class="dash-section">
+          <div class="section-header">
+            <h2 class="section-title">
+              <i class="pi pi-file-edit"></i> Recent Notes
+            </h2>
+            <button class="link-btn" @click="router.push(`/project/${projectId}/notes`)">View all</button>
+          </div>
+          <div class="note-list">
+            <div class="note-row" v-for="note in recentNotes" :key="note.id">
+              <div class="note-row-body">
+                <span class="note-row-title">{{ note.title }}</span>
+                <span class="note-row-preview">{{ note.preview }}</span>
+              </div>
+              <span class="note-row-date">{{ note.date }}</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Upcoming Tasks -->
+        <section class="dash-section">
+          <div class="section-header">
+            <h2 class="section-title">
+              <i class="pi pi-check-square"></i> Upcoming Tasks
+            </h2>
+            <button class="link-btn" @click="router.push(`/project/${projectId}/tasks/upcoming`)">View all</button>
+          </div>
+          <div class="task-list">
+            <div
+              class="task-row"
+              v-for="task in upcomingTasks"
+              :key="task.id"
+              @click="router.push(`/project/${projectId}/tasks/upcoming`)"
+            >
+              <span class="task-priority-dot" :style="{ background: priorityColor(task.priority) }"></span>
+              <span class="task-row-title">{{ task.title }}</span>
+              <span class="task-due" :class="{ overdue: task.overdue }">{{ task.due }}</span>
+            </div>
+          </div>
+        </section>
+
       </div>
     </div>
   </div>
@@ -95,6 +141,23 @@ const quickLinks = computed(() => [
   { label: 'Backlog',    icon: 'pi-inbox',          to: `/project/${projectId.value}/backlog` },
   { label: 'Reports',    icon: 'pi-chart-bar',      to: `/project/${projectId.value}/reports` },
 ])
+
+const recentNotes = [
+  { id: 1, title: 'Project Kickoff', preview: 'Initial planning and requirements...', date: 'Mar 12' },
+  { id: 2, title: 'Architecture Notes', preview: 'Thoughts on microservices approach...', date: 'Mar 8' },
+  { id: 3, title: 'API Design', preview: 'REST vs GraphQL considerations...', date: 'Mar 5' },
+]
+
+const upcomingTasks = [
+  { id: 1, title: 'Review pull request', priority: 'high', due: 'Today', overdue: false },
+  { id: 2, title: 'Write unit tests', priority: 'medium', due: 'Tomorrow', overdue: false },
+  { id: 3, title: 'Update documentation', priority: 'low', due: 'Mar 15', overdue: true },
+  { id: 4, title: 'Deploy to staging', priority: 'high', due: 'Mar 24', overdue: false },
+]
+
+function priorityColor(priority) {
+  return { high: '#ec4899', medium: '#a855f7', low: '#7a7590' }[priority]
+}
 </script>
 
 <style scoped>
@@ -208,7 +271,7 @@ const quickLinks = computed(() => [
 }
 
 /* ── Quick links ── */
-.section-title {
+.section-label {
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -246,6 +309,142 @@ const quickLinks = computed(() => [
   font-size: 0.9rem;
 }
 
+/* ── Content grid ── */
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  align-items: start;
+}
+
+/* ── Sections ── */
+.dash-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.section-title .pi { color: var(--color-purple); font-size: 0.85rem; }
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--color-purple);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+.link-btn:hover { color: var(--color-pink); }
+
+/* ── Notes list ── */
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.note-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.note-row:hover { background: var(--bg-primary); }
+
+.note-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.note-row-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-row-preview {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-row-date {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Tasks list ── */
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.task-row:hover { background: var(--bg-primary); }
+
+.task-priority-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.task-row-title {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.task-due {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.task-due.overdue { color: #f87171; }
+
 /* ── Mobile ── */
 .sidebar-backdrop { display: none; }
 
@@ -259,5 +458,9 @@ const quickLinks = computed(() => [
     z-index: 99;
   }
   .main-body { padding: 1rem; }
+}
+
+@media (max-width: 900px) {
+  .content-grid { grid-template-columns: 1fr; }
 }
 </style>
