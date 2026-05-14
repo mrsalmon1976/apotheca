@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar" :class="{ open: open }">
     <div class="sidebar-header">
-      <span>Project<template v-if="projectName">: {{ projectName }}</template></span>
+      <span><template v-if="projectName">{{ projectName }}</template></span>
     </div>
 
     <nav class="sidebar-nav">

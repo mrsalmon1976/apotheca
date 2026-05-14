@@ -1,50 +1,46 @@
 using System.Text;
 using System.Text.Json;
 using Apotheca.Api.Events;
-using Apotheca.Api.Events.Notes;
-using Apotheca.Api.Events.Notes.HandleNoteRestored;
+using Apotheca.Api.Events.Documents.DocumentRestored;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
-namespace Apotheca.Api.Tests.Events.Notes.HandleNoteRestored;
+namespace Apotheca.Api.Tests.Events.Documents.DocumentRestored;
 
 [TestFixture]
-public class HandleNoteRestoredControllerTests
+public class DocumentRestoredEventHandlerTests
 {
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
-    private HandleNoteRestoredRepository _repository = null!;
-    private HandleNoteRestoredController _controller = null!;
+    private DocumentRestoredRepository _repository = null!;
+    private DocumentRestoredEventHandler _handler = null!;
 
     [SetUp]
     public void SetUp()
     {
         _dbContextFactory = Substitute.For<IDbContextFactory>();
         _dbContext        = Substitute.For<IDbContext>();
-        _repository       = Substitute.For<HandleNoteRestoredRepository>();
+        _repository       = Substitute.For<DocumentRestoredRepository>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
-        _controller = new HandleNoteRestoredController(
-            _dbContextFactory, _repository, Substitute.For<ILogger<HandleNoteRestoredController>>());
+        _handler = new DocumentRestoredEventHandler(
+            _dbContextFactory, _repository, Substitute.For<ILogger<DocumentRestoredEventHandler>>());
     }
 
     [TearDown]
-    public void TearDown()
-    {
-        _dbContext.Dispose();
-    }
+    public void TearDown() => _dbContext.Dispose();
 
-    private static PubSubPushRequest BuildRequest(NoteRestoredEvent eventData)
+    private static PubSubPushRequest BuildRequest(DocumentRestoredEvent eventData)
     {
         var json    = JsonSerializer.Serialize(eventData);
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
         return new PubSubPushRequest
         {
             Message      = new PubSubMessage { Data = encoded },
-            Subscription = "projects/test/subscriptions/note-restored-sub",
+            Subscription = "projects/test/subscriptions/document-restored-sub",
         };
     }
 
@@ -59,7 +55,7 @@ public class HandleNoteRestoredControllerTests
             Subscription = "sub",
         };
 
-        var result = await _controller.Handle(request, CancellationToken.None);
+        var result = await _handler.Handle(request, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<BadRequestResult>());
     }
@@ -69,16 +65,16 @@ public class HandleNoteRestoredControllerTests
     [Test]
     public async Task Handle_Returns204_WhenThereAreNoRestoredAncestors()
     {
-        var request = BuildRequest(new NoteRestoredEvent
+        var request = BuildRequest(new DocumentRestoredEvent
         {
-            NoteId            = "note-1",
+            DocumentId        = "doc-1",
             ProjectId         = "proj-1",
             UserId            = "user-1",
-            Title             = "My Note",
+            Title             = "Spec.pdf",
             RestoredAncestors = [],
         });
 
-        var result = await _controller.Handle(request, CancellationToken.None);
+        var result = await _handler.Handle(request, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<NoContentResult>());
     }
@@ -86,13 +82,13 @@ public class HandleNoteRestoredControllerTests
     [Test]
     public async Task Handle_DoesNotOpenDatabase_WhenThereAreNoRestoredAncestors()
     {
-        var request = BuildRequest(new NoteRestoredEvent
+        var request = BuildRequest(new DocumentRestoredEvent
         {
-            NoteId            = "note-1",
+            DocumentId        = "doc-1",
             RestoredAncestors = [],
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _dbContextFactory.DidNotReceive().CreateAsync(Arg.Any<CancellationToken>());
     }
@@ -102,13 +98,13 @@ public class HandleNoteRestoredControllerTests
     [Test]
     public async Task Handle_BeginsTransaction_WhenAncestorsExist()
     {
-        var request = BuildRequest(new NoteRestoredEvent
+        var request = BuildRequest(new DocumentRestoredEvent
         {
-            NoteId            = "note-1",
-            RestoredAncestors = [new RestoredAncestor { NoteId = "ancestor-1", Title = "Parent", IsFolder = true }],
+            DocumentId        = "doc-1",
+            RestoredAncestors = [new RestoredAncestor { DocumentId = "ancestor-1", Title = "Parent", IsFolder = true }],
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _dbContext.Received(1).BeginTransactionAsync(Arg.Any<CancellationToken>());
     }
@@ -116,13 +112,13 @@ public class HandleNoteRestoredControllerTests
     [Test]
     public async Task Handle_CommitsTransaction_WhenAncestorsExist()
     {
-        var request = BuildRequest(new NoteRestoredEvent
+        var request = BuildRequest(new DocumentRestoredEvent
         {
-            NoteId            = "note-1",
-            RestoredAncestors = [new RestoredAncestor { NoteId = "ancestor-1", Title = "Parent", IsFolder = true }],
+            DocumentId        = "doc-1",
+            RestoredAncestors = [new RestoredAncestor { DocumentId = "ancestor-1", Title = "Parent", IsFolder = true }],
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _dbContext.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
@@ -132,21 +128,21 @@ public class HandleNoteRestoredControllerTests
     [Test]
     public async Task Handle_WritesActivityLog_ForEachRestoredAncestor()
     {
-        var request = BuildRequest(new NoteRestoredEvent
+        var request = BuildRequest(new DocumentRestoredEvent
         {
-            NoteId     = "note-1",
+            DocumentId = "doc-1",
             ProjectId  = "proj-xyz",
             UserId     = "user-1",
-            Title      = "My Note",
+            Title      = "Spec.pdf",
             IsFolder   = false,
             RestoredAncestors =
             [
-                new RestoredAncestor { NoteId = "ancestor-1", Title = "Parent Folder", IsFolder = true },
-                new RestoredAncestor { NoteId = "ancestor-2", Title = "Grandparent Folder", IsFolder = true },
+                new RestoredAncestor { DocumentId = "ancestor-1", Title = "Parent Folder", IsFolder = true },
+                new RestoredAncestor { DocumentId = "ancestor-2", Title = "Grandparent Folder", IsFolder = true },
             ],
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.Received(1).InsertProjectActivityLogAsync(
             _dbContext, Arg.Any<string>(), "ancestor-1", Arg.Any<string>(), Arg.Any<string>());
@@ -155,61 +151,61 @@ public class HandleNoteRestoredControllerTests
     }
 
     [Test]
-    public async Task Handle_WritesActivityLog_WithFolderAncestorFormat_WhenRestoredItemIsNote()
+    public async Task Handle_WritesActivityLog_WithFolderAncestorFormat_WhenRestoredItemIsDocument()
     {
-        var request = BuildRequest(new NoteRestoredEvent
+        var request = BuildRequest(new DocumentRestoredEvent
         {
-            NoteId     = "note-abc",
+            DocumentId = "doc-abc",
             ProjectId  = "proj-xyz",
             UserId     = "user-1",
-            Title      = "My Note",
+            Title      = "Spec.pdf",
             IsFolder   = false,
             RestoredAncestors =
             [
-                new RestoredAncestor { NoteId = "ancestor-1", Title = "Parent Folder", IsFolder = true },
+                new RestoredAncestor { DocumentId = "ancestor-1", Title = "Parent Folder", IsFolder = true },
             ],
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.Received(1).InsertProjectActivityLogAsync(
             _dbContext, "proj-xyz", "ancestor-1", "user-1",
-            "Folder 'Parent Folder' restored (parent of restored note 'My Note')");
+            "Folder 'Parent Folder' restored (parent of restored document 'Spec.pdf')");
     }
 
     [Test]
     public async Task Handle_WritesActivityLog_WithFolderAncestorFormat_WhenRestoredItemIsFolder()
     {
-        var request = BuildRequest(new NoteRestoredEvent
+        var request = BuildRequest(new DocumentRestoredEvent
         {
-            NoteId     = "folder-abc",
+            DocumentId = "folder-abc",
             ProjectId  = "proj-xyz",
             UserId     = "user-1",
-            Title      = "My Folder",
+            Title      = "Archive",
             IsFolder   = true,
             RestoredAncestors =
             [
-                new RestoredAncestor { NoteId = "ancestor-1", Title = "Parent Folder", IsFolder = true },
+                new RestoredAncestor { DocumentId = "ancestor-1", Title = "Parent Folder", IsFolder = true },
             ],
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.Received(1).InsertProjectActivityLogAsync(
             _dbContext, "proj-xyz", "ancestor-1", "user-1",
-            "Folder 'Parent Folder' restored (parent of restored folder 'My Folder')");
+            "Folder 'Parent Folder' restored (parent of restored folder 'Archive')");
     }
 
     [Test]
     public async Task Handle_Returns204_AfterWritingLogs()
     {
-        var request = BuildRequest(new NoteRestoredEvent
+        var request = BuildRequest(new DocumentRestoredEvent
         {
-            NoteId            = "note-1",
-            RestoredAncestors = [new RestoredAncestor { NoteId = "ancestor-1", Title = "Parent", IsFolder = true }],
+            DocumentId        = "doc-1",
+            RestoredAncestors = [new RestoredAncestor { DocumentId = "ancestor-1", Title = "Parent", IsFolder = true }],
         });
 
-        var result = await _controller.Handle(request, CancellationToken.None);
+        var result = await _handler.Handle(request, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<NoContentResult>());
     }

@@ -29,7 +29,9 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-api\" -Directory)",
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-frontend\" -Directory)",
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\" -Recurse -Directory -Filter \"*Test*\")",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-api\\\\Apotheca.Api\\\\Events\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

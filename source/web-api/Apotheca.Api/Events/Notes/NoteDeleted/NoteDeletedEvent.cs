@@ -1,4 +1,4 @@
-namespace Apotheca.Api.Events.Notes;
+namespace Apotheca.Api.Events.Notes.NoteDeleted;
 
 public class NoteDeletedEvent
 {

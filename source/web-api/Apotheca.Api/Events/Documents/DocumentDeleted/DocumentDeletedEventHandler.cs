@@ -2,15 +2,15 @@ using Apotheca.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Apotheca.Api.Events.Documents.HandleDocumentDeleted;
+namespace Apotheca.Api.Events.Documents.DocumentDeleted;
 
 [ApiController]
 [Route("events/documents")]
 [Authorize(Policy = "PubSubPush")]
-public class HandleDocumentDeletedController(
+public class DocumentDeletedEventHandler(
     IDbContextFactory dbContextFactory,
-    HandleDocumentDeletedRepository repo,
-    ILogger<HandleDocumentDeletedController> logger) : ControllerBase
+    DocumentDeletedRepository repo,
+    ILogger<DocumentDeletedEventHandler> logger) : ControllerBase
 {
     [HttpPost("document-deleted")]
     public async Task<IActionResult> Handle([FromBody] PubSubPushRequest request, CancellationToken cancellationToken)

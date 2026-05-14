@@ -1,5 +1,5 @@
 using Apotheca.Api.Events;
-using Apotheca.Api.Events.Documents;
+using Apotheca.Api.Events.Documents.DocumentRestored;
 using Apotheca.Api.Features.Documents.RestoreDocument;
 using Apotheca.Api.Providers;
 using Apotheca.Data;

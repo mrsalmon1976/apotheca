@@ -1,8 +1,8 @@
 using Apotheca.Data;
 
-namespace Apotheca.Api.Events.Notes.HandleNoteRestored;
+namespace Apotheca.Api.Events.Notes.NoteRestored;
 
-public class HandleNoteRestoredRepository
+public class NoteRestoredRepository
 {
     public virtual async Task InsertProjectActivityLogAsync(
         IDbContext db, string projectId, string noteId, string userId, string logMessage)

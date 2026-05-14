@@ -1,5 +1,5 @@
 using Apotheca.Api.Events;
-using Apotheca.Api.Events.Notes;
+using Apotheca.Api.Events.Notes.NoteDeleted;
 using Apotheca.Api.Features.Notes.DeleteNote;
 using Apotheca.Api.Providers;
 using Apotheca.Data;

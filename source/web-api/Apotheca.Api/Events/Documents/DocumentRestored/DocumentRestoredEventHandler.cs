@@ -2,15 +2,15 @@ using Apotheca.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Apotheca.Api.Events.Documents.HandleDocumentRestored;
+namespace Apotheca.Api.Events.Documents.DocumentRestored;
 
 [ApiController]
 [Route("events/documents")]
 [Authorize(Policy = "PubSubPush")]
-public class HandleDocumentRestoredController(
+public class DocumentRestoredEventHandler(
     IDbContextFactory dbContextFactory,
-    HandleDocumentRestoredRepository repo,
-    ILogger<HandleDocumentRestoredController> logger) : ControllerBase
+    DocumentRestoredRepository repo,
+    ILogger<DocumentRestoredEventHandler> logger) : ControllerBase
 {
     [HttpPost("document-restored")]
     public async Task<IActionResult> Handle([FromBody] PubSubPushRequest request, CancellationToken cancellationToken)

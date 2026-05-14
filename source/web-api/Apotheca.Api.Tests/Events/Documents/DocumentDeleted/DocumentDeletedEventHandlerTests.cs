@@ -1,53 +1,49 @@
 using System.Text;
 using System.Text.Json;
 using Apotheca.Api.Events;
-using Apotheca.Api.Events.Notes;
-using Apotheca.Api.Events.Notes.HandleNoteDeleted;
+using Apotheca.Api.Events.Documents.DocumentDeleted;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
-namespace Apotheca.Api.Tests.Events.Notes.HandleNoteDeleted;
+namespace Apotheca.Api.Tests.Events.Documents.DocumentDeleted;
 
 [TestFixture]
-public class HandleNoteDeletedControllerTests
+public class DocumentDeletedEventHandlerTests
 {
     private IDbContextFactory _dbContextFactory = null!;
     private IDbContext _dbContext = null!;
-    private HandleNoteDeletedRepository _repository = null!;
-    private HandleNoteDeletedController _controller = null!;
+    private DocumentDeletedRepository _repository = null!;
+    private DocumentDeletedEventHandler _handler = null!;
 
     [SetUp]
     public void SetUp()
     {
         _dbContextFactory = Substitute.For<IDbContextFactory>();
         _dbContext        = Substitute.For<IDbContext>();
-        _repository       = Substitute.For<HandleNoteDeletedRepository>();
+        _repository       = Substitute.For<DocumentDeletedRepository>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
 
         _repository.SoftDeleteDescendantsAsync(_dbContext, Arg.Any<string>())
             .Returns(Task.FromResult<IReadOnlyList<DeletedDescendant>>([]));
 
-        _controller = new HandleNoteDeletedController(
-            _dbContextFactory, _repository, Substitute.For<ILogger<HandleNoteDeletedController>>());
+        _handler = new DocumentDeletedEventHandler(
+            _dbContextFactory, _repository, Substitute.For<ILogger<DocumentDeletedEventHandler>>());
     }
 
     [TearDown]
-    public void TearDown()
-    {
-        _dbContext.Dispose();
-    }
+    public void TearDown() => _dbContext.Dispose();
 
-    private static PubSubPushRequest BuildRequest(NoteDeletedEvent eventData)
+    private static PubSubPushRequest BuildRequest(DocumentDeletedEvent eventData)
     {
         var json    = JsonSerializer.Serialize(eventData);
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
         return new PubSubPushRequest
         {
             Message      = new PubSubMessage { Data = encoded },
-            Subscription = "projects/test/subscriptions/note-deleted-sub",
+            Subscription = "projects/test/subscriptions/document-deleted-sub",
         };
     }
 
@@ -62,7 +58,7 @@ public class HandleNoteDeletedControllerTests
             Subscription = "sub",
         };
 
-        var result = await _controller.Handle(request, CancellationToken.None);
+        var result = await _handler.Handle(request, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<BadRequestResult>());
     }
@@ -70,42 +66,38 @@ public class HandleNoteDeletedControllerTests
     // --- Non-folder short circuit ---
 
     [Test]
-    public async Task Handle_Returns204_WhenEventIsForNote_NotFolder()
+    public async Task Handle_Returns204_WhenEventIsForDocument_NotFolder()
     {
-        var request = BuildRequest(new NoteDeletedEvent
+        var request = BuildRequest(new DocumentDeletedEvent
         {
-            NoteId    = "note-1",
-            ProjectId = "proj-1",
-            UserId    = "user-1",
-            Title     = "My Note",
-            IsFolder  = false,
+            DocumentId = "doc-1",
+            ProjectId  = "proj-1",
+            UserId     = "user-1",
+            Title      = "Spec.pdf",
+            IsFolder   = false,
         });
 
-        var result = await _controller.Handle(request, CancellationToken.None);
+        var result = await _handler.Handle(request, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<NoContentResult>());
     }
 
     [Test]
-    public async Task Handle_DoesNotOpenDatabase_WhenEventIsForNote_NotFolder()
+    public async Task Handle_DoesNotOpenDatabase_WhenEventIsForDocument_NotFolder()
     {
-        var request = BuildRequest(new NoteDeletedEvent
-        {
-            NoteId   = "note-1",
-            IsFolder = false,
-        });
+        var request = BuildRequest(new DocumentDeletedEvent { DocumentId = "doc-1", IsFolder = false });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _dbContextFactory.DidNotReceive().CreateAsync(Arg.Any<CancellationToken>());
     }
 
     [Test]
-    public async Task Handle_DoesNotCallSoftDelete_WhenEventIsForNote_NotFolder()
+    public async Task Handle_DoesNotCallSoftDelete_WhenEventIsForDocument_NotFolder()
     {
-        var request = BuildRequest(new NoteDeletedEvent { NoteId = "note-1", IsFolder = false });
+        var request = BuildRequest(new DocumentDeletedEvent { DocumentId = "doc-1", IsFolder = false });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.DidNotReceive().SoftDeleteDescendantsAsync(Arg.Any<IDbContext>(), Arg.Any<string>());
     }
@@ -115,28 +107,28 @@ public class HandleNoteDeletedControllerTests
     [Test]
     public async Task Handle_Returns204_WhenFolderIsDeletedWithNoDescendants()
     {
-        var request = BuildRequest(new NoteDeletedEvent
+        var request = BuildRequest(new DocumentDeletedEvent
         {
-            NoteId   = "folder-1",
-            IsFolder = true,
-            Title    = "Empty Folder",
+            DocumentId = "folder-1",
+            IsFolder   = true,
+            Title      = "Empty Folder",
         });
 
-        var result = await _controller.Handle(request, CancellationToken.None);
+        var result = await _handler.Handle(request, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<NoContentResult>());
     }
 
     [Test]
-    public async Task Handle_CallsSoftDeleteDescendants_WithCorrectNoteId()
+    public async Task Handle_CallsSoftDeleteDescendants_WithCorrectDocumentId()
     {
-        var request = BuildRequest(new NoteDeletedEvent
+        var request = BuildRequest(new DocumentDeletedEvent
         {
-            NoteId   = "folder-abc",
-            IsFolder = true,
+            DocumentId = "folder-abc",
+            IsFolder   = true,
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.Received(1).SoftDeleteDescendantsAsync(_dbContext, "folder-abc");
     }
@@ -146,9 +138,9 @@ public class HandleNoteDeletedControllerTests
     [Test]
     public async Task Handle_BeginsTransaction_WhenProcessingFolder()
     {
-        var request = BuildRequest(new NoteDeletedEvent { NoteId = "folder-1", IsFolder = true });
+        var request = BuildRequest(new DocumentDeletedEvent { DocumentId = "folder-1", IsFolder = true });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _dbContext.Received(1).BeginTransactionAsync(Arg.Any<CancellationToken>());
     }
@@ -156,9 +148,9 @@ public class HandleNoteDeletedControllerTests
     [Test]
     public async Task Handle_CommitsTransaction_WhenProcessingFolder()
     {
-        var request = BuildRequest(new NoteDeletedEvent { NoteId = "folder-1", IsFolder = true });
+        var request = BuildRequest(new DocumentDeletedEvent { DocumentId = "folder-1", IsFolder = true });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _dbContext.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
@@ -170,22 +162,22 @@ public class HandleNoteDeletedControllerTests
     {
         var descendants = new List<DeletedDescendant>
         {
-            new("child-1", "Note One", false),
+            new("child-1", "Spec.pdf", false),
             new("child-2", "Sub Folder", true),
         };
         _repository.SoftDeleteDescendantsAsync(_dbContext, Arg.Any<string>())
             .Returns(Task.FromResult<IReadOnlyList<DeletedDescendant>>(descendants));
 
-        var request = BuildRequest(new NoteDeletedEvent
+        var request = BuildRequest(new DocumentDeletedEvent
         {
-            NoteId   = "folder-abc",
-            IsFolder = true,
-            Title    = "Parent Folder",
-            ProjectId = "proj-xyz",
-            UserId    = "user-1",
+            DocumentId = "folder-abc",
+            IsFolder   = true,
+            Title      = "Parent Folder",
+            ProjectId  = "proj-xyz",
+            UserId     = "user-1",
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.Received(1).InsertProjectActivityLogAsync(
             _dbContext, Arg.Any<string>(), "child-1", Arg.Any<string>(), Arg.Any<string>());
@@ -194,26 +186,26 @@ public class HandleNoteDeletedControllerTests
     }
 
     [Test]
-    public async Task Handle_WritesActivityLog_WithNoteFormat()
+    public async Task Handle_WritesActivityLog_WithDocumentFormat()
     {
-        var descendants = new List<DeletedDescendant> { new("child-1", "My Note", false) };
+        var descendants = new List<DeletedDescendant> { new("child-1", "Spec.pdf", false) };
         _repository.SoftDeleteDescendantsAsync(_dbContext, Arg.Any<string>())
             .Returns(Task.FromResult<IReadOnlyList<DeletedDescendant>>(descendants));
 
-        var request = BuildRequest(new NoteDeletedEvent
+        var request = BuildRequest(new DocumentDeletedEvent
         {
-            NoteId    = "folder-abc",
-            IsFolder  = true,
-            Title     = "Parent Folder",
-            ProjectId = "proj-xyz",
-            UserId    = "user-1",
+            DocumentId = "folder-abc",
+            IsFolder   = true,
+            Title      = "Parent Folder",
+            ProjectId  = "proj-xyz",
+            UserId     = "user-1",
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.Received(1).InsertProjectActivityLogAsync(
             _dbContext, "proj-xyz", "child-1", "user-1",
-            "Note 'My Note' deleted (child of deleted folder 'Parent Folder')");
+            "Document 'Spec.pdf' deleted (child of deleted folder 'Parent Folder')");
     }
 
     [Test]
@@ -223,16 +215,16 @@ public class HandleNoteDeletedControllerTests
         _repository.SoftDeleteDescendantsAsync(_dbContext, Arg.Any<string>())
             .Returns(Task.FromResult<IReadOnlyList<DeletedDescendant>>(descendants));
 
-        var request = BuildRequest(new NoteDeletedEvent
+        var request = BuildRequest(new DocumentDeletedEvent
         {
-            NoteId    = "folder-abc",
-            IsFolder  = true,
-            Title     = "Parent Folder",
-            ProjectId = "proj-xyz",
-            UserId    = "user-1",
+            DocumentId = "folder-abc",
+            IsFolder   = true,
+            Title      = "Parent Folder",
+            ProjectId  = "proj-xyz",
+            UserId     = "user-1",
         });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.Received(1).InsertProjectActivityLogAsync(
             _dbContext, "proj-xyz", "child-2", "user-1",
@@ -245,9 +237,9 @@ public class HandleNoteDeletedControllerTests
         _repository.SoftDeleteDescendantsAsync(_dbContext, Arg.Any<string>())
             .Returns(Task.FromResult<IReadOnlyList<DeletedDescendant>>([]));
 
-        var request = BuildRequest(new NoteDeletedEvent { NoteId = "folder-1", IsFolder = true });
+        var request = BuildRequest(new DocumentDeletedEvent { DocumentId = "folder-1", IsFolder = true });
 
-        await _controller.Handle(request, CancellationToken.None);
+        await _handler.Handle(request, CancellationToken.None);
 
         await _repository.DidNotReceive().InsertProjectActivityLogAsync(
             Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(),

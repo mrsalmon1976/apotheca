@@ -2,15 +2,15 @@ using Apotheca.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Apotheca.Api.Events.Notes.HandleNoteRestored;
+namespace Apotheca.Api.Events.Notes.NoteRestored;
 
 [ApiController]
 [Route("events/notes")]
 [Authorize(Policy = "PubSubPush")]
-public class HandleNoteRestoredController(
+public class NoteRestoredEventHandler(
     IDbContextFactory dbContextFactory,
-    HandleNoteRestoredRepository repo,
-    ILogger<HandleNoteRestoredController> logger) : ControllerBase
+    NoteRestoredRepository repo,
+    ILogger<NoteRestoredEventHandler> logger) : ControllerBase
 {
     [HttpPost("note-restored")]
     public async Task<IActionResult> Handle([FromBody] PubSubPushRequest request, CancellationToken cancellationToken)

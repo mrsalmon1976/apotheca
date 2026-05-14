@@ -1,10 +1,10 @@
 using Apotheca.Data;
 
-namespace Apotheca.Api.Events.Notes.HandleNoteDeleted;
+namespace Apotheca.Api.Events.Notes.NoteDeleted;
 
 public record DeletedDescendant(string Id, string Title, bool IsFolder);
 
-public class HandleNoteDeletedRepository
+public class NoteDeletedRepository
 {
     public virtual async Task<IReadOnlyList<DeletedDescendant>> SoftDeleteDescendantsAsync(
         IDbContext db, string noteId)

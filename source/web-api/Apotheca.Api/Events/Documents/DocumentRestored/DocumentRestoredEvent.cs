@@ -1,10 +1,10 @@
-namespace Apotheca.Api.Events.Notes;
+namespace Apotheca.Api.Events.Documents.DocumentRestored;
 
-public class NoteRestoredEvent
+public class DocumentRestoredEvent
 {
-    public const string TopicId = "note-restored";
+    public const string TopicId = "document-restored";
 
-    public string NoteId { get; init; } = string.Empty;
+    public string DocumentId { get; init; } = string.Empty;
     public string ProjectId { get; init; } = string.Empty;
     public string UserId { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
@@ -14,7 +14,7 @@ public class NoteRestoredEvent
 
 public class RestoredAncestor
 {
-    public string NoteId { get; init; } = string.Empty;
+    public string DocumentId { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public bool IsFolder { get; init; }
 }

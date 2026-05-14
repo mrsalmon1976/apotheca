@@ -1,8 +1,8 @@
 using Apotheca.Data;
 
-namespace Apotheca.Api.Events.Documents.HandleDocumentRestored;
+namespace Apotheca.Api.Events.Documents.DocumentRestored;
 
-public class HandleDocumentRestoredRepository
+public class DocumentRestoredRepository
 {
     public virtual async Task InsertProjectActivityLogAsync(
         IDbContext db, string projectId, string documentId, string userId, string logMessage)

@@ -53,6 +53,11 @@ All authenticated controllers inherit `AuthenticatedBaseController` (carries `[A
 
 Data access: inject `IDbContextFactory`, call `CreateAsync()` to get an `IDbContext`, run Dapper queries. All `TIMESTAMPTZ` values are UTC. Methods on `IDbContext` are alphabetically ordered — follow this when adding new ones.
 
+Pub/Sub event handlers live under `Events/DomainArea/EventName/` (e.g. `Events/Documents/DocumentDeleted/`). Each folder contains:
+- `{EventName}Event.cs` — the event payload class
+- `{EventName}EventHandler.cs` — the controller that receives the Pub/Sub push (`[Authorize(Policy = "PubSubPush")]`, inherits `ControllerBase`)
+- `{EventName}Repository.cs` — data access for the handler (if needed)
+
 ### Frontend (`source/web-frontend/`)
 
 Vue 3 + Vite + PrimeVue (Aura preset). Dark theme toggled via `.app-dark` on `<html>` (`useTheme.js`); brand colors are CSS custom properties in `src/assets/main.css`.

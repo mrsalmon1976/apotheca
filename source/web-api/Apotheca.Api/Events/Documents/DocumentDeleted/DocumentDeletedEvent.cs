@@ -1,4 +1,4 @@
-namespace Apotheca.Api.Events.Documents;
+namespace Apotheca.Api.Events.Documents.DocumentDeleted;
 
 public class DocumentDeletedEvent
 {

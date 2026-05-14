@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Apotheca.Api.Events.Notes;
+using Apotheca.Api.Events.Notes.NoteRestored;
 using Apotheca.Data;
 
 namespace Apotheca.Api.Features.Notes.RestoreNote;

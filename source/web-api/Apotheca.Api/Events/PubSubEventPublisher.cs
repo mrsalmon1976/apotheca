@@ -13,15 +13,8 @@ public class PubSubEventPublisher(IAppSettings appSettings, ILogger<PubSubEventP
     {
         try
         {
-            var clientTask = _clients.GetOrAdd(topicId, id =>
-                new PublisherClientBuilder
-                {
-                    TopicName = TopicName.FromProjectTopic(appSettings.FirebaseProjectId, id),
-                    EmulatorDetection = Google.Api.Gax.EmulatorDetection.EmulatorOrProduction,
-                }.BuildAsync());
-
-            var client = await clientTask;
-            var json = JsonSerializer.Serialize(eventData);
+            var client = await GetOrCreateClientAsync(topicId);
+            var json   = JsonSerializer.Serialize(eventData);
             await client.PublishAsync(json);
 
             logger.LogInformation("Published event to topic {TopicId}", topicId);
@@ -29,6 +22,27 @@ public class PubSubEventPublisher(IAppSettings appSettings, ILogger<PubSubEventP
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to publish event to topic {TopicId}. Event data: {EventType}", topicId, typeof(T).Name);
+        }
+    }
+
+    private async Task<PublisherClient> GetOrCreateClientAsync(string topicId)
+    {
+        var clientTask = _clients.GetOrAdd(topicId, id =>
+            new PublisherClientBuilder
+            {
+                TopicName         = TopicName.FromProjectTopic(appSettings.FirebaseProjectId, id),
+                EmulatorDetection = Google.Api.Gax.EmulatorDetection.EmulatorOrProduction,
+            }.BuildAsync());
+
+        try
+        {
+            return await clientTask;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, $"Failed to create event client for topic id {topicId}");
+            _clients.TryRemove(new KeyValuePair<string, Task<PublisherClient>>(topicId, clientTask));
+            throw;
         }
     }
 }

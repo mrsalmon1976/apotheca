@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Apotheca.Api.Events.Documents;
+using Apotheca.Api.Events.Documents.DocumentRestored;
 using Apotheca.Data;
 
 namespace Apotheca.Api.Features.Documents.RestoreDocument;

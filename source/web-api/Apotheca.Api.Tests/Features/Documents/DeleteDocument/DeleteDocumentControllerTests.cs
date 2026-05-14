@@ -1,5 +1,5 @@
 using Apotheca.Api.Events;
-using Apotheca.Api.Events.Documents;
+using Apotheca.Api.Events.Documents.DocumentDeleted;
 using Apotheca.Api.Features.Documents.DeleteDocument;
 using Apotheca.Api.Providers;
 using Apotheca.Data;

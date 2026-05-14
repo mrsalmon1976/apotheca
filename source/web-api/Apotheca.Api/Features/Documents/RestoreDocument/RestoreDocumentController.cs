@@ -1,5 +1,5 @@
 using Apotheca.Api.Events;
-using Apotheca.Api.Events.Documents;
+using Apotheca.Api.Events.Documents.DocumentRestored;
 using Apotheca.Api.Providers;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
