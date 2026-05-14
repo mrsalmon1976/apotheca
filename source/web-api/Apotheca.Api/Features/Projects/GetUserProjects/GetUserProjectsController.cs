@@ -19,7 +19,11 @@ public class GetUserProjectsController(
         if (!securityResult.IsAuthorized)
             return Unauthorized(new { error = securityResult.ErrorMessage });
 
-        var projects = await repo.GetProjectsByUidAsync(db, securityResult.FirebaseUid);
-        return Ok(projects.ToResponse());
+        var uid      = securityResult.FirebaseUid;
+        var projects = await repo.GetProjectsByUidAsync(db, uid);
+        var stats    = await repo.GetProjectStatsAsync(db, uid);
+
+        var statsById = stats.ToDictionary(s => s.ProjectId);
+        return Ok(projects.ToResponse(statsById));
     }
 }

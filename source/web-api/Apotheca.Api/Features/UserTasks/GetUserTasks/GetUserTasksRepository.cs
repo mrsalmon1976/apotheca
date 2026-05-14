@@ -48,4 +48,12 @@ public class GetUserTasksRepository
             BaseQuery + " AND t.due_at > now() AND t.due_at <= now() + INTERVAL '7 days' ORDER BY t.due_at, t.created_at",
             new { FirebaseUid = firebaseUid });
     }
+
+    public virtual async Task<IEnumerable<GetUserTasksResponse>> GetOverdueAndUpcomingTasksAsync(
+        IDbContext db, string firebaseUid)
+    {
+        return await db.QueryAsync<GetUserTasksResponse>(
+            BaseQuery + " AND t.due_at IS NOT NULL AND t.due_at <= now() + INTERVAL '7 days' ORDER BY t.due_at, t.created_at",
+            new { FirebaseUid = firebaseUid });
+    }
 }

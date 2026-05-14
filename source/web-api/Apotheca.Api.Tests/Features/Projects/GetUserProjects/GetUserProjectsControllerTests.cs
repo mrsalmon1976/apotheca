@@ -26,6 +26,10 @@ public class GetUserProjectsControllerTests
         _securityProvider = Substitute.For<ISecurityProvider>();
 
         _dbContextFactory.CreateAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(_dbContext));
+        _repository.GetProjectsByUidAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult(Enumerable.Empty<ProjectDbEntity>()));
+        _repository.GetProjectStatsAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult(Enumerable.Empty<ProjectStatsModel>()));
 
         _controller = new GetUserProjectsController(_dbContextFactory, _repository, _securityProvider);
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
@@ -77,8 +81,6 @@ public class GetUserProjectsControllerTests
     public async Task GetUserProjects_ReturnsOk()
     {
         AllowAccess();
-        _repository.GetProjectsByUidAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult(Enumerable.Empty<ProjectDbEntity>()));
 
         var result = await _controller.GetUserProjects(CancellationToken.None);
 
@@ -89,8 +91,6 @@ public class GetUserProjectsControllerTests
     public async Task GetUserProjects_ReturnsEmptyList_WhenUserHasNoProjects()
     {
         AllowAccess();
-        _repository.GetProjectsByUidAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult(Enumerable.Empty<ProjectDbEntity>()));
 
         var result   = (OkObjectResult)await _controller.GetUserProjects(CancellationToken.None);
         var projects = result.Value as IEnumerable<GetUserProjectsResponse>;
@@ -99,29 +99,15 @@ public class GetUserProjectsControllerTests
     }
 
     [Test]
-    public async Task GetUserProjects_QueriesWithFirebaseUid()
-    {
-        AllowAccess("firebase-uid");
-        _repository.GetProjectsByUidAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult(Enumerable.Empty<ProjectDbEntity>()));
-
-        await _controller.GetUserProjects(CancellationToken.None);
-
-        await _repository.Received(1).GetProjectsByUidAsync(_dbContext, "firebase-uid");
-    }
-
-    [Test]
     public async Task GetUserProjects_ReturnsMappedProjects()
     {
         AllowAccess();
-
-        var dbResults = new[]
-        {
-            new ProjectDbEntity { Id = "p1", Name = "Alpha", CreatedAt = DateTimeOffset.UtcNow },
-            new ProjectDbEntity { Id = "p2", Name = "Beta",  CreatedAt = DateTimeOffset.UtcNow },
-        };
         _repository.GetProjectsByUidAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult<IEnumerable<ProjectDbEntity>>(dbResults));
+            .Returns(Task.FromResult<IEnumerable<ProjectDbEntity>>(new[]
+            {
+                new ProjectDbEntity { Id = "p1", Name = "Alpha", CreatedAt = DateTimeOffset.UtcNow },
+                new ProjectDbEntity { Id = "p2", Name = "Beta",  CreatedAt = DateTimeOffset.UtcNow },
+            }));
 
         var result   = (OkObjectResult)await _controller.GetUserProjects(CancellationToken.None);
         var projects = (result.Value as IEnumerable<GetUserProjectsResponse>)!.ToList();
@@ -129,5 +115,69 @@ public class GetUserProjectsControllerTests
         Assert.That(projects, Has.Count.EqualTo(2));
         Assert.That(projects[0].Id, Is.EqualTo("p1"));
         Assert.That(projects[1].Id, Is.EqualTo("p2"));
+    }
+
+    // --- Queries ---
+
+    [Test]
+    public async Task GetUserProjects_QueriesProjectsWithFirebaseUid()
+    {
+        AllowAccess("firebase-uid");
+
+        await _controller.GetUserProjects(CancellationToken.None);
+
+        await _repository.Received(1).GetProjectsByUidAsync(_dbContext, "firebase-uid");
+    }
+
+    [Test]
+    public async Task GetUserProjects_QueriesStatsWithFirebaseUid()
+    {
+        AllowAccess("firebase-uid");
+
+        await _controller.GetUserProjects(CancellationToken.None);
+
+        await _repository.Received(1).GetProjectStatsAsync(_dbContext, "firebase-uid");
+    }
+
+    // --- Stats ---
+
+    [Test]
+    public async Task GetUserProjects_MergesStatsIntoResponse()
+    {
+        AllowAccess();
+        _repository.GetProjectsByUidAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult<IEnumerable<ProjectDbEntity>>(new[]
+            {
+                new ProjectDbEntity { Id = "p1", Name = "Alpha", ProjectRole = "owner", CreatedAt = DateTimeOffset.UtcNow },
+            }));
+        _repository.GetProjectStatsAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult<IEnumerable<ProjectStatsModel>>(new[]
+            {
+                new ProjectStatsModel { ProjectId = "p1", OpenTaskCount = 3, MemberCount = 2 },
+            }));
+
+        var result  = (OkObjectResult)await _controller.GetUserProjects(CancellationToken.None);
+        var project = (result.Value as IEnumerable<GetUserProjectsResponse>)!.Single();
+
+        Assert.That(project.ProjectRole,   Is.EqualTo("owner"));
+        Assert.That(project.OpenTaskCount, Is.EqualTo(3));
+        Assert.That(project.MemberCount,   Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task GetUserProjects_DefaultsCountsToZero_WhenNoStatsForProject()
+    {
+        AllowAccess();
+        _repository.GetProjectsByUidAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult<IEnumerable<ProjectDbEntity>>(new[]
+            {
+                new ProjectDbEntity { Id = "p1", Name = "Alpha", CreatedAt = DateTimeOffset.UtcNow },
+            }));
+
+        var result  = (OkObjectResult)await _controller.GetUserProjects(CancellationToken.None);
+        var project = (result.Value as IEnumerable<GetUserProjectsResponse>)!.Single();
+
+        Assert.That(project.OpenTaskCount, Is.EqualTo(0));
+        Assert.That(project.MemberCount,   Is.EqualTo(0));
     }
 }

@@ -31,7 +31,9 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\" -Recurse -Directory -Filter \"*Test*\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-api\\\\Apotheca.Api\\\\Events\" -Recurse -Directory)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-api\\\\Apotheca.Api\\\\Features\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)"
     ]
   }
 }

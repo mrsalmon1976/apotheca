@@ -23,9 +23,10 @@ public class GetUserTasksController(
 
         var tasks = filter?.ToLowerInvariant() switch
         {
-            "today"    => await repo.GetTasksDueTodayAsync(db, securityResult.FirebaseUid),
-            "upcoming" => await repo.GetTasksDueUpcomingAsync(db, securityResult.FirebaseUid),
-            _          => await repo.GetAllOpenTasksAsync(db, securityResult.FirebaseUid),
+            "today"            => await repo.GetTasksDueTodayAsync(db, securityResult.FirebaseUid),
+            "upcoming"         => await repo.GetTasksDueUpcomingAsync(db, securityResult.FirebaseUid),
+            "overdue-upcoming" => await repo.GetOverdueAndUpcomingTasksAsync(db, securityResult.FirebaseUid),
+            _                  => await repo.GetAllOpenTasksAsync(db, securityResult.FirebaseUid),
         };
 
         return Ok(tasks);
