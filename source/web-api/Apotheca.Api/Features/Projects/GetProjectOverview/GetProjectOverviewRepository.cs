@@ -36,7 +36,8 @@ public class GetProjectOverviewRepository
             @"SELECT COUNT(1)
               FROM documents
               WHERE project_id = @ProjectId
-                AND is_folder = FALSE",
+                AND is_folder = FALSE
+                AND deleted_at IS NULL",
             new { ProjectId = projectId });
     }
 }
