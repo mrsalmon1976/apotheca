@@ -25,15 +25,6 @@
         </div>
       </div>
 
-      <!-- Quick links -->
-      <div class="section-label">Quick Links</div>
-      <div class="quick-links">
-        <button v-for="link in quickLinks" :key="link.label" class="quick-link-card" @click="router.push(link.to)">
-          <i :class="`pi ${link.icon}`"></i>
-          <span>{{ link.label }}</span>
-        </button>
-      </div>
-
       <!-- Content grid -->
       <div class="content-grid">
 
@@ -45,13 +36,19 @@
             </h2>
             <button class="link-btn" @click="router.push(`/project/${projectId}/notes`)">View all</button>
           </div>
-          <div class="note-list">
-            <div class="note-row" v-for="note in recentNotes" :key="note.id">
+          <div v-if="recentNotesLoading" class="task-list-empty">Loading…</div>
+          <div v-else-if="recentNotes.length === 0" class="task-list-empty">No notes yet.</div>
+          <div v-else class="note-list">
+            <div class="note-row" v-for="note in recentNotes" :key="note.id"
+                 @click="router.push(`/project/${projectId}/notes/${note.id}`)">
               <div class="note-row-body">
                 <span class="note-row-title">{{ note.title }}</span>
-                <span class="note-row-preview">{{ note.preview }}</span>
+                <span class="note-row-preview">{{ note.body || 'No content' }}</span>
               </div>
-              <span class="note-row-date">{{ note.date }}</span>
+              <div class="note-row-meta">
+                <span class="note-row-author">{{ note.createdByDisplayName || 'Unknown' }}</span>
+                <span class="note-row-date">{{ formatNoteDate(note.updatedAt) }}</span>
+              </div>
             </div>
           </div>
         </section>
@@ -75,7 +72,8 @@
             >
               <span class="task-priority-dot" :style="{ background: priorityColor(task.priority) }"></span>
               <span class="task-row-title">{{ task.title }}</span>
-              <span v-if="task.assignedToDisplayName" class="task-assignee">{{ task.assignedToDisplayName }}</span>
+              <span class="task-assignee">{{ task.assignedToDisplayName || 'Unassigned' }}</span>
+              <span class="task-sep">·</span>
               <span class="task-due" :class="{ overdue: isOverdue(task.dueAt) }">{{ formatDueDate(task.dueAt) }}</span>
             </div>
           </div>
@@ -160,22 +158,37 @@ async function loadTasks() {
 onMounted(() => {
   loadOverview()
   loadTasks()
+  loadRecentNotes()
 })
 
-const quickLinks = computed(() => [
-  { label: 'Notes',      icon: 'pi-file-edit',     to: `/project/${projectId.value}/notes` },
-  { label: 'Documents',  icon: 'pi-folder-open',   to: `/project/${projectId.value}/documents` },
-  { label: 'All Tasks',  icon: 'pi-list',           to: `/project/${projectId.value}/tasks/all` },
-  { label: 'Kanban',     icon: 'pi-objects-column', to: `/project/${projectId.value}/kanban` },
-  { label: 'Backlog',    icon: 'pi-inbox',          to: `/project/${projectId.value}/backlog` },
-  { label: 'Reports',    icon: 'pi-chart-bar',      to: `/project/${projectId.value}/reports` },
-])
 
-const recentNotes = [
-  { id: 1, title: 'Project Kickoff', preview: 'Initial planning and requirements...', date: 'Mar 12' },
-  { id: 2, title: 'Architecture Notes', preview: 'Thoughts on microservices approach...', date: 'Mar 8' },
-  { id: 3, title: 'API Design', preview: 'REST vs GraphQL considerations...', date: 'Mar 5' },
-]
+const recentNotes       = ref([])
+const recentNotesLoading = ref(false)
+
+async function loadRecentNotes() {
+  if (!user.value) return
+  recentNotesLoading.value = true
+  try {
+    const token    = await user.value.getIdToken()
+    const response = await fetch(`${API_URL}/projects/${projectId.value}/notes/recent?limit=10`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (response.ok) {
+      recentNotes.value = await response.json()
+    } else {
+      toast.add({ severity: 'error', summary: 'Failed to load notes', detail: `Server error (${response.status})`, life: 10000 })
+    }
+  } catch {
+    toast.add({ severity: 'error', summary: 'Failed to load notes', detail: 'Could not connect to the server.', life: 10000 })
+  } finally {
+    recentNotesLoading.value = false
+  }
+}
+
+function formatNoteDate(updatedAt) {
+  if (!updatedAt) return ''
+  return new Date(updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
 const PRIORITY_COLORS = { HIGH: '#ec4899', URGENT: '#f87171', MEDIUM: '#a855f7', LOW: '#7a7590', NONE: '#524e65' }
 
@@ -184,7 +197,7 @@ function priorityColor(priority) {
 }
 
 function formatDueDate(dueAt) {
-  if (!dueAt) return ''
+  if (!dueAt) return 'No Due Date'
   const due          = new Date(dueAt)
   const todayStart   = new Date()
   todayStart.setHours(0, 0, 0, 0)
@@ -315,44 +328,6 @@ function isOverdue(dueAt) {
   color: var(--text-muted);
 }
 
-/* ── Quick links ── */
-.section-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin-bottom: 0.75rem;
-}
-
-.quick-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.quick-link-card {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 1.1rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.quick-link-card:hover {
-  border-color: var(--color-purple);
-  color: var(--text-primary);
-  box-shadow: 0 0 10px var(--glow-purple);
-}
-.quick-link-card .pi {
-  color: var(--color-purple);
-  font-size: 0.9rem;
-}
 
 /* ── Content grid ── */
 .content-grid {
@@ -406,12 +381,12 @@ function isOverdue(dueAt) {
 .note-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
 .note-row {
   display: flex;
   align-items: flex-start;
+  border-bottom: 1px solid var(--border-color);
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
@@ -419,6 +394,7 @@ function isOverdue(dueAt) {
   cursor: pointer;
   transition: background 0.15s;
 }
+.note-row:last-child { border-bottom: none; }
 .note-row:hover { background: var(--bg-primary); }
 
 .note-row-body {
@@ -445,11 +421,24 @@ function isOverdue(dueAt) {
   text-overflow: ellipsis;
 }
 
+.note-row-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+
+.note-row-author {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .note-row-date {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-dim);
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 /* ── Tasks list ── */
@@ -497,6 +486,12 @@ function isOverdue(dueAt) {
   font-size: 0.72rem;
   color: var(--text-muted);
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.task-sep {
+  font-size: 0.72rem;
+  color: var(--text-dim);
   flex-shrink: 0;
 }
 
