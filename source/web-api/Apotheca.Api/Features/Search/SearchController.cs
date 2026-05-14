@@ -1,4 +1,5 @@
 using Apotheca.Api.Providers;
+using Apotheca.Api.Utils;
 using Apotheca.Data;
 using Microsoft.AspNetCore.Mvc;
 
@@ -48,6 +49,6 @@ public class SearchController(
             searchTitle: fieldSet.Contains("title"),
             searchBody:  fieldSet.Contains("body") || fieldSet.Count == 0);
 
-        return Ok(results);
+        return Ok(results.Select(r => r with { Snippet = MarkdownUtils.StripMarkdown(r.Snippet) }));
     }
 }

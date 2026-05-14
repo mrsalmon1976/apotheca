@@ -14,6 +14,15 @@
         <i class="pi pi-th-large"></i>
         <span>Dashboard</span>
       </a>
+      <a
+        class="sidebar-item"
+        :class="{ active: $route.path === '/search' }"
+        href="/search"
+        @click.prevent="router.push('/search'); closeSidebarOnMobile()"
+      >
+        <i class="pi pi-search"></i>
+        <span>Search</span>
+      </a>
       <span class="sidebar-item disabled">
         <i class="pi pi-chart-bar"></i>
         <span>Reports</span>

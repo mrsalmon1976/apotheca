@@ -1,3 +1,4 @@
+using Apotheca.Api.Utils;
 using Apotheca.Data;
 using NanoidDotNet;
 
@@ -67,6 +68,6 @@ public class SaveProjectTaskRepository
                   text_title = EXCLUDED.text_title,
                   text_body  = EXCLUDED.text_body,
                   updated_at = now()",
-            new { ReferenceId = taskId, ProjectId = projectId, Title = title, Body = body });
+            new { ReferenceId = taskId, ProjectId = projectId, Title = title, Body = MarkdownUtils.StripMarkdown(body) ?? string.Empty });
     }
 }

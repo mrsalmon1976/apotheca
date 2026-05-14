@@ -1,3 +1,4 @@
+using Apotheca.Api.Utils;
 using Apotheca.Data;
 using NanoidDotNet;
 
@@ -78,7 +79,7 @@ public class SaveNoteRepository
                   text_title = EXCLUDED.text_title,
                   text_body  = EXCLUDED.text_body,
                   updated_at = now()",
-            new { ReferenceId = noteId, ProjectId = projectId, Title = title, Body = body });
+            new { ReferenceId = noteId, ProjectId = projectId, Title = title, Body = MarkdownUtils.StripMarkdown(body) ?? string.Empty });
     }
 
     private record NoteContent(string Title, string? Body);

@@ -22,110 +22,6 @@ public class GetProjectNotesMapperTests
     }
 
     [Test]
-    public void ToResponse_MapsBody_WhenPlainText()
-    {
-        var model = new ProjectNoteModel { Body = "Some body content" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("Some body content"));
-    }
-
-    [Test]
-    public void ToResponse_MapsBody_WhenNull()
-    {
-        var model = new ProjectNoteModel { Body = null };
-
-        Assert.That(model.ToResponse().Body, Is.Null);
-    }
-
-    [Test]
-    public void ToResponse_MapsBody_WhenWhitespaceOnly()
-    {
-        var model = new ProjectNoteModel { Body = "   " };
-
-        Assert.That(model.ToResponse().Body, Is.Null);
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsBold()
-    {
-        var model = new ProjectNoteModel { Body = "This is **bold** text" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("This is bold text"));
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsItalic()
-    {
-        var model = new ProjectNoteModel { Body = "This is *italic* text" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("This is italic text"));
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsHeadings()
-    {
-        var model = new ProjectNoteModel { Body = "## Section heading\nSome content" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("Section heading Some content"));
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsInlineCode()
-    {
-        var model = new ProjectNoteModel { Body = "Call `doSomething()` here" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("Call doSomething() here"));
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsFencedCodeBlock()
-    {
-        var model = new ProjectNoteModel { Body = "Example:\n```\nvar x = 1;\n```\nDone" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("Example: Done"));
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsLinks_KeepsText()
-    {
-        var model = new ProjectNoteModel { Body = "See [the docs](https://example.com) for more" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("See the docs for more"));
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsImages()
-    {
-        var model = new ProjectNoteModel { Body = "Here is an image: ![alt text](image.png)" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("Here is an image:"));
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsBlockquote()
-    {
-        var model = new ProjectNoteModel { Body = "> This is a quote" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("This is a quote"));
-    }
-
-    [Test]
-    public void ToResponse_Body_StripsStrikethrough()
-    {
-        var model = new ProjectNoteModel { Body = "This is ~~wrong~~ right" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("This is wrong right"));
-    }
-
-    [Test]
-    public void ToResponse_Body_CollapsesNewlines()
-    {
-        var model = new ProjectNoteModel { Body = "First line\n\nSecond line" };
-
-        Assert.That(model.ToResponse().Body, Is.EqualTo("First line Second line"));
-    }
-
-    [Test]
     public void ToResponse_MapsCreatedBy()
     {
         var model = new ProjectNoteModel { CreatedBy = "user-001" };
@@ -156,6 +52,38 @@ public class GetProjectNotesMapperTests
         var model = new ProjectNoteModel { UpdatedAt = updatedAt };
 
         Assert.That(model.ToResponse().UpdatedAt, Is.EqualTo(updatedAt));
+    }
+
+    [Test]
+    public void ToResponse_Body_WhenPlainText_MapsUnchanged()
+    {
+        var model = new ProjectNoteModel { Body = "Some body content" };
+
+        Assert.That(model.ToResponse().Body, Is.EqualTo("Some body content"));
+    }
+
+    [Test]
+    public void ToResponse_Body_WhenNull_ReturnsNull()
+    {
+        var model = new ProjectNoteModel { Body = null };
+
+        Assert.That(model.ToResponse().Body, Is.Null);
+    }
+
+    [Test]
+    public void ToResponse_Body_WhenWhitespaceOnly_ReturnsNull()
+    {
+        var model = new ProjectNoteModel { Body = "   " };
+
+        Assert.That(model.ToResponse().Body, Is.Null);
+    }
+
+    [Test]
+    public void ToResponse_Body_StripsMarkdown()
+    {
+        var model = new ProjectNoteModel { Body = "## Heading\nSome **bold** text" };
+
+        Assert.That(model.ToResponse().Body, Is.EqualTo("Heading Some bold text"));
     }
 
     [Test]

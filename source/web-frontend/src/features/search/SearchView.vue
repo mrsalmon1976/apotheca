@@ -1,9 +1,18 @@
 <template>
-  <div class="search-layout">
-    <div class="search-body">
+  <div class="page-layout">
+    <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
+
+    <AccountSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
+
+    <div class="main-body">
 
       <div class="content-header">
-        <h1 class="content-title">Search</h1>
+        <div class="content-header-left">
+          <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
+            <i class="pi pi-bars"></i>
+          </button>
+          <h1 class="content-title">Search</h1>
+        </div>
       </div>
 
       <div class="search-controls">
@@ -91,6 +100,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import MultiSelect from 'primevue/multiselect'
+import AccountSidebar from '../../components/AccountSidebar.vue'
 import { useAuth } from '../../composables/useAuth'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
@@ -98,6 +108,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 const { user }  = useAuth()
 const router    = useRouter()
 
+const sidebarOpen   = ref(window.innerWidth >= 768)
 const query         = ref('')
 const selectedTypes  = ref(['note', 'task', 'document'])
 const selectedFields = ref(['title', 'body'])
@@ -191,23 +202,34 @@ function clearSearch() {
 </script>
 
 <style scoped>
-.search-layout {
+/* ── Page layout (sidebar + body) ── */
+.page-layout {
   display: flex;
   flex: 1;
   overflow: hidden;
   height: calc(100vh - 60px);
 }
 
-.search-body {
+.sidebar-backdrop { display: none; }
+
+.main-body {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem 2rem;
   background: var(--bg-primary);
 }
 
-/* ── Header ── */
 .content-header {
-  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+}
+
+.content-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .content-title {
@@ -216,6 +238,20 @@ function clearSearch() {
   color: var(--text-primary);
   margin: 0;
 }
+
+.hamburger-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.25rem;
+  border-radius: 6px;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+.hamburger-btn:hover { color: var(--color-purple); }
 
 /* ── Controls ── */
 .search-controls {
@@ -405,7 +441,15 @@ function clearSearch() {
 
 /* ── Mobile ── */
 @media (max-width: 767px) {
-  .search-body { padding: 1rem; }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: 60px;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99;
+  }
+  .main-body { padding: 1rem; }
 
   .filter-row { gap: 0.5rem; }
 
