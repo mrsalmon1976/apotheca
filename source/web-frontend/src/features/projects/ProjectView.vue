@@ -56,24 +56,27 @@
           </div>
         </section>
 
-        <!-- Upcoming Tasks -->
+        <!-- Open Tasks -->
         <section class="dash-section">
           <div class="section-header">
             <h2 class="section-title">
-              <i class="pi pi-check-square"></i> Upcoming Tasks
+              <i class="pi pi-check-square"></i> Open Tasks
             </h2>
-            <button class="link-btn" @click="router.push(`/project/${projectId}/tasks/upcoming`)">View all</button>
+            <button class="link-btn" @click="router.push(`/project/${projectId}/tasks/all`)">View all</button>
           </div>
-          <div class="task-list">
+          <div v-if="tasksLoading" class="task-list-empty">Loading…</div>
+          <div v-else-if="tasks.length === 0" class="task-list-empty">No open tasks.</div>
+          <div v-else class="task-list">
             <div
               class="task-row"
-              v-for="task in upcomingTasks"
+              v-for="task in tasks"
               :key="task.id"
-              @click="router.push(`/project/${projectId}/tasks/upcoming`)"
+              @click="router.push(`/project/${projectId}/tasks/all`)"
             >
               <span class="task-priority-dot" :style="{ background: priorityColor(task.priority) }"></span>
               <span class="task-row-title">{{ task.title }}</span>
-              <span class="task-due" :class="{ overdue: task.overdue }">{{ task.due }}</span>
+              <span v-if="task.assignedToDisplayName" class="task-assignee">{{ task.assignedToDisplayName }}</span>
+              <span class="task-due" :class="{ overdue: isOverdue(task.dueAt) }">{{ formatDueDate(task.dueAt) }}</span>
             </div>
           </div>
         </section>
@@ -131,7 +134,33 @@ async function loadOverview() {
   }
 }
 
-onMounted(loadOverview)
+const tasks       = ref([])
+const tasksLoading = ref(false)
+
+async function loadTasks() {
+  if (!user.value) return
+  tasksLoading.value = true
+  try {
+    const token    = await user.value.getIdToken()
+    const response = await fetch(`${API_URL}/projects/${projectId.value}/tasks?limit=25`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (response.ok) {
+      tasks.value = await response.json()
+    } else {
+      toast.add({ severity: 'error', summary: 'Failed to load tasks', detail: `Server error (${response.status})`, life: 10000 })
+    }
+  } catch {
+    toast.add({ severity: 'error', summary: 'Failed to load tasks', detail: 'Could not connect to the server.', life: 10000 })
+  } finally {
+    tasksLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadOverview()
+  loadTasks()
+})
 
 const quickLinks = computed(() => [
   { label: 'Notes',      icon: 'pi-file-edit',     to: `/project/${projectId.value}/notes` },
@@ -148,15 +177,31 @@ const recentNotes = [
   { id: 3, title: 'API Design', preview: 'REST vs GraphQL considerations...', date: 'Mar 5' },
 ]
 
-const upcomingTasks = [
-  { id: 1, title: 'Review pull request', priority: 'high', due: 'Today', overdue: false },
-  { id: 2, title: 'Write unit tests', priority: 'medium', due: 'Tomorrow', overdue: false },
-  { id: 3, title: 'Update documentation', priority: 'low', due: 'Mar 15', overdue: true },
-  { id: 4, title: 'Deploy to staging', priority: 'high', due: 'Mar 24', overdue: false },
-]
+const PRIORITY_COLORS = { HIGH: '#ec4899', URGENT: '#f87171', MEDIUM: '#a855f7', LOW: '#7a7590', NONE: '#524e65' }
 
 function priorityColor(priority) {
-  return { high: '#ec4899', medium: '#a855f7', low: '#7a7590' }[priority]
+  return PRIORITY_COLORS[priority?.toUpperCase()] ?? '#524e65'
+}
+
+function formatDueDate(dueAt) {
+  if (!dueAt) return ''
+  const due          = new Date(dueAt)
+  const todayStart   = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+  const dueStart = new Date(due)
+  dueStart.setHours(0, 0, 0, 0)
+  if (dueStart.getTime() === todayStart.getTime())    return 'Today'
+  if (dueStart.getTime() === tomorrowStart.getTime()) return 'Tomorrow'
+  return due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function isOverdue(dueAt) {
+  if (!dueAt) return false
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  return new Date(dueAt) < todayStart
 }
 </script>
 
@@ -408,6 +453,12 @@ function priorityColor(priority) {
 }
 
 /* ── Tasks list ── */
+.task-list-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0.5rem 0;
+}
+
 .task-list {
   display: flex;
   flex-direction: column;
@@ -436,6 +487,17 @@ function priorityColor(priority) {
   font-size: 0.875rem;
   color: var(--text-primary);
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-assignee {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .task-due {

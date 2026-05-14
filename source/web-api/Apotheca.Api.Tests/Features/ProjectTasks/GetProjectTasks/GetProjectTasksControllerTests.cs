@@ -1,7 +1,6 @@
 using Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 using Apotheca.Api.Providers;
 using Apotheca.Data;
-using Apotheca.Data.DbEntities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -34,7 +33,7 @@ public class GetProjectTasksControllerTests
     [TearDown]
     public void TearDown() => _dbContext.Dispose();
 
-    private static IEnumerable<TaskDbEntity> EmptyTasks() => Enumerable.Empty<TaskDbEntity>();
+    private static IEnumerable<ProjectTaskModel> EmptyTasks() => Enumerable.Empty<ProjectTaskModel>();
 
     private void AllowProjectAccess(string firebaseUid = "firebase-uid")
     {
@@ -57,7 +56,7 @@ public class GetProjectTasksControllerTests
     {
         DenyProjectAccess("User identity could not be determined.");
 
-        var result = await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        var result = await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
@@ -67,7 +66,7 @@ public class GetProjectTasksControllerTests
     {
         DenyProjectAccess("User identity could not be determined.");
 
-        var result = (UnauthorizedObjectResult)await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        var result = (UnauthorizedObjectResult)await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
         var error  = result.Value?.GetType().GetProperty("error")?.GetValue(result.Value)?.ToString();
 
         Assert.That(error, Is.EqualTo("User identity could not be determined."));
@@ -78,7 +77,7 @@ public class GetProjectTasksControllerTests
     {
         DenyProjectAccess();
 
-        var result = await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        var result = await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<UnauthorizedObjectResult>());
     }
@@ -88,11 +87,11 @@ public class GetProjectTasksControllerTests
     {
         DenyProjectAccess();
 
-        await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
 
-        await _repository.DidNotReceive().GetAllOpenTasksAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>());
-        await _repository.DidNotReceive().GetTasksDueTodayAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>());
-        await _repository.DidNotReceive().GetTasksDueUpcomingAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>());
+        await _repository.DidNotReceive().GetAllOpenTasksAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>());
+        await _repository.DidNotReceive().GetTasksDueTodayAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>());
+        await _repository.DidNotReceive().GetTasksDueUpcomingAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>());
     }
 
     // --- Result shape ---
@@ -101,10 +100,10 @@ public class GetProjectTasksControllerTests
     public async Task GetProjectTasks_ReturnsOk()
     {
         AllowProjectAccess();
-        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        var result = await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        var result = await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
 
         Assert.That(result, Is.InstanceOf<OkObjectResult>());
     }
@@ -113,10 +112,10 @@ public class GetProjectTasksControllerTests
     public async Task GetProjectTasks_ReturnsEmptyList_WhenNoTasksExist()
     {
         AllowProjectAccess();
-        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        var result = (OkObjectResult)await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        var result = (OkObjectResult)await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
         var tasks  = result.Value as IEnumerable<GetProjectTasksResponse>;
 
         Assert.That(tasks, Is.Empty);
@@ -128,72 +127,72 @@ public class GetProjectTasksControllerTests
     public async Task GetProjectTasks_CallsGetAllOpenTasks_WhenFilterIsNull()
     {
         AllowProjectAccess();
-        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
 
-        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, "firebase-uid", "proj-1");
+        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, "firebase-uid", "proj-1", null);
     }
 
     [Test]
     public async Task GetProjectTasks_CallsGetAllOpenTasks_WhenFilterIsUnrecognised()
     {
         AllowProjectAccess();
-        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        await _controller.GetProjectTasks("proj-1", "unknown", CancellationToken.None);
+        await _controller.GetProjectTasks("proj-1", "unknown", null, CancellationToken.None);
 
-        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, "firebase-uid", "proj-1");
+        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, "firebase-uid", "proj-1", null);
     }
 
     [Test]
     public async Task GetProjectTasks_CallsGetTasksDueToday_WhenFilterIsToday()
     {
         AllowProjectAccess();
-        _repository.GetTasksDueTodayAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetTasksDueTodayAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        await _controller.GetProjectTasks("proj-1", "today", CancellationToken.None);
+        await _controller.GetProjectTasks("proj-1", "today", null, CancellationToken.None);
 
-        await _repository.Received(1).GetTasksDueTodayAsync(_dbContext, "firebase-uid", "proj-1");
+        await _repository.Received(1).GetTasksDueTodayAsync(_dbContext, "firebase-uid", "proj-1", null);
     }
 
     [Test]
     public async Task GetProjectTasks_CallsGetTasksDueToday_WhenFilterIsTodayUpperCase()
     {
         AllowProjectAccess();
-        _repository.GetTasksDueTodayAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetTasksDueTodayAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        await _controller.GetProjectTasks("proj-1", "TODAY", CancellationToken.None);
+        await _controller.GetProjectTasks("proj-1", "TODAY", null, CancellationToken.None);
 
-        await _repository.Received(1).GetTasksDueTodayAsync(_dbContext, "firebase-uid", "proj-1");
+        await _repository.Received(1).GetTasksDueTodayAsync(_dbContext, "firebase-uid", "proj-1", null);
     }
 
     [Test]
     public async Task GetProjectTasks_CallsGetTasksDueUpcoming_WhenFilterIsUpcoming()
     {
         AllowProjectAccess();
-        _repository.GetTasksDueUpcomingAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetTasksDueUpcomingAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        await _controller.GetProjectTasks("proj-1", "upcoming", CancellationToken.None);
+        await _controller.GetProjectTasks("proj-1", "upcoming", null, CancellationToken.None);
 
-        await _repository.Received(1).GetTasksDueUpcomingAsync(_dbContext, "firebase-uid", "proj-1");
+        await _repository.Received(1).GetTasksDueUpcomingAsync(_dbContext, "firebase-uid", "proj-1", null);
     }
 
     [Test]
     public async Task GetProjectTasks_CallsGetTasksDueUpcoming_WhenFilterIsUpcomingUpperCase()
     {
         AllowProjectAccess();
-        _repository.GetTasksDueUpcomingAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetTasksDueUpcomingAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        await _controller.GetProjectTasks("proj-1", "UPCOMING", CancellationToken.None);
+        await _controller.GetProjectTasks("proj-1", "UPCOMING", null, CancellationToken.None);
 
-        await _repository.Received(1).GetTasksDueUpcomingAsync(_dbContext, "firebase-uid", "proj-1");
+        await _repository.Received(1).GetTasksDueUpcomingAsync(_dbContext, "firebase-uid", "proj-1", null);
     }
 
     // --- Passthrough of identifiers ---
@@ -202,24 +201,36 @@ public class GetProjectTasksControllerTests
     public async Task GetProjectTasks_PassesFirebaseUidToRepository()
     {
         AllowProjectAccess("uid-abc");
-        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
 
-        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, "uid-abc", Arg.Any<string>());
+        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, "uid-abc", Arg.Any<string>(), Arg.Any<int?>());
     }
 
     [Test]
     public async Task GetProjectTasks_PassesProjectIdToRepository()
     {
         AllowProjectAccess();
-        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
             .Returns(Task.FromResult(EmptyTasks()));
 
-        await _controller.GetProjectTasks("proj-xyz", null, CancellationToken.None);
+        await _controller.GetProjectTasks("proj-xyz", null, null, CancellationToken.None);
 
-        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), "proj-xyz");
+        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), "proj-xyz", Arg.Any<int?>());
+    }
+
+    [Test]
+    public async Task GetProjectTasks_PassesLimitToRepository()
+    {
+        AllowProjectAccess();
+        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
+            .Returns(Task.FromResult(EmptyTasks()));
+
+        await _controller.GetProjectTasks("proj-1", null, 10, CancellationToken.None);
+
+        await _repository.Received(1).GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), 10);
     }
 
     // --- Mapped response ---
@@ -231,13 +242,13 @@ public class GetProjectTasksControllerTests
 
         var dbResults = new[]
         {
-            new TaskDbEntity { Id = "t1", Title = "First task",  ProjectId = "proj-1", CreatedBy = "user-1" },
-            new TaskDbEntity { Id = "t2", Title = "Second task", ProjectId = "proj-1", CreatedBy = "user-1" },
+            new ProjectTaskModel { Id = "t1", Title = "First task",  ProjectId = "proj-1", CreatedBy = "user-1" },
+            new ProjectTaskModel { Id = "t2", Title = "Second task", ProjectId = "proj-1", CreatedBy = "user-1" },
         };
-        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
-            .Returns(Task.FromResult<IEnumerable<TaskDbEntity>>(dbResults));
+        _repository.GetAllOpenTasksAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int?>())
+            .Returns(Task.FromResult<IEnumerable<ProjectTaskModel>>(dbResults));
 
-        var result = (OkObjectResult)await _controller.GetProjectTasks("proj-1", null, CancellationToken.None);
+        var result = (OkObjectResult)await _controller.GetProjectTasks("proj-1", null, null, CancellationToken.None);
         var tasks  = (result.Value as IEnumerable<GetProjectTasksResponse>)!.ToList();
 
         Assert.That(tasks, Has.Count.EqualTo(2));

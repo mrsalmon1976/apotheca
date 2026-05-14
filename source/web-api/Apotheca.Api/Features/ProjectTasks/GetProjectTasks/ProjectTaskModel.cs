@@ -1,6 +1,6 @@
 namespace Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 
-public class GetProjectTasksResponse
+public class ProjectTaskModel
 {
     public string Id { get; init; } = string.Empty;
     public string ProjectId { get; init; } = string.Empty;

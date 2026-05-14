@@ -1,5 +1,4 @@
 using Apotheca.Data;
-using Apotheca.Data.DbEntities;
 
 namespace Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 
@@ -12,6 +11,7 @@ public class GetProjectTasksRepository
                  t.title          AS Title,
                  t.notes          AS Notes,
                  t.assigned_to    AS AssignedTo,
+                 u.display_name   AS AssignedToDisplayName,
                  t.created_by     AS CreatedBy,
                  t.priority       AS Priority,
                  t.due_at         AS DueAt,
@@ -21,31 +21,32 @@ public class GetProjectTasksRepository
           FROM tasks t
           INNER JOIN user_projects up ON up.project_id = t.project_id
           INNER JOIN user_firebase_identities ufi ON ufi.user_id = up.user_id
+          LEFT JOIN users u ON u.id = t.assigned_to
           WHERE ufi.firebase_uid = @FirebaseUid
             AND t.project_id = @ProjectId
             AND t.completed_at IS NULL";
 
-    public virtual async Task<IEnumerable<TaskDbEntity>> GetAllOpenTasksAsync(
-        IDbContext db, string firebaseUid, string projectId)
+    private static string WithLimit(string sql, int? limit) =>
+        limit is > 0 ? sql + " LIMIT @Limit" : sql;
+
+    public virtual async Task<IEnumerable<ProjectTaskModel>> GetAllOpenTasksAsync(
+        IDbContext db, string firebaseUid, string projectId, int? limit = null)
     {
-        return await db.QueryAsync<TaskDbEntity>(
-            BaseQuery + " ORDER BY t.due_at, t.created_at",
-            new { FirebaseUid = firebaseUid, ProjectId = projectId });
+        var sql = WithLimit(BaseQuery + " ORDER BY t.due_at NULLS LAST, t.created_at", limit);
+        return await db.QueryAsync<ProjectTaskModel>(sql, new { FirebaseUid = firebaseUid, ProjectId = projectId, Limit = limit });
     }
 
-    public virtual async Task<IEnumerable<TaskDbEntity>> GetTasksDueTodayAsync(
-        IDbContext db, string firebaseUid, string projectId)
+    public virtual async Task<IEnumerable<ProjectTaskModel>> GetTasksDueTodayAsync(
+        IDbContext db, string firebaseUid, string projectId, int? limit = null)
     {
-        return await db.QueryAsync<TaskDbEntity>(
-            BaseQuery + " AND t.due_at::date <= CURRENT_DATE ORDER BY t.due_at, t.created_at",
-            new { FirebaseUid = firebaseUid, ProjectId = projectId });
+        var sql = WithLimit(BaseQuery + " AND t.due_at::date <= CURRENT_DATE ORDER BY t.due_at, t.created_at", limit);
+        return await db.QueryAsync<ProjectTaskModel>(sql, new { FirebaseUid = firebaseUid, ProjectId = projectId, Limit = limit });
     }
 
-    public virtual async Task<IEnumerable<TaskDbEntity>> GetTasksDueUpcomingAsync(
-        IDbContext db, string firebaseUid, string projectId)
+    public virtual async Task<IEnumerable<ProjectTaskModel>> GetTasksDueUpcomingAsync(
+        IDbContext db, string firebaseUid, string projectId, int? limit = null)
     {
-        return await db.QueryAsync<TaskDbEntity>(
-            BaseQuery + " AND t.due_at > now() AND t.due_at <= now() + INTERVAL '7 days' ORDER BY t.due_at, t.created_at",
-            new { FirebaseUid = firebaseUid, ProjectId = projectId });
+        var sql = WithLimit(BaseQuery + " AND t.due_at > now() AND t.due_at <= now() + INTERVAL '7 days' ORDER BY t.due_at, t.created_at", limit);
+        return await db.QueryAsync<ProjectTaskModel>(sql, new { FirebaseUid = firebaseUid, ProjectId = projectId, Limit = limit });
     }
 }
