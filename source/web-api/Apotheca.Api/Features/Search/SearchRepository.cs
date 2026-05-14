@@ -15,11 +15,11 @@ public class SearchRepository
         var (vectorCondition, rankExpression) = (searchTitle, searchBody) switch
         {
             (true, false) => (
-                "to_tsvector('english', s.text_title) @@ plainto_tsquery('english', @Query)",
-                "ts_rank(to_tsvector('english', s.text_title), plainto_tsquery('english', @Query))"),
+                "s.title_vector @@ plainto_tsquery('english', @Query)",
+                "ts_rank(s.title_vector, plainto_tsquery('english', @Query))"),
             (false, true) => (
-                "to_tsvector('english', s.text_body) @@ plainto_tsquery('english', @Query)",
-                "ts_rank(to_tsvector('english', s.text_body), plainto_tsquery('english', @Query))"),
+                "s.body_vector @@ plainto_tsquery('english', @Query)",
+                "ts_rank(s.body_vector, plainto_tsquery('english', @Query))"),
             _ => (
                 "s.search_vector @@ plainto_tsquery('english', @Query)",
                 "ts_rank(s.search_vector, plainto_tsquery('english', @Query))"),

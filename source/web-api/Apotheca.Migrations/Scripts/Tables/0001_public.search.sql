@@ -33,4 +33,27 @@ CREATE UNIQUE INDEX IF NOT EXISTS ix_search_reference ON search (reference_id, r
 ALTER TABLE search ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS ix_search_project_id ON search (project_id);
+CREATE INDEX IF NOT EXISTS ix_search_reference_id ON search (reference_id);
+
+ALTER TABLE search ADD COLUMN IF NOT EXISTS title_vector TSVECTOR;
+ALTER TABLE search ADD COLUMN IF NOT EXISTS body_vector  TSVECTOR;
+
+CREATE OR REPLACE FUNCTION search_vector_update() RETURNS trigger AS $$
+BEGIN
+    NEW.search_vector := to_tsvector(NEW.search_language::regconfig, NEW.text_title || ' ' || NEW.text_body);
+    NEW.title_vector  := to_tsvector(NEW.search_language::regconfig, NEW.text_title);
+    NEW.body_vector   := to_tsvector(NEW.search_language::regconfig, NEW.text_body);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+UPDATE search
+SET
+    title_vector = to_tsvector(search_language::regconfig, text_title),
+    body_vector  = to_tsvector(search_language::regconfig, text_body)
+WHERE title_vector IS NULL OR body_vector IS NULL;
+
+CREATE INDEX IF NOT EXISTS ix_search_title_vector ON search USING GIN (title_vector);
+CREATE INDEX IF NOT EXISTS ix_search_body_vector  ON search USING GIN (body_vector);
+
 
