@@ -8,6 +8,15 @@
       @saved="onFolderSaved"
     />
 
+    <RenameFolderDialog
+      :visible="showRenameDialog"
+      :project-id="projectId"
+      :folder-id="renameTarget?.id ?? null"
+      :current-title="renameTarget?.title ?? ''"
+      @close="showRenameDialog = false"
+      @renamed="onFolderRenamed"
+    />
+
     <DeleteConfirmDialog
       :visible="showDeleteDialog"
       :item-title="deleteTarget?.title ?? ''"
@@ -88,13 +97,22 @@
           >
             <div class="note-card-header">
               <span class="note-title"><i class="pi pi-folder folder-icon"></i> {{ item.title }}</span>
-              <button
-                class="card-delete-btn"
-                title="Delete folder"
-                @click.stop="promptDelete(item)"
-              >
-                <i class="pi pi-trash"></i>
-              </button>
+              <div class="folder-card-actions">
+                <button
+                  class="card-action-btn"
+                  title="Rename folder"
+                  @click.stop="promptRename(item)"
+                >
+                  <i class="pi pi-pencil"></i>
+                </button>
+                <button
+                  class="card-action-btn card-delete-btn"
+                  title="Delete folder"
+                  @click.stop="promptDelete(item)"
+                >
+                  <i class="pi pi-trash"></i>
+                </button>
+              </div>
             </div>
             <div v-if="item.labels?.length > 0" class="note-labels">
               <span v-for="label in item.labels" :key="label" class="label-chip">{{ label }}</span>
@@ -150,6 +168,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewFolderDialog from './NewFolderDialog.vue'
+import RenameFolderDialog from './RenameFolderDialog.vue'
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue'
 import { useNoteFolders } from '../../composables/useNoteFolders'
 
@@ -163,6 +182,9 @@ const { getNote, getNotes, createNote, deleteNote } = useNoteFolders()
 
 const creatingNote    = ref(false)
 const createNoteError = ref(null)
+
+const showRenameDialog = ref(false)
+const renameTarget     = ref(null)   // { id, title }
 
 const showDeleteDialog = ref(false)
 const deleteTarget     = ref(null)   // { id, title, isFolder }
@@ -252,6 +274,15 @@ function synopsis(body) {
     .replace(/\n+/g, ' ')
     .trim()
   return plain.length > 150 ? plain.slice(0, 150) + '…' : plain
+}
+
+function promptRename(item) {
+  renameTarget.value  = { id: item.id, title: item.title }
+  showRenameDialog.value = true
+}
+
+function onFolderRenamed() {
+  loadNotes(currentFolderId.value)
 }
 
 function promptDelete(item) {
@@ -513,6 +544,14 @@ watch(folderIds, async (ids) => {
   white-space: nowrap;
 }
 
+.folder-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.card-action-btn,
 .card-delete-btn {
   background: transparent;
   border: none;
@@ -526,8 +565,9 @@ watch(folderIds, async (ids) => {
   transition: opacity 0.15s, color 0.15s, background 0.15s;
   flex-shrink: 0;
 }
-.note-card:hover .card-delete-btn,
-.folder-card:hover .card-delete-btn { opacity: 1; }
+.folder-card:hover .card-action-btn { opacity: 1; }
+.note-card:hover .card-delete-btn { opacity: 1; }
+.card-action-btn:hover { color: var(--text-secondary); background: var(--bg-active); }
 .card-delete-btn:hover { color: var(--color-pink-light); background: rgba(236, 72, 153, 0.12); }
 
 .note-preview {

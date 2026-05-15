@@ -58,6 +58,18 @@ export function useDocumentFolders() {
     })
   }
 
+  async function renameFolder(projectId, folderId, title) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/documents/folders/${folderId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title }),
+    })
+  }
+
   async function deleteDocument(projectId, documentId) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/documents/${documentId}`, {
@@ -126,5 +138,5 @@ export function useDocumentFolders() {
     })
   }
 
-  return { getDocument, getDocuments, createFolder, createDocument, saveDocument, deleteDocument, downloadDocument, restoreDocument, uploadDocument, searchLabels, getDocumentLinks, createDocumentLink, deleteDocumentLink }
+  return { getDocument, getDocuments, createFolder, renameFolder, createDocument, saveDocument, deleteDocument, downloadDocument, restoreDocument, uploadDocument, searchLabels, getDocumentLinks, createDocumentLink, deleteDocumentLink }
 }

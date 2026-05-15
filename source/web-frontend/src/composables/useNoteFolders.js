@@ -58,6 +58,18 @@ export function useNoteFolders() {
     })
   }
 
+  async function renameFolder(projectId, folderId, title) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/notes/folders/${folderId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title }),
+    })
+  }
+
   async function deleteNote(projectId, noteId) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/notes/${noteId}`, {
@@ -87,5 +99,5 @@ export function useNoteFolders() {
     return `${API_URL}${data.url}`
   }
 
-  return { getNote, getNotes, createFolder, createNote, saveNote, deleteNote, searchLabels, uploadNoteAttachment }
+  return { getNote, getNotes, createFolder, renameFolder, createNote, saveNote, deleteNote, searchLabels, uploadNoteAttachment }
 }

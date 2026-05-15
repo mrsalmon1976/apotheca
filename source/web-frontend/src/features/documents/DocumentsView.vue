@@ -17,6 +17,15 @@
       @uploaded="onDocumentUploaded"
     />
 
+    <RenameFolderDialog
+      :visible="showRenameDialog"
+      :project-id="projectId"
+      :folder-id="renameTarget?.id ?? null"
+      :current-title="renameTarget?.title ?? ''"
+      @close="showRenameDialog = false"
+      @renamed="onFolderRenamed"
+    />
+
     <DeleteConfirmDialog
       :visible="showDeleteDialog"
       :item-title="deleteTarget?.title ?? ''"
@@ -114,6 +123,9 @@
                   <span class="row-title">{{ item.title }}</span>
                 </td>
                 <td class="col-actions">
+                  <button class="row-action-btn" title="Rename folder" @click.stop="promptRename(item)">
+                    <i class="pi pi-pencil"></i>
+                  </button>
                   <button class="row-action-btn row-delete-btn" title="Delete folder" @click.stop="promptDelete(item)">
                     <i class="pi pi-trash"></i>
                   </button>
@@ -181,6 +193,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewFolderDialog from './NewFolderDialog.vue'
+import RenameFolderDialog from './RenameFolderDialog.vue'
 import AddDocumentDialog from './AddDocumentDialog.vue'
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue'
 import { useDocumentFolders } from '../../composables/useDocumentFolders'
@@ -196,6 +209,9 @@ const droppedFile            = ref(null)
 const { getDocument, getDocuments, deleteDocument, downloadDocument } = useDocumentFolders()
 
 const isDragging = ref(false)
+
+const showRenameDialog = ref(false)
+const renameTarget     = ref(null)
 
 const showDeleteDialog = ref(false)
 const deleteTarget     = ref(null)
@@ -272,6 +288,15 @@ async function downloadItem(item) {
   a.download = item.fileName ?? item.title
   a.click()
   URL.revokeObjectURL(url)
+}
+
+function promptRename(item) {
+  renameTarget.value     = { id: item.id, title: item.title }
+  showRenameDialog.value = true
+}
+
+function onFolderRenamed() {
+  loadDocuments(currentFolderId.value)
 }
 
 function promptDelete(item) {
