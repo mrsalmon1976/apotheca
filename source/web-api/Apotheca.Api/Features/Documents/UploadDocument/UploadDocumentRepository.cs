@@ -5,6 +5,16 @@ namespace Apotheca.Api.Features.Documents.UploadDocument;
 
 public class UploadDocumentRepository
 {
+    public virtual async Task InsertDocumentLogAsync(
+        IDbContext db, string documentId, string userId, string projectId)
+    {
+        var newData = JsonSerializer.Serialize(new { id = documentId, project_id = projectId });
+        await db.ExecuteAsync(
+            @"INSERT INTO audit.document_logs (document_id, changed_by, operation, log_message, new_data)
+              VALUES (@DocumentId, @ChangedBy, @Operation, @LogMessage, @NewData::jsonb)",
+            new { DocumentId = documentId, ChangedBy = userId, Operation = "INSERT", LogMessage = "Document uploaded", NewData = newData });
+    }
+
     public virtual async Task<string> InsertDocumentWithIdAsync(
         IDbContext db, string id, string projectId, string userId, string? parentDocumentId,
         string title, string fileName, string fileExtension, string mimetype,
@@ -31,17 +41,6 @@ public class UploadDocumentRepository
                 CreatedBy        = userId,
             });
         return id;
-    }
-
-
-    public virtual async Task InsertDocumentLogAsync(
-        IDbContext db, string documentId, string userId, string projectId)
-    {
-        var newData = JsonSerializer.Serialize(new { id = documentId, project_id = projectId });
-        await db.ExecuteAsync(
-            @"INSERT INTO audit.document_logs (document_id, changed_by, operation, log_message, new_data)
-              VALUES (@DocumentId, @ChangedBy, @Operation, @LogMessage, @NewData::jsonb)",
-            new { DocumentId = documentId, ChangedBy = userId, Operation = "INSERT", LogMessage = "Document uploaded", NewData = newData });
     }
 
     public virtual async Task InsertProjectActivityLogAsync(

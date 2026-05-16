@@ -6,6 +6,14 @@ public record DeletedDescendant(string Id, string Title, bool IsFolder);
 
 public class DocumentDeletedRepository
 {
+    public virtual async Task InsertProjectActivityLogAsync(
+        IDbContext db, string projectId, string documentId, string userId, string logMessage)
+    {
+        await db.ExecuteAsync(
+            "INSERT INTO audit.project_activity_logs (project_id, ref_id, ref_type, log_message, user_id) VALUES (@ProjectId, @RefId, 'DOCUMENT', @LogMessage, @UserId)",
+            new { ProjectId = projectId, RefId = documentId, LogMessage = logMessage, UserId = userId });
+    }
+
     public virtual async Task<IReadOnlyList<DeletedDescendant>> SoftDeleteDescendantsAsync(
         IDbContext db, string documentId)
     {
@@ -27,13 +35,5 @@ public class DocumentDeletedRepository
             new { DocumentId = documentId });
 
         return rows.ToList();
-    }
-
-    public virtual async Task InsertProjectActivityLogAsync(
-        IDbContext db, string projectId, string documentId, string userId, string logMessage)
-    {
-        await db.ExecuteAsync(
-            "INSERT INTO audit.project_activity_logs (project_id, ref_id, ref_type, log_message, user_id) VALUES (@ProjectId, @RefId, 'DOCUMENT', @LogMessage, @UserId)",
-            new { ProjectId = projectId, RefId = documentId, LogMessage = logMessage, UserId = userId });
     }
 }

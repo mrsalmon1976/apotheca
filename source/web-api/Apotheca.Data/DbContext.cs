@@ -9,13 +9,13 @@ public class DbContext : IDbContext
     private readonly NpgsqlConnection _connection;
     private NpgsqlTransaction? _transaction;
 
-    public IDbConnection Connection => _connection;
-    public IDbTransaction? Transaction => _transaction;
-
     internal DbContext(NpgsqlConnection connection)
     {
         _connection = connection;
     }
+
+    public IDbConnection Connection => _connection;
+    public IDbTransaction? Transaction => _transaction;
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
@@ -30,6 +30,20 @@ public class DbContext : IDbContext
         await _transaction.CommitAsync(cancellationToken);
         await _transaction.DisposeAsync();
         _transaction = null;
+    }
+
+    public void Dispose()
+    {
+        _transaction?.Dispose();
+        _connection.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_transaction is not null)
+            await _transaction.DisposeAsync();
+
+        await _connection.DisposeAsync();
     }
 
     public Task<int> ExecuteAsync(string sql, object? param = null, CancellationToken cancellationToken = default)
@@ -58,19 +72,5 @@ public class DbContext : IDbContext
         await _transaction.RollbackAsync(cancellationToken);
         await _transaction.DisposeAsync();
         _transaction = null;
-    }
-
-    public void Dispose()
-    {
-        _transaction?.Dispose();
-        _connection.Dispose();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_transaction is not null)
-            await _transaction.DisposeAsync();
-
-        await _connection.DisposeAsync();
     }
 }

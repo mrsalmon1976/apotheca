@@ -5,12 +5,26 @@ namespace Apotheca.Api.Features.Documents.SaveDocument;
 
 public class SaveDocumentRepository
 {
+    public virtual async Task DeleteDocumentLabelsAsync(IDbContext db, string documentId)
+    {
+        await db.ExecuteAsync(
+            "DELETE FROM document_labels WHERE document_id = @DocumentId",
+            new { DocumentId = documentId });
+    }
+
     public virtual async Task<bool> DocumentExistsAsync(IDbContext db, string projectId, string documentId)
     {
         var count = await db.QueryFirstOrDefaultAsync<int>(
             "SELECT COUNT(1) FROM documents WHERE id = @DocumentId AND project_id = @ProjectId AND is_folder = FALSE",
             new { DocumentId = documentId, ProjectId = projectId });
         return count > 0;
+    }
+
+    public virtual async Task InsertDocumentLabelAsync(IDbContext db, string documentId, string labelId)
+    {
+        await db.ExecuteAsync(
+            "INSERT INTO document_labels (document_id, label_id) VALUES (@DocumentId, @LabelId) ON CONFLICT DO NOTHING",
+            new { DocumentId = documentId, LabelId = labelId });
     }
 
     public virtual async Task UpdateDocumentTitleAsync(
@@ -23,13 +37,6 @@ public class SaveDocumentRepository
               WHERE id = @DocumentId
                 AND project_id = @ProjectId",
             new { Title = title, DocumentId = documentId, ProjectId = projectId });
-    }
-
-    public virtual async Task DeleteDocumentLabelsAsync(IDbContext db, string documentId)
-    {
-        await db.ExecuteAsync(
-            "DELETE FROM document_labels WHERE document_id = @DocumentId",
-            new { DocumentId = documentId });
     }
 
     public virtual async Task<string> UpsertLabelAsync(
@@ -50,13 +57,6 @@ public class SaveDocumentRepository
         return (await db.QueryFirstOrDefaultAsync<string?>(
             "SELECT id FROM labels WHERE project_id = @ProjectId AND label_text = @LabelText",
             new { ProjectId = projectId, LabelText = labelText }))!;
-    }
-
-    public virtual async Task InsertDocumentLabelAsync(IDbContext db, string documentId, string labelId)
-    {
-        await db.ExecuteAsync(
-            "INSERT INTO document_labels (document_id, label_id) VALUES (@DocumentId, @LabelId) ON CONFLICT DO NOTHING",
-            new { DocumentId = documentId, LabelId = labelId });
     }
 
     public virtual async Task UpsertSearchAsync(IDbContext db, string projectId, string documentId, string title)

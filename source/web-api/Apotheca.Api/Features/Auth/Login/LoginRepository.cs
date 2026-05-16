@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Apotheca.Data;
 using NanoidDotNet;
 
@@ -6,6 +6,12 @@ namespace Apotheca.Api.Features.Auth.Login
 {
     public class LoginRepository
     {
+        public virtual async Task CreateProjectActivityLogAsync(IDbContext db, string projectId, string projectName, string userId, string username)
+        {
+            await db.ExecuteAsync(
+                "INSERT INTO audit.project_activity_logs (project_id, ref_id, ref_type, log_message, user_id) VALUES (@ProjectId, @RefId, 'PROJECT', @LogMessage, @UserId)",
+                new { ProjectId = projectId, RefId = projectId, LogMessage = $"Project {projectName} created by user {username}", UserId = userId });
+        }
 
         public virtual async Task<string> CreateProjectAsync(IDbContext db, string name)
         {
@@ -42,13 +48,19 @@ namespace Apotheca.Api.Features.Auth.Login
                 new { Uid = user.Uid, UserId = userId, ProviderId = user.ProviderId });
         }
 
+        public virtual async Task CreateUserLoginLogAsync(IDbContext db, string userId, string? ipAddress)
+        {
+            await db.ExecuteAsync(
+                "INSERT INTO audit.user_logs (id, user_id, event_type, log_message, ip_address) VALUES (@Id, @UserId, @EventType, @LogMessage, @IpAddress)",
+                new { Id = Nanoid.Generate(), UserId = userId, EventType = DataConstants.UserLogEventType.Login, LogMessage = "User logged in.", IpAddress = ipAddress });
+        }
+
         public virtual async Task CreateUserProjectAsync(IDbContext db, string userId, string projectId, string role)
         {
             await db.ExecuteAsync(
                 "INSERT INTO user_projects (user_id, project_id, project_role) VALUES (@UserId, @ProjectId, @Role)",
                 new { UserId = userId, ProjectId = projectId, Role = role });
         }
-
 
         public virtual async Task<string?> GetUserIdByEmailAsync(IDbContext db, string email)
         {
@@ -57,21 +69,6 @@ namespace Apotheca.Api.Features.Auth.Login
                 new { Email = email });
 
             return userId;
-        }
-
-
-        public virtual async Task CreateProjectActivityLogAsync(IDbContext db, string projectId, string projectName, string userId, string username)
-        {
-            await db.ExecuteAsync(
-                "INSERT INTO audit.project_activity_logs (project_id, ref_id, ref_type, log_message, user_id) VALUES (@ProjectId, @RefId, 'PROJECT', @LogMessage, @UserId)",
-                new { ProjectId = projectId, RefId = projectId, LogMessage = $"Project {projectName} created by user {username}", UserId = userId });
-        }
-
-        public virtual async Task CreateUserLoginLogAsync(IDbContext db, string userId, string? ipAddress)
-        {
-            await db.ExecuteAsync(
-                "INSERT INTO audit.user_logs (id, user_id, event_type, log_message, ip_address) VALUES (@Id, @UserId, @EventType, @LogMessage, @IpAddress)",
-                new { Id = Nanoid.Generate(), UserId = userId, EventType = DataConstants.UserLogEventType.Login, LogMessage = "User logged in.", IpAddress = ipAddress });
         }
 
         public virtual async Task<string?> GetUserIdByFirebaseUidAsync(IDbContext db, string firebaseUid)
