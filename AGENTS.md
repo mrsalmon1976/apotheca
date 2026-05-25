@@ -1,0 +1,7 @@
+- Vertical slice architecture: Each feature in `source/web-api/Features` is self-contained with its own controller and repository. No shared service layer.
+- Backend build and run commands: `dotnet build`, `dotnet run`, `dotnet watch`
+- Frontend development server command: `npm run dev`
+- Database connection settings:
+  - PostgreSQL: `Host=localhost;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca`
+  - PGAdmin: `Host=apotheca-postgres;Port=5432;Database=apotheca;Username=apotheca;Password=apotheca`
+- Local services start command: `docker compose up -d`
