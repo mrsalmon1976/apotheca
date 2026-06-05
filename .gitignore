@@ -355,3 +355,6 @@ src/web-frontend-old
 
 # GCS emulator local storage — ignore uploaded files, keep directory structure
 /temp/gcs/
+/.aider.tags.cache.*
+/.aider.chat.history.md
+/.aider.input.history
