@@ -12,18 +12,8 @@ public class SearchRepository
         bool searchTitle,
         bool searchBody)
     {
-        var (vectorCondition, rankExpression) = (searchTitle, searchBody) switch
-        {
-            (true, false) => (
-                "s.title_vector @@ plainto_tsquery('english', @Query)",
-                "ts_rank(s.title_vector, plainto_tsquery('english', @Query))"),
-            (false, true) => (
-                "s.body_vector @@ plainto_tsquery('english', @Query)",
-                "ts_rank(s.body_vector, plainto_tsquery('english', @Query))"),
-            _ => (
-                "s.search_vector @@ plainto_tsquery('english', @Query)",
-                "ts_rank(s.search_vector, plainto_tsquery('english', @Query))"),
-        };
+        var vectorCondition = GetVectorCondition(searchTitle, searchBody);
+        var rankExpression = GetRankExpression(searchTitle, searchBody);
 
         var headlineSource = searchBody
             ? "COALESCE(NULLIF(s.text_body, ''), s.text_title)"
@@ -48,5 +38,25 @@ public class SearchRepository
             """;
 
         return await db.QueryAsync<SearchResult>(sql, new { Query = query, Types = types, UserId = userId });
+    }
+
+    private string GetVectorCondition(bool searchTitle, bool searchBody)
+    {
+        return (searchTitle, searchBody) switch
+        {
+            (true, false) => "s.title_vector @@ plainto_tsquery('english', @Query)",
+            (false, true) => "s.body_vector @@ plainto_tsquery('english', @Query)",
+            _ => "s.search_vector @@ plainto_tsquery('english', @Query)"
+        };
+    }
+
+    private string GetRankExpression(bool searchTitle, bool searchBody)
+    {
+        return (searchTitle, searchBody) switch
+        {
+            (true, false) => "ts_rank(s.title_vector, plainto_tsquery('english', @Query))",
+            (false, true) => "ts_rank(s.body_vector, plainto_tsquery('english', @Query))",
+            _ => "ts_rank(s.search_vector, plainto_tsquery('english', @Query))"
+        };
     }
 }
