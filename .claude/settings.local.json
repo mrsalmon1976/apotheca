@@ -34,7 +34,8 @@
       "Bash(Select-Object FullName)",
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-api\\\\Apotheca.Api\\\\Features\" -Directory)",
       "Bash(Select-Object -ExpandProperty Name)",
-      "Bash(Get-ChildItem *)"
+      "Bash(Get-ChildItem *)",
+      "WebSearch"
     ]
   }
 }
