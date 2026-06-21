@@ -142,7 +142,16 @@
               <i class="pi pi-check"></i> Saved
             </span>
           </div>
-          <div ref="editorEl" class="editor-container"></div>
+          <div class="editor-container">
+            <div ref="wysiwygEl" class="wysiwyg-pane"></div>
+            <textarea
+              ref="markdownPaneEl"
+              v-model="bodyMarkdown"
+              class="markdown-pane"
+              spellcheck="false"
+              @input="onMarkdownPaneInput"
+            ></textarea>
+          </div>
         </div>
 
       </template>
@@ -153,9 +162,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Editor from '@toast-ui/editor'
-import '@toast-ui/editor/dist/toastui-editor.css'
-import '@toast-ui/editor/dist/theme/toastui-editor-dark.css'
+import { Crepe } from '@milkdown/crepe'
+import { replaceAll } from '@milkdown/utils'
+import '@milkdown/crepe/theme/common/style.css'
+import '@milkdown/crepe/theme/classic.css'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import { useNoteFolders } from '../../composables/useNoteFolders'
 
@@ -203,13 +213,16 @@ const labelsSaved    = ref(false)
 const labelsSaveError = ref(null)
 
 // Body editor state
-const editorEl        = ref(null)
-let   editorInstance  = null
-const bodySaving      = ref(false)
-const bodySaved       = ref(false)
-const bodySaveError   = ref(null)
-let   bodySavedTimer  = null
-let   bodyDebounce    = null
+const wysiwygEl        = ref(null)
+const markdownPaneEl   = ref(null)
+let   crepeInstance    = null
+const bodyMarkdown     = ref('')
+const bodySaving       = ref(false)
+const bodySaved        = ref(false)
+const bodySaveError    = ref(null)
+let   bodySavedTimer   = null
+let   bodyDebounce     = null
+let   markdownApplyDebounce = null
 
 let debounceTimer  = null
 let savedTimer     = null
@@ -253,33 +266,34 @@ onMounted(async () => {
   }
 
   await nextTick()
-  if (note.value && editorEl.value) {
-    editorInstance = new Editor({
-      el: editorEl.value,
-      height: 'auto',
-      minHeight: '400px',
-      initialEditType: 'wysiwyg',
-      previewStyle: 'vertical',
-      initialValue: note.value.body ?? '',
-      theme: 'dark',
-      hideModeSwitch: false,
-      hooks: {
-        addImageBlobHook: async (blob, callback) => {
-          try {
-            const url = await uploadNoteAttachment(projectId.value, noteId.value, blob)
-            callback(url, blob.name ?? 'image')
-          } catch (err) {
-            console.error('Image upload failed:', err)
-          }
+  if (note.value && wysiwygEl.value) {
+    crepeInstance = new Crepe({
+      root: wysiwygEl.value,
+      defaultValue: note.value.body ?? '',
+      featureConfigs: {
+        [Crepe.Feature.ImageBlock]: {
+          onUpload: async (file) => {
+            try {
+              return await uploadNoteAttachment(projectId.value, noteId.value, file)
+            } catch (err) {
+              console.error('Image upload failed:', err)
+              throw err
+            }
+          },
         },
       },
     })
-    editorInstance.on('change', () => {
-      clearTimeout(bodyDebounce)
-      bodyDebounce = setTimeout(persistBody, 1000)
-    })
-    editorEl.value?.querySelectorAll('.toastui-editor-toolbar [tabindex], .toastui-editor-toolbar button, .toastui-editor-toolbar select, .toastui-editor-mode-switch button').forEach(el => {
-      el.setAttribute('tabindex', '-1')
+    await crepeInstance.create()
+    bodyMarkdown.value = crepeInstance.getMarkdown()
+
+    crepeInstance.on((listener) => {
+      listener.markdownUpdated((ctx, markdown) => {
+        if (document.activeElement !== markdownPaneEl.value) {
+          bodyMarkdown.value = markdown
+        }
+        clearTimeout(bodyDebounce)
+        bodyDebounce = setTimeout(persistBody, 1000)
+      })
     })
   }
   if (note.value && route.query.new === 'true') {
@@ -290,14 +304,15 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => {
+onUnmounted(async () => {
   clearTimeout(debounceTimer)
   clearTimeout(savedTimer)
   clearTimeout(titleSavedTimer)
   clearTimeout(bodyDebounce)
   clearTimeout(bodySavedTimer)
-  editorInstance?.destroy()
-  editorInstance = null
+  clearTimeout(markdownApplyDebounce)
+  await crepeInstance?.destroy()
+  crepeInstance = null
 })
 
 // ── Title editing ────────────────────────────────────────────────────────────
@@ -367,14 +382,13 @@ async function persistLabels() {
 // ── Body save ────────────────────────────────────────────────────────────────
 
 async function persistBody() {
-  if (!editorInstance) return
-  const markdown = editorInstance.getMarkdown()
+  if (!crepeInstance) return
   bodySaving.value    = true
   bodySaved.value     = false
   bodySaveError.value = null
   clearTimeout(bodySavedTimer)
   try {
-    const response = await saveNote(projectId.value, noteId.value, { body: markdown })
+    const response = await saveNote(projectId.value, noteId.value, { body: bodyMarkdown.value })
     if (response.ok) {
       bodySaved.value  = true
       bodySavedTimer   = setTimeout(() => { bodySaved.value = false }, 2000)
@@ -386,6 +400,15 @@ async function persistBody() {
   } finally {
     bodySaving.value = false
   }
+}
+
+function onMarkdownPaneInput() {
+  clearTimeout(markdownApplyDebounce)
+  markdownApplyDebounce = setTimeout(() => {
+    crepeInstance?.editor.action(replaceAll(bodyMarkdown.value))
+  }, 350)
+  clearTimeout(bodyDebounce)
+  bodyDebounce = setTimeout(persistBody, 1000)
 }
 
 // ── Label input interactions ─────────────────────────────────────────────────
@@ -769,6 +792,8 @@ async function fetchSuggestions(query) {
 }
 
 .editor-container {
+  display: flex;
+  align-items: stretch;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
@@ -778,23 +803,49 @@ async function fetchSuggestions(query) {
   border-color: var(--color-purple);
 }
 
-/* Override ToastUI dark theme to match app palette */
-:deep(.toastui-editor-dark) {
-  --toastui-editor-bg-color: var(--bg-card);
+.wysiwyg-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 400px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  border-right: 1px solid var(--border-color);
+}
+
+.markdown-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 400px;
+  max-height: 70vh;
   background: var(--bg-card);
+  color: var(--text-secondary);
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 0.75rem 1rem;
+  font-family: 'Fira Code', Menlo, Monaco, 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
 }
-:deep(.toastui-editor-dark .toastui-editor-toolbar) {
-  background: var(--bg-nav);
-  border-bottom-color: var(--border-color);
-}
-:deep(.toastui-editor-dark .toastui-editor-mode-switch) {
-  background: var(--bg-nav);
-  border-top-color: var(--border-color);
-}
-:deep(.toastui-editor-dark .ProseMirror),
-:deep(.toastui-editor-dark .toastui-editor) {
+
+/* Map Crepe's theme vars onto Apotheca's palette (already light/dark aware) */
+:deep(.milkdown) {
+  --crepe-color-background: var(--bg-card);
+  --crepe-color-on-background: var(--text-primary);
+  --crepe-color-surface: var(--bg-card);
+  --crepe-color-surface-low: var(--bg-input);
+  --crepe-color-on-surface: var(--text-primary);
+  --crepe-color-on-surface-variant: var(--text-secondary);
+  --crepe-color-outline: var(--border-color);
+  --crepe-color-primary: var(--color-purple);
+  --crepe-color-secondary: var(--color-pink);
+  --crepe-color-on-secondary: var(--text-primary);
+  --crepe-color-hover: var(--bg-hover);
+  --crepe-color-selected: var(--bg-active);
+  --crepe-color-inline-area: var(--bg-input);
+  --crepe-font-default: inherit;
   background: var(--bg-card);
-  color: var(--text-primary);
 }
 
 .sidebar-backdrop { display: none; }
@@ -809,5 +860,12 @@ async function fetchSuggestions(query) {
     z-index: 99;
   }
   .main-body { padding: 1rem; }
+  .editor-container { flex-direction: column; }
+  .wysiwyg-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    max-height: none;
+  }
+  .markdown-pane { max-height: none; }
 }
 </style>
