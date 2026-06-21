@@ -142,7 +142,7 @@
               <i class="pi pi-check"></i> Saved
             </span>
           </div>
-          <div class="editor-container">
+          <div ref="editorContainerEl" class="editor-container" :class="`mode-${viewMode}`">
             <div ref="wysiwygEl" class="wysiwyg-pane"></div>
             <textarea
               ref="markdownPaneEl"
@@ -156,6 +156,31 @@
 
       </template>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="note"
+        class="view-toggle"
+        :style="{ top: widgetTop, right: widgetRight }"
+      >
+        <div class="view-toggle-current" :title="currentViewOption.label">
+          <i :class="currentViewOption.icon"></i>
+        </div>
+        <div class="view-toggle-options">
+          <button
+            v-for="opt in viewModeOptions"
+            :key="opt.value"
+            type="button"
+            class="view-toggle-option"
+            :class="{ active: viewMode === opt.value }"
+            @click="viewMode = opt.value"
+          >
+            <i :class="opt.icon"></i>
+            <span>{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -227,6 +252,30 @@ let   markdownApplyDebounce = null
 let debounceTimer  = null
 let savedTimer     = null
 
+// View mode toggle (floating widget)
+const editorContainerEl = ref(null)
+const viewMode           = ref('split-left')
+const widgetTop          = ref('10px')
+const widgetRight        = ref('10px')
+
+const viewModeOptions = [
+  { value: 'visual',      label: 'Visual Editor',             icon: 'pi pi-eye' },
+  { value: 'markdown',    label: 'Markdown Editor',           icon: 'pi pi-code' },
+  { value: 'split-left',  label: 'Split View (Visual Left)',  icon: 'pi pi-objects-column' },
+  { value: 'split-right', label: 'Split View (Visual Right)', icon: 'pi pi-objects-column flip-x' },
+]
+
+const currentViewOption = computed(
+  () => viewModeOptions.find((opt) => opt.value === viewMode.value) ?? viewModeOptions[2]
+)
+
+function updateWidgetPosition() {
+  if (!editorContainerEl.value) return
+  const rect = editorContainerEl.value.getBoundingClientRect()
+  widgetTop.value   = `${Math.max(rect.top + 10, 10)}px`
+  widgetRight.value = `${Math.max(window.innerWidth - rect.right + 10, 10)}px`
+}
+
 // ── Note loading ────────────────────────────────────────────────────────────
 
 async function buildFolderCrumbs(parentNoteId) {
@@ -295,6 +344,10 @@ onMounted(async () => {
         bodyDebounce = setTimeout(persistBody, 1000)
       })
     })
+
+    await nextTick()
+    updateWidgetPosition()
+    window.addEventListener('resize', updateWidgetPosition)
   }
   if (note.value && route.query.new === 'true') {
     setTimeout(() => {
@@ -311,9 +364,12 @@ onUnmounted(async () => {
   clearTimeout(bodyDebounce)
   clearTimeout(bodySavedTimer)
   clearTimeout(markdownApplyDebounce)
+  window.removeEventListener('resize', updateWidgetPosition)
   await crepeInstance?.destroy()
   crepeInstance = null
 })
+
+watch(sidebarOpen, () => nextTick(updateWidgetPosition))
 
 // ── Title editing ────────────────────────────────────────────────────────────
 
@@ -810,7 +866,6 @@ async function fetchSuggestions(query) {
   max-height: 70vh;
   overflow-y: auto;
   overflow-x: hidden;
-  border-right: 1px solid var(--border-color);
 }
 
 .markdown-pane {
@@ -828,6 +883,15 @@ async function fetchSuggestions(query) {
   font-size: 0.85rem;
   line-height: 1.6;
 }
+
+/* View modes (driven by the floating view-toggle widget) */
+.editor-container.mode-visual .markdown-pane { display: none; }
+.editor-container.mode-markdown .wysiwyg-pane { display: none; }
+
+.editor-container.mode-split-left .wysiwyg-pane    { order: 1; }
+.editor-container.mode-split-left .markdown-pane   { order: 2; border-left: 1px solid var(--border-color); }
+.editor-container.mode-split-right .markdown-pane  { order: 1; }
+.editor-container.mode-split-right .wysiwyg-pane   { order: 2; border-left: 1px solid var(--border-color); }
 
 /* Map Crepe's theme vars onto Apotheca's palette (already light/dark aware) */
 :deep(.milkdown) {
@@ -872,11 +936,111 @@ async function fetchSuggestions(query) {
   }
   .main-body { padding: 1rem; }
   .editor-container { flex-direction: column; }
-  .wysiwyg-pane {
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-    max-height: none;
-  }
+  .wysiwyg-pane { max-height: none; }
   .markdown-pane { max-height: none; }
+
+  .editor-container.mode-split-left .markdown-pane,
+  .editor-container.mode-split-right .wysiwyg-pane {
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+  }
+}
+
+/* Floating view-toggle widget */
+.view-toggle {
+  position: fixed;
+  z-index: 2000;
+}
+
+.view-toggle-current {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    var(--gradient-brand) border-box;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25), 0 0 12px rgba(168, 85, 247, 0.45);
+  color: var(--color-purple);
+  font-size: 0.95rem;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.view-toggle:hover .view-toggle-current,
+.view-toggle:focus-within .view-toggle-current {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), 0 0 18px rgba(168, 85, 247, 0.7);
+  transform: scale(1.06);
+}
+
+/* Invisible bridge so the cursor doesn't lose hover crossing the gap to the menu */
+.view-toggle-options::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+
+.view-toggle-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+    var(--gradient-brand) border-box;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(168, 85, 247, 0.3);
+  padding: 4px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px) scale(0.96);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.4s;
+}
+
+.view-toggle:hover .view-toggle-options,
+.view-toggle:focus-within .view-toggle-options {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+
+.view-toggle-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  padding: 0.45rem 0.65rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.view-toggle-option:hover { background: var(--bg-hover); color: var(--text-primary); }
+.view-toggle-option.active { background: var(--bg-active); color: var(--color-purple); }
+
+.view-toggle-option i,
+.view-toggle-current i {
+  font-size: 0.85rem;
+  width: 1rem;
+  text-align: center;
+}
+
+.view-toggle-option .flip-x,
+.view-toggle-current .flip-x {
+  display: inline-block;
+  transform: scaleX(-1);
 }
 </style>
