@@ -809,7 +809,7 @@ async function fetchSuggestions(query) {
   min-height: 400px;
   max-height: 70vh;
   overflow-y: auto;
-  padding: 0.75rem 1rem;
+  overflow-x: hidden;
   border-right: 1px solid var(--border-color);
 }
 
@@ -846,6 +846,17 @@ async function fetchSuggestions(query) {
   --crepe-color-inline-area: var(--bg-input);
   --crepe-font-default: inherit;
   background: var(--bg-card);
+}
+
+:deep(.milkdown .ProseMirror) {
+  padding: 0.75rem 1rem;
+}
+
+:deep(.milkdown .milkdown-table-block) {
+  overflow-x: auto;
+}
+:deep(.milkdown .milkdown-table-block table) {
+  width: max-content;
 }
 
 .sidebar-backdrop { display: none; }
