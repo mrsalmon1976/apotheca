@@ -130,18 +130,6 @@
 
         <!-- Body editor -->
         <div class="body-section">
-          <div class="body-header">
-            <span class="section-label">Content</span>
-            <span v-if="bodySaving" class="save-status saving">
-              <i class="pi pi-spin pi-spinner"></i> Saving…
-            </span>
-            <span v-else-if="bodySaveError" class="save-status error">
-              <i class="pi pi-exclamation-triangle"></i> {{ bodySaveError }}
-            </span>
-            <span v-else-if="bodySaved" class="save-status saved">
-              <i class="pi pi-check"></i> Saved
-            </span>
-          </div>
           <div ref="editorContainerEl" class="editor-container" :class="`mode-${viewMode}`">
             <div ref="wysiwygEl" class="wysiwyg-pane"></div>
             <textarea
@@ -187,6 +175,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
 import { Crepe } from '@milkdown/crepe'
 import { replaceAll } from '@milkdown/utils'
 import '@milkdown/crepe/theme/common/style.css'
@@ -196,6 +185,7 @@ import { useNoteFolders } from '../../composables/useNoteFolders'
 
 const route  = useRoute()
 const router = useRouter()
+const toast  = useToast()
 
 const projectId   = computed(() => route.params.id)
 const noteId      = computed(() => route.params.noteId)
@@ -242,11 +232,8 @@ const wysiwygEl        = ref(null)
 const markdownPaneEl   = ref(null)
 let   crepeInstance    = null
 const bodyMarkdown     = ref('')
-const bodySaving       = ref(false)
-const bodySaved        = ref(false)
-const bodySaveError    = ref(null)
-let   bodySavedTimer   = null
 let   bodyDebounce     = null
+let   bodyMaxWaitTimer = null
 let   markdownApplyDebounce = null
 
 let debounceTimer  = null
@@ -354,8 +341,7 @@ onMounted(async () => {
         if (document.activeElement !== markdownPaneEl.value) {
           bodyMarkdown.value = markdown
         }
-        clearTimeout(bodyDebounce)
-        bodyDebounce = setTimeout(persistBody, 1000)
+        scheduleBodySave()
         nextTick(autosizeMarkdownPane)
       })
     })
@@ -363,6 +349,8 @@ onMounted(async () => {
     await nextTick()
     updateLayout()
     window.addEventListener('resize', updateLayout)
+    window.addEventListener('pagehide', handlePageHide)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
   }
   if (note.value && route.query.new === 'true') {
     setTimeout(() => {
@@ -377,9 +365,12 @@ onUnmounted(async () => {
   clearTimeout(savedTimer)
   clearTimeout(titleSavedTimer)
   clearTimeout(bodyDebounce)
-  clearTimeout(bodySavedTimer)
+  clearTimeout(bodyMaxWaitTimer)
   clearTimeout(markdownApplyDebounce)
   window.removeEventListener('resize', updateLayout)
+  window.removeEventListener('pagehide', handlePageHide)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  flushBodySave()
   await crepeInstance?.destroy()
   crepeInstance = null
 })
@@ -452,25 +443,62 @@ async function persistLabels() {
 }
 
 // ── Body save ────────────────────────────────────────────────────────────────
+// Debounced 5s after the last edit, but forced at least every 15s of continuous editing.
 
-async function persistBody() {
+let bodyDirty = false
+
+function scheduleBodySave() {
+  bodyDirty = true
+  clearTimeout(bodyDebounce)
+  bodyDebounce = setTimeout(runBodySave, 5000)
+  if (!bodyMaxWaitTimer) {
+    bodyMaxWaitTimer = setTimeout(runBodySave, 15000)
+  }
+}
+
+function runBodySave() {
+  clearTimeout(bodyDebounce)
+  clearTimeout(bodyMaxWaitTimer)
+  bodyDebounce     = null
+  bodyMaxWaitTimer = null
+  persistBody()
+}
+
+// Best-effort save used when leaving the page (route change, tab close, refresh)
+// so edits made during the debounce/max-wait window aren't lost.
+function flushBodySave(options) {
+  if (!bodyDirty) return
+  clearTimeout(bodyDebounce)
+  clearTimeout(bodyMaxWaitTimer)
+  bodyDebounce     = null
+  bodyMaxWaitTimer = null
+  persistBody(options)
+}
+
+function handlePageHide() {
+  flushBodySave({ keepalive: true })
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    flushBodySave({ keepalive: true })
+  }
+}
+
+async function persistBody(options) {
   if (!crepeInstance) return
-  bodySaving.value    = true
-  bodySaved.value     = false
-  bodySaveError.value = null
-  clearTimeout(bodySavedTimer)
+  bodyDirty = false
   try {
-    const response = await saveNote(projectId.value, noteId.value, { body: bodyMarkdown.value })
+    const response = await saveNote(projectId.value, noteId.value, { body: bodyMarkdown.value }, options)
     if (response.ok) {
-      bodySaved.value  = true
-      bodySavedTimer   = setTimeout(() => { bodySaved.value = false }, 2000)
+      toast.add({ severity: 'success', summary: 'Note saved', life: 2500 })
     } else {
-      bodySaveError.value = `Failed to save (${response.status}).`
+      bodyDirty = true
+      toast.add({ severity: 'error', summary: 'Failed to save note', detail: `Server error (${response.status})`, life: 10000 })
     }
   } catch {
-    bodySaveError.value = 'Could not connect to the server.'
-  } finally {
-    bodySaving.value = false
+    bodyDirty = true
+    toast.add({ severity: 'error', summary: 'Failed to save note', detail: 'Could not connect to the server.', life: 10000 })
   }
 }
 
@@ -480,8 +508,7 @@ function onMarkdownPaneInput() {
   markdownApplyDebounce = setTimeout(() => {
     crepeInstance?.editor.action(replaceAll(bodyMarkdown.value))
   }, 350)
-  clearTimeout(bodyDebounce)
-  bodyDebounce = setTimeout(persistBody, 1000)
+  scheduleBodySave()
 }
 
 // ── Label input interactions ─────────────────────────────────────────────────
@@ -743,24 +770,6 @@ async function fetchSuggestions(query) {
   flex: 1;
 }
 
-.section-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.save-status {
-  font-size: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-.save-status.saving { color: var(--text-muted); }
-.save-status.saved  { color: #4ade80; }
-.save-status.error  { color: var(--color-pink-light); }
-
 .label-input-box {
   display: flex;
   flex-wrap: wrap;
@@ -855,13 +864,6 @@ async function fetchSuggestions(query) {
 /* Body editor */
 .body-section {
   position: relative;
-}
-
-.body-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.4rem;
 }
 
 .editor-container {

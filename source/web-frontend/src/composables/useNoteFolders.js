@@ -34,7 +34,7 @@ export function useNoteFolders() {
     })
   }
 
-  async function saveNote(projectId, noteId, data) {
+  async function saveNote(projectId, noteId, data, options = {}) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/notes/${noteId}`, {
       method: 'PATCH',
@@ -43,6 +43,7 @@ export function useNoteFolders() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
+      ...options,
     })
   }
 
