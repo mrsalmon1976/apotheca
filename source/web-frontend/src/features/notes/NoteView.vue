@@ -837,7 +837,7 @@ async function fetchSuggestions(query) {
   --crepe-color-surface-low: var(--bg-input);
   --crepe-color-on-surface: var(--text-primary);
   --crepe-color-on-surface-variant: var(--text-secondary);
-  --crepe-color-outline: var(--border-color);
+  --crepe-color-outline: var(--text-secondary);
   --crepe-color-primary: var(--color-purple);
   --crepe-color-secondary: var(--color-pink);
   --crepe-color-on-secondary: var(--text-primary);
