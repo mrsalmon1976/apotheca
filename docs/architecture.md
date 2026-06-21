@@ -143,6 +143,27 @@ Post-login redirect goes to `/dashboard`.
 | `TasksView.vue` | `/tasks` | Filter sidebar + task list |
 | `ProjectView.vue` | `/project/:id` | Per-project page; sections for Notes, Tasks, Activity, Members |
 | `DocumentsView.vue` | `/project/:id/documents` | Folder hierarchy + document grid with drag-drop upload |
+| `NoteView.vue` | `/project/:id/notes/:noteId` | Note editor — Milkdown WYSIWYG + raw markdown split view (see below) |
+
+### Markdown Editor (Milkdown)
+
+`NoteView.vue` implements the note body editor on **Milkdown's Crepe preset** (`@milkdown/crepe`), not a hand-rolled ProseMirror setup. Packages: `@milkdown/crepe` (the WYSIWYG editor and its default UI components) and `@milkdown/utils` (for the `replaceAll` action).
+
+**Dual-pane sync** — the editor is two panes kept in sync, shown together or individually depending on view mode (below):
+- `.wysiwyg-pane` — a plain `<div>` Crepe mounts into: `new Crepe({ root, defaultValue, featureConfigs })`, then `await crepeInstance.create()`.
+- `.markdown-pane` — a raw `<textarea v-model="bodyMarkdown">` showing the same content as markdown source.
+
+Sync is two-way and listener-driven, not a single shared model:
+- **Crepe → textarea**: `crepeInstance.on(listener => listener.markdownUpdated((ctx, markdown) => ...))` updates `bodyMarkdown.value`, but only when the textarea isn't focused (`document.activeElement !== markdownPaneEl.value`), so it never clobbers what the user is actively typing in the raw pane.
+- **textarea → Crepe**: `onMarkdownPaneInput` debounces (350ms) a call to `crepeInstance.editor.action(replaceAll(bodyMarkdown.value))` to push typed markdown back into the Crepe document.
+
+**View modes** — a floating widget (top-right of the editor, `Teleport`'d to `<body>` so the page's `overflow: hidden` doesn't clip it; position computed from the editor's `getBoundingClientRect()` and only recomputed on resize/sidebar-toggle, not on scroll) lets the user pick Visual Editor, Markdown Editor, Split View (Visual Left), or Split View (Visual Right). Switching modes just toggles a `mode-*` class on `.editor-container`: `display: none` hides the unused pane in single-pane modes, and flex `order` (not DOM reordering) swaps which pane renders first in the split modes — this matters because re-rendering/reordering the DOM would tear down the live Crepe instance.
+
+**No internal scrolling** — both panes grow with their content; the outer `.main-body` page container scrolls, not the editor. The wysiwyg `<div>` grows naturally; the markdown `<textarea>` needs manual autosizing (`autosizeMarkdownPane()`: reset `height: auto`, then set it to `scrollHeight`) since textareas don't auto-grow — called on typing, on the `markdownUpdated` listener, and on window resize / sidebar toggle / view-mode change.
+
+**Theming** — Crepe exposes its theme as CSS custom properties (`--crepe-color-*`), remapped onto Apotheca's own palette under `:deep(.milkdown)` (e.g. `--crepe-color-primary: var(--color-purple)`). **Known gotcha**: `--crepe-color-outline` drives icon/stroke color across Crepe's UI (toolbar, link tooltip, table icons, list markers). It must map to a solid, opaque color (`var(--text-secondary)`) — mapping it to `var(--border-color)` (a ~12–15%-opacity tint meant for hairline borders) makes every icon barely visible in light mode and nearly invisible in dark mode. This was a real shipped bug, not a hypothetical.
+
+**Saving** — edits debounce a `PATCH` save 5s after the last change, but a save is forced at least every 15s during continuous editing (`scheduleBodySave`/`runBodySave`, a hand-rolled debounce-with-`maxWait`). Save outcomes surface as PrimeVue toasts, not an inline "Saved" indicator. Pending edits are flushed immediately when leaving the note rather than left to the debounce: `onUnmounted` flushes for in-app route changes, and `pagehide`/`visibilitychange` (`hidden`) listeners flush via `fetch(..., { keepalive: true })` for tab close/refresh — a plain `fetch` can be cancelled mid-flight when the page unloads, while `keepalive` lets it survive (capped at ~64KB by the browser, which is fine for ordinary notes).
 
 ### Composables
 
