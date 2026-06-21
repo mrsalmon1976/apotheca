@@ -276,6 +276,20 @@ function updateWidgetPosition() {
   widgetRight.value = `${Math.max(window.innerWidth - rect.right + 10, 10)}px`
 }
 
+// Grow the markdown textarea to fit its content instead of scrolling internally
+// (the page itself scrolls — see .main-body).
+function autosizeMarkdownPane() {
+  const el = markdownPaneEl.value
+  if (!el || el.offsetParent === null) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
+function updateLayout() {
+  updateWidgetPosition()
+  autosizeMarkdownPane()
+}
+
 // ── Note loading ────────────────────────────────────────────────────────────
 
 async function buildFolderCrumbs(parentNoteId) {
@@ -342,12 +356,13 @@ onMounted(async () => {
         }
         clearTimeout(bodyDebounce)
         bodyDebounce = setTimeout(persistBody, 1000)
+        nextTick(autosizeMarkdownPane)
       })
     })
 
     await nextTick()
-    updateWidgetPosition()
-    window.addEventListener('resize', updateWidgetPosition)
+    updateLayout()
+    window.addEventListener('resize', updateLayout)
   }
   if (note.value && route.query.new === 'true') {
     setTimeout(() => {
@@ -364,12 +379,13 @@ onUnmounted(async () => {
   clearTimeout(bodyDebounce)
   clearTimeout(bodySavedTimer)
   clearTimeout(markdownApplyDebounce)
-  window.removeEventListener('resize', updateWidgetPosition)
+  window.removeEventListener('resize', updateLayout)
   await crepeInstance?.destroy()
   crepeInstance = null
 })
 
-watch(sidebarOpen, () => nextTick(updateWidgetPosition))
+watch(sidebarOpen, () => nextTick(updateLayout))
+watch(viewMode, () => nextTick(autosizeMarkdownPane))
 
 // ── Title editing ────────────────────────────────────────────────────────────
 
@@ -459,6 +475,7 @@ async function persistBody() {
 }
 
 function onMarkdownPaneInput() {
+  autosizeMarkdownPane()
   clearTimeout(markdownApplyDebounce)
   markdownApplyDebounce = setTimeout(() => {
     crepeInstance?.editor.action(replaceAll(bodyMarkdown.value))
@@ -863,8 +880,6 @@ async function fetchSuggestions(query) {
   flex: 1;
   min-width: 0;
   min-height: 400px;
-  max-height: 70vh;
-  overflow-y: auto;
   overflow-x: hidden;
 }
 
@@ -872,7 +887,7 @@ async function fetchSuggestions(query) {
   flex: 1;
   min-width: 0;
   min-height: 400px;
-  max-height: 70vh;
+  overflow-y: hidden;
   background: var(--bg-card);
   color: var(--text-secondary);
   border: none;
@@ -936,8 +951,6 @@ async function fetchSuggestions(query) {
   }
   .main-body { padding: 1rem; }
   .editor-container { flex-direction: column; }
-  .wysiwyg-pane { max-height: none; }
-  .markdown-pane { max-height: none; }
 
   .editor-container.mode-split-left .markdown-pane,
   .editor-container.mode-split-right .wysiwyg-pane {
