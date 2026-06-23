@@ -35,7 +35,18 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\\\\web-api\\\\Apotheca.Api\\\\Features\" -Directory)",
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(Get-ChildItem *)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\\\\n\" https://localhost:5173/ --max-time 3)",
+      "Bash(npm install *)",
+      "Bash(npx playwright *)",
+      "Bash(node *)",
+      "Bash(npm uninstall *)",
+      "Bash(netstat -ano)",
+      "Bash(powershell -Command \"Stop-Process -Id 15088 -Force\")",
+      "Bash(curl *)",
+      "Bash(powershell -Command \"Stop-Process -Id 25420 -Force\")"
     ]
   }
 }

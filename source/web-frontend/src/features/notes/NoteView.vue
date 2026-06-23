@@ -1,10 +1,10 @@
 <template>
-  <div class="page-layout">
-    <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
-    <ProjectSidebar :open="sidebarOpen" />
+  <div class="page-layout" :class="{ 'full-screen': fullScreen }">
+    <div v-if="sidebarOpen && !fullScreen" class="sidebar-backdrop" @click="sidebarOpen = false" />
+    <ProjectSidebar v-if="!fullScreen" :open="sidebarOpen" />
 
     <div class="main-body">
-      <div class="content-header">
+      <div v-if="!fullScreen" class="content-header">
         <div class="content-header-left">
           <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
             <i class="pi pi-bars"></i>
@@ -36,7 +36,7 @@
       </div>
 
       <!-- Breadcrumbs + labels row -->
-      <div v-if="!loadError" class="breadcrumbs-row">
+      <div v-if="!loadError && !fullScreen" class="breadcrumbs-row">
         <nav class="breadcrumbs">
           <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/notes`)">
             Notes
@@ -118,7 +118,7 @@
       <template v-else-if="note">
 
         <!-- Recycle bin banner -->
-        <div v-if="note.deletedAt" class="recycle-banner">
+        <div v-if="note.deletedAt && !fullScreen" class="recycle-banner">
           <i class="pi pi-trash recycle-banner-icon"></i>
           <div class="recycle-banner-body">
             <span class="recycle-banner-title">This note is in the recycle bin.</span>
@@ -149,6 +149,7 @@
       <div
         v-if="note"
         class="view-toggle"
+        :class="{ 'menu-inert': menuInert }"
         :style="{ top: widgetTop, right: widgetRight }"
       >
         <div class="view-toggle-current" :title="currentViewOption.label">
@@ -165,6 +166,18 @@
           >
             <i :class="opt.icon"></i>
             <span>{{ opt.label }}</span>
+          </button>
+          <div class="view-toggle-splitter"></div>
+          <button
+            type="button"
+            class="view-toggle-option"
+            :class="{ active: fullScreen }"
+            @click="toggleFullScreen"
+          >
+            <span class="view-toggle-checkbox" :class="{ checked: fullScreen }">
+              <i v-if="fullScreen" class="pi pi-check"></i>
+            </span>
+            <span>Full Screen</span>
           </button>
         </div>
       </div>
@@ -242,6 +255,8 @@ let savedTimer     = null
 // View mode toggle (floating widget)
 const editorContainerEl = ref(null)
 const viewMode           = ref('split-left')
+const fullScreen         = ref(false)
+const menuInert          = ref(false)
 const widgetTop          = ref('10px')
 const widgetRight        = ref('10px')
 
@@ -263,18 +278,35 @@ function updateWidgetPosition() {
   widgetRight.value = `${Math.max(window.innerWidth - rect.right + 10, 10)}px`
 }
 
-// Grow the markdown textarea to fit its content instead of scrolling internally
-// (the page itself scrolls — see .main-body).
-function autosizeMarkdownPane() {
-  const el = markdownPaneEl.value
-  if (!el || el.offsetParent === null) return
-  el.style.height = 'auto'
-  el.style.height = `${el.scrollHeight}px`
+function toggleFullScreen() {
+  fullScreen.value = !fullScreen.value
+  closeViewToggleMenu()
 }
 
-function updateLayout() {
+// Toggling full screen moves the (Teleported) widget itself, since the editor's
+// bounding rect jumps once the surrounding chrome is hidden/shown. CSS :hover doesn't
+// re-evaluate without a mousemove, so the now-relocated menu would otherwise stay
+// stuck open. Blur drops :focus-within; the pointer-events toggle forces the browser
+// to drop the stale :hover the next time it hit-tests, instead of carrying it over.
+// The reposition happens explicitly in here (not via a separate watcher) so it's
+// guaranteed to land *before* pointer-events/hover are restored, in either direction.
+async function closeViewToggleMenu() {
+  document.activeElement?.blur()
+  menuInert.value = true
+  await nextTick()
   updateWidgetPosition()
-  autosizeMarkdownPane()
+  await nextTick()
+  requestAnimationFrame(() => { menuInert.value = false })
+}
+
+// Scrolls targetEl to the same relative (percentage) scroll position as sourceEl,
+// so editing one pane keeps the other showing roughly the same part of the document.
+function syncScroll(sourceEl, targetEl) {
+  if (!sourceEl || !targetEl) return
+  const sourceRange = sourceEl.scrollHeight - sourceEl.clientHeight
+  const targetRange = targetEl.scrollHeight - targetEl.clientHeight
+  if (sourceRange <= 0 || targetRange <= 0) return
+  targetEl.scrollTop = (sourceEl.scrollTop / sourceRange) * targetRange
 }
 
 // ── Note loading ────────────────────────────────────────────────────────────
@@ -340,15 +372,15 @@ onMounted(async () => {
       listener.markdownUpdated((ctx, markdown) => {
         if (document.activeElement !== markdownPaneEl.value) {
           bodyMarkdown.value = markdown
+          nextTick(() => syncScroll(wysiwygEl.value, markdownPaneEl.value))
         }
         scheduleBodySave()
-        nextTick(autosizeMarkdownPane)
       })
     })
 
     await nextTick()
-    updateLayout()
-    window.addEventListener('resize', updateLayout)
+    updateWidgetPosition()
+    window.addEventListener('resize', updateWidgetPosition)
     window.addEventListener('pagehide', handlePageHide)
     document.addEventListener('visibilitychange', handleVisibilityChange)
   }
@@ -367,7 +399,7 @@ onUnmounted(async () => {
   clearTimeout(bodyDebounce)
   clearTimeout(bodyMaxWaitTimer)
   clearTimeout(markdownApplyDebounce)
-  window.removeEventListener('resize', updateLayout)
+  window.removeEventListener('resize', updateWidgetPosition)
   window.removeEventListener('pagehide', handlePageHide)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   flushBodySave()
@@ -375,8 +407,7 @@ onUnmounted(async () => {
   crepeInstance = null
 })
 
-watch(sidebarOpen, () => nextTick(updateLayout))
-watch(viewMode, () => nextTick(autosizeMarkdownPane))
+watch(sidebarOpen, () => nextTick(updateWidgetPosition))
 
 // ── Title editing ────────────────────────────────────────────────────────────
 
@@ -503,10 +534,10 @@ async function persistBody(options) {
 }
 
 function onMarkdownPaneInput() {
-  autosizeMarkdownPane()
   clearTimeout(markdownApplyDebounce)
   markdownApplyDebounce = setTimeout(() => {
     crepeInstance?.editor.action(replaceAll(bodyMarkdown.value))
+    nextTick(() => syncScroll(markdownPaneEl.value, wysiwygEl.value))
   }, 350)
   scheduleBodySave()
 }
@@ -605,6 +636,12 @@ async function fetchSuggestions(query) {
   overflow-y: auto;
   padding: 1.5rem 2rem;
   background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.page-layout.full-screen .main-body {
+  padding: 0;
 }
 
 .content-header {
@@ -864,6 +901,10 @@ async function fetchSuggestions(query) {
 /* Body editor */
 .body-section {
   position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .editor-container {
@@ -873,6 +914,8 @@ async function fetchSuggestions(query) {
   border-radius: 8px;
   overflow: hidden;
   transition: border-color 0.2s;
+  flex: 1;
+  min-height: 400px;
 }
 .editor-container:focus-within {
   border-color: var(--color-purple);
@@ -881,15 +924,14 @@ async function fetchSuggestions(query) {
 .wysiwyg-pane {
   flex: 1;
   min-width: 0;
-  min-height: 400px;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .markdown-pane {
   flex: 1;
   min-width: 0;
-  min-height: 400px;
-  overflow-y: hidden;
+  overflow-y: auto;
   background: var(--bg-card);
   color: var(--text-secondary);
   border: none;
@@ -965,6 +1007,9 @@ async function fetchSuggestions(query) {
 .view-toggle {
   position: fixed;
   z-index: 2000;
+}
+.view-toggle.menu-inert {
+  pointer-events: none;
 }
 
 .view-toggle-current {
@@ -1051,6 +1096,33 @@ async function fetchSuggestions(query) {
   font-size: 0.85rem;
   width: 1rem;
   text-align: center;
+}
+
+.view-toggle-splitter {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border-color);
+}
+
+.view-toggle-checkbox {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--text-dim);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.view-toggle-checkbox.checked {
+  background: var(--color-purple);
+  border-color: var(--color-purple);
+}
+.view-toggle-option .view-toggle-checkbox i {
+  font-size: 0.55rem;
+  width: auto;
+  color: var(--text-primary);
 }
 
 .view-toggle-option .flip-x,
