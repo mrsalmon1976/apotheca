@@ -983,6 +983,8 @@ async function fetchSuggestions(query) {
 :deep(.milkdown .ProseMirror h5),
 :deep(.milkdown .ProseMirror h6) {
   font-family: inherit;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }
 
 :deep(.milkdown .milkdown-table-block) {

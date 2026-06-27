@@ -5,7 +5,7 @@ $model = "gemma-4-E4B-it-MLX-4bit"
 $env:ANTHROPIC_BASE_URL = "http://192.168.0.174:8000"
 # Local servers do not require real authentication
 # Set these to any non-empty string -- Ollama ignores the value
-$env:ANTHROPIC_API_KEY = ""
+$env:ANTHROPIC_API_KEY = "local_omlx_bypass"
 $env:ANTHROPIC_AUTH_TOKEN = ""
 # Map Claude Code's model tier requests to your local model name
 # Claude Code internally requests sonnet/haiku/opus -- these variables
@@ -17,5 +17,5 @@ $env:ANTHROPIC_MODEL = $model
 
 $env:API_TIMEOUT_MS = "3000000"
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
-# Launch Claude Code -- it will now use Ollama instead of the Anthropic API
-claude
+# Launch Claude Code -- it will now use Ollama/OMLX instead of the Anthropic API
+claude --bare --exclude-dynamic-system-prompt-sections
