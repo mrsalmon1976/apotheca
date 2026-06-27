@@ -249,6 +249,10 @@ let   bodyDebounce     = null
 let   bodyMaxWaitTimer = null
 let   markdownApplyDebounce = null
 
+// Cached at note load time so saves still work after route params change on navigation
+let activeNoteId    = null
+let activeProjectId = null
+
 let debounceTimer  = null
 let savedTimer     = null
 
@@ -331,6 +335,8 @@ onMounted(async () => {
     const response = await getNote(projectId.value, noteId.value)
     if (response.ok) {
       note.value           = await response.json()
+      activeNoteId         = noteId.value
+      activeProjectId      = projectId.value
       editingTitle.value   = note.value.title
       selectedLabels.value = [...(note.value.labels ?? [])]
       if (note.value.parentNoteId) {
@@ -481,7 +487,7 @@ let bodyDirty = false
 function scheduleBodySave() {
   bodyDirty = true
   clearTimeout(bodyDebounce)
-  bodyDebounce = setTimeout(runBodySave, 5000)
+  bodyDebounce = setTimeout(runBodySave, 2000)
   if (!bodyMaxWaitTimer) {
     bodyMaxWaitTimer = setTimeout(runBodySave, 15000)
   }
@@ -520,7 +526,7 @@ async function persistBody(options) {
   if (!crepeInstance) return
   bodyDirty = false
   try {
-    const response = await saveNote(projectId.value, noteId.value, { body: bodyMarkdown.value }, options)
+    const response = await saveNote(activeProjectId, activeNoteId, { body: bodyMarkdown.value }, options)
     if (response.ok) {
       toast.add({ severity: 'success', summary: 'Note saved', life: 2500 })
     } else {
