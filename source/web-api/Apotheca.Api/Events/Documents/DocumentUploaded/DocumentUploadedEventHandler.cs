@@ -27,23 +27,25 @@ public class DocumentUploadedEventHandler(
     {
         var eventData = request.DecodeMessage<DocumentUploadedEvent>();
         if (eventData is null)
+        {
             return BadRequest();
+        }
 
         logger.LogInformation(
             "DocumentUploaded event received. DocumentId: {DocumentId}, Extension: {Extension}",
             eventData.DocumentId, eventData.FileExtension);
 
-        var ext    = eventData.FileExtension;
+        var ext    = eventData?.FileExtension ?? string.Empty;
         var isPdf  = ext.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
         var isText = _textExtensions.Contains(ext);
 
         if (!isText && !isPdf)
             return NoContent();
 
-        var memStream = new MemoryStream();
+        using var memStream = new MemoryStream();
         await storageClient.DownloadObjectAsync(
             appSettings.StorageBucketName,
-            eventData.BlobReference,
+            eventData!.BlobReference,
             memStream,
             cancellationToken: cancellationToken);
         memStream.Position = 0;
@@ -56,7 +58,7 @@ public class DocumentUploadedEventHandler(
         }
         else
         {
-            using var doc = PdfDocument.Open(memStream.ToArray());
+            using var doc = PdfDocument.Open(memStream);
             var sb = new System.Text.StringBuilder();
             foreach (var page in doc.GetPages())
                 sb.AppendLine(string.Join(" ", page.GetWords().Select(w => w.Text)));
