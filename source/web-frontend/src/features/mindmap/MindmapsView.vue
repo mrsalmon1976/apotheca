@@ -17,7 +17,17 @@
         </button>
       </div>
 
-      <table v-if="mindmaps.length" class="doc-table">
+      <div v-if="loadError" class="load-error">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ loadError }}</span>
+      </div>
+
+      <div v-else-if="loading" class="loading-state">
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Loading...</span>
+      </div>
+
+      <table v-else-if="mindmaps.length" class="doc-table">
         <thead>
           <tr>
             <th class="col-name">Title</th>
@@ -34,7 +44,7 @@
           >
             <td class="col-name">
               <i class="pi pi-sitemap file-icon"></i>
-              <span class="row-title">{{ item.root.header || 'Untitled' }}</span>
+              <span class="row-title">{{ item.name || 'Untitled' }}</span>
             </td>
             <td class="col-date">{{ formatDate(item.updatedAt) }}</td>
             <td class="col-actions">
@@ -66,16 +76,46 @@ const router = useRouter()
 const projectId = computed(() => route.params.id)
 const sidebarOpen = ref(window.innerWidth >= 768)
 
-const { mindmaps, createMindmap, deleteMindmap } = useMindmaps(projectId.value)
+const { getMindmaps, createMindmap, deleteMindmap } = useMindmaps()
 
-function createAndOpen() {
-  const mindmap = createMindmap()
-  router.push(`/project/${projectId.value}/mindmaps/${mindmap.id}`)
+const mindmaps  = ref([])
+const loading   = ref(false)
+const loadError = ref(null)
+
+async function loadMindmaps() {
+  loading.value   = true
+  loadError.value = null
+  try {
+    const response = await getMindmaps(projectId.value)
+    if (response.ok) {
+      mindmaps.value = await response.json()
+    } else {
+      loadError.value = `Failed to load mindmaps (${response.status}).`
+    }
+  } catch {
+    loadError.value = 'Could not connect to the server.'
+  } finally {
+    loading.value = false
+  }
+}
+
+loadMindmaps()
+
+async function createAndOpen() {
+  const response = await createMindmap(projectId.value, 'Untitled Mindmap')
+  if (response.ok) {
+    const mindmap = await response.json()
+    router.push(`/project/${projectId.value}/mindmaps/${mindmap.id}`)
+  }
 }
 
 function promptDelete(item) {
-  if (confirm(`Delete "${item.root.header || 'Untitled'}"? This cannot be undone.`)) {
-    deleteMindmap(item.id)
+  if (confirm(`Delete "${item.name || 'Untitled'}"? This cannot be undone.`)) {
+    deleteMindmap(projectId.value, item.id).then((response) => {
+      if (response.ok) {
+        mindmaps.value = mindmaps.value.filter(m => m.id !== item.id)
+      }
+    })
   }
 }
 
@@ -141,6 +181,21 @@ function formatDate(iso) {
   box-shadow: 0 0 16px var(--glow-purple);
 }
 .primary-btn:hover { opacity: 0.9; box-shadow: 0 0 24px var(--glow-purple); }
+
+.load-error {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(236, 72, 153, 0.08);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: var(--color-pink-light);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.loading-state { display: flex; align-items: center; gap: 0.6rem; color: var(--text-muted); font-size: 0.875rem; padding: 1rem 0; }
 
 .empty-state { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 3rem 0; color: var(--text-dim); }
 .empty-icon { font-size: 2rem; }

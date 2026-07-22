@@ -47,7 +47,9 @@
       "Bash(powershell -Command \"Stop-Process -Id 15088 -Force\")",
       "Bash(curl *)",
       "Bash(powershell -Command \"Stop-Process -Id 25420 -Force\")",
-      "PowerShell(Get-ChildItem \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\" -Recurse -Depth 2 | Where-Object { $_.PSIsContainer } | Select-Object FullName)"
+      "PowerShell(Get-ChildItem \"C:\\\\Matt\\\\code\\\\apotheca\\\\source\" -Recurse -Depth 2 | Where-Object { $_.PSIsContainer } | Select-Object FullName)",
+      "Bash(docker compose *)",
+      "Bash(dotnet run *)"
     ]
   }
 }

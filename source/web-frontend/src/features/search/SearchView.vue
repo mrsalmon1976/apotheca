@@ -110,7 +110,7 @@ const router    = useRouter()
 
 const sidebarOpen   = ref(window.innerWidth >= 768)
 const query         = ref('')
-const selectedTypes  = ref(['note', 'task', 'document'])
+const selectedTypes  = ref(['note', 'task', 'document', 'mindmap'])
 const selectedFields = ref(['title', 'body'])
 const results       = ref([])
 const loading       = ref(false)
@@ -121,6 +121,7 @@ const typeOptions  = [
   { label: 'Notes',     value: 'note'     },
   { label: 'Tasks',     value: 'task'     },
   { label: 'Documents', value: 'document' },
+  { label: 'Mindmaps',  value: 'mindmap'  },
 ]
 const fieldOptions = [
   { label: 'Title', value: 'title' },
@@ -132,6 +133,7 @@ function typeLabel(t) {
     case 'note':     return 'Note'
     case 'task':     return 'Task'
     case 'document': return 'Document'
+    case 'mindmap':  return 'Mindmap'
     default:         return t
   }
 }
@@ -140,6 +142,7 @@ function typeIcon(t) {
     case 'note':     return 'pi pi-file-edit'
     case 'task':     return 'pi pi-check-square'
     case 'document': return 'pi pi-file'
+    case 'mindmap':  return 'pi pi-sitemap'
     default:         return 'pi pi-circle'
   }
 }
@@ -151,6 +154,8 @@ function navigateTo(result) {
     router.push(`/project/${result.projectId}/notes/${result.referenceId}`)
   } else if (type === 'document') {
     router.push(`/project/${result.projectId}/documents/${result.referenceId}`)
+  } else if (type === 'mindmap') {
+    router.push(`/project/${result.projectId}/mindmaps/${result.referenceId}`)
   }
 }
 
@@ -168,7 +173,7 @@ async function runSearch() {
   if (!query.value || query.value.trim().length < 2) return
   if (!user.value) return
 
-  const types  = selectedTypes.value.length  > 0 ? selectedTypes.value.join(',')  : 'note,task,document'
+  const types  = selectedTypes.value.length  > 0 ? selectedTypes.value.join(',')  : 'note,task,document,mindmap'
   const fields = selectedFields.value.length > 0 ? selectedFields.value.join(',') : 'title,body'
 
   loading.value  = true
@@ -417,6 +422,11 @@ function clearSearch() {
   background: rgba(56, 189, 248, 0.12);
   color: #7dd3fc;
   border: 1px solid rgba(56, 189, 248, 0.25);
+}
+.type-badge.mindmap {
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.25);
 }
 
 .result-title {

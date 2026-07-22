@@ -130,6 +130,8 @@ function navigate(result) {
     router.push(`/project/${result.projectId}/tasks/all`)
   } else if (type === 'document') {
     router.push(`/project/${result.projectId}/documents/${result.referenceId}`)
+  } else if (type === 'mindmap') {
+    router.push(`/project/${result.projectId}/mindmaps/${result.referenceId}`)
   }
   close()
 }
@@ -139,6 +141,7 @@ function typeLabel(t) {
     case 'note':     return 'Note'
     case 'task':     return 'Task'
     case 'document': return 'Document'
+    case 'mindmap':  return 'Mindmap'
     default:         return t
   }
 }
@@ -147,6 +150,7 @@ function typeIcon(t) {
     case 'note':     return 'pi pi-file-edit'
     case 'task':     return 'pi pi-check-square'
     case 'document': return 'pi pi-file'
+    case 'mindmap':  return 'pi pi-sitemap'
     default:         return 'pi pi-circle'
   }
 }
@@ -286,6 +290,11 @@ function close() {
   background: rgba(56, 189, 248, 0.12);
   color: #7dd3fc;
   border: 1px solid rgba(56, 189, 248, 0.25);
+}
+.hs-badge.mindmap {
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.25);
 }
 
 .hs-title {

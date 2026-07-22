@@ -14,7 +14,7 @@ public class SearchController(
     [HttpGet]
     public async Task<IActionResult> Search(
         [FromQuery] string? q,
-        [FromQuery] string types  = "note,task,document",
+        [FromQuery] string types  = "note,task,document,mindmap",
         [FromQuery] string fields = "title,body",
         CancellationToken cancellationToken = default)
     {
@@ -34,7 +34,7 @@ public class SearchController(
             .ToArray();
 
         if (typeList.Length == 0)
-            typeList = ["note", "task", "document"];
+            typeList = ["note", "task", "document", "mindmap"];
 
         var fieldSet = fields
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

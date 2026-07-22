@@ -10,7 +10,16 @@
           <button class="hamburger-btn" title="Toggle menu" @click="sidebarOpen = !sidebarOpen">
             <i class="pi pi-bars"></i>
           </button>
-          <h1 class="content-title">Mindmap</h1>
+          <input
+            v-if="!loadError"
+            v-model="mindmapName"
+            class="mindmap-name-input"
+            type="text"
+            placeholder="Untitled Mindmap"
+            @keydown.enter.prevent="$event.target.blur()"
+            @blur="saveMindmapName"
+          />
+          <h1 v-else class="content-title">Mindmap</h1>
         </div>
       </div>
 
@@ -20,13 +29,18 @@
         </button>
         <template v-if="root">
           <i class="pi pi-chevron-right breadcrumb-sep"></i>
-          <span class="breadcrumb-item breadcrumb-current">{{ root.header || 'Untitled' }}</span>
+          <span class="breadcrumb-item breadcrumb-current">{{ mindmapName || 'Untitled' }}</span>
         </template>
       </nav>
 
-      <div v-if="notFound" class="load-error">
+      <div v-if="loadError" class="load-error">
         <i class="pi pi-exclamation-triangle"></i>
-        <span>This mindmap no longer exists.</span>
+        <span>{{ loadError }}</span>
+      </div>
+
+      <div v-else-if="loading" class="loading-state">
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Loading...</span>
       </div>
 
       <div v-else class="mindmap-canvas">
@@ -39,11 +53,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import MindmapNode from './MindmapNode.vue'
-import { useMindmapEditor } from '../../composables/useMindmaps'
+import { useMindmaps, buildMindmapTree } from '../../composables/useMindmaps'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,7 +65,42 @@ const projectId = computed(() => route.params.id)
 const mindmapId = computed(() => route.params.mindmapId)
 const sidebarOpen = ref(window.innerWidth >= 768)
 
-const { root, notFound } = useMindmapEditor(projectId.value, mindmapId.value)
+provide('projectId', projectId)
+provide('mindmapId', mindmapId)
+
+const { getMindmap, renameMindmap } = useMindmaps()
+
+const root         = ref(null)
+const mindmapName  = ref('')
+const loading      = ref(true)
+const loadError    = ref(null)
+
+async function loadMindmap() {
+  loading.value   = true
+  loadError.value = null
+  try {
+    const response = await getMindmap(projectId.value, mindmapId.value)
+    if (response.ok) {
+      const data = await response.json()
+      mindmapName.value = data.name
+      root.value = buildMindmapTree(data.nodes)
+    } else if (response.status === 404) {
+      loadError.value = 'This mindmap no longer exists.'
+    } else {
+      loadError.value = `Failed to load mindmap (${response.status}).`
+    }
+  } catch {
+    loadError.value = 'Could not connect to the server.'
+  } finally {
+    loading.value = false
+  }
+}
+
+loadMindmap()
+
+async function saveMindmapName() {
+  await renameMindmap(projectId.value, mindmapId.value, mindmapName.value.trim() || 'Untitled Mindmap')
+}
 </script>
 
 <style scoped>
@@ -94,6 +143,20 @@ const { root, notFound } = useMindmapEditor(projectId.value, mindmapId.value)
 
 .content-title { font-size: 1.4rem; font-weight: 700; color: var(--text-primary); margin: 0; }
 
+.mindmap-name-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  min-width: 0;
+  transition: border-color 0.2s;
+}
+.mindmap-name-input:hover { border-color: var(--border-color); }
+.mindmap-name-input:focus { border-color: var(--color-purple); }
+
 /* Breadcrumbs */
 .breadcrumbs { display: flex; align-items: center; gap: 0.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
 
@@ -126,6 +189,8 @@ const { root, notFound } = useMindmapEditor(projectId.value, mindmapId.value)
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }
+
+.loading-state { display: flex; align-items: center; gap: 0.6rem; color: var(--text-muted); font-size: 0.875rem; padding: 1rem 0; }
 
 .mindmap-canvas {
   width: max-content;

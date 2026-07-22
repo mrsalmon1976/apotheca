@@ -1,74 +1,114 @@
-import { ref, watch } from 'vue'
+import { useAuth } from './useAuth'
 
-function storageKey(projectId) {
-  return `apotheca-mindmaps-${projectId}`
-}
+const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
-export function makeNode(header = 'New Node', body = '') {
-  return {
-    id: crypto.randomUUID(),
-    header,
-    body,
-    collapsed: false,
-    children: []
+export function buildMindmapTree(flatNodes) {
+  const byId = new Map()
+  for (const n of flatNodes) {
+    byId.set(n.id, { id: n.id, header: n.header, body: n.body ?? '', collapsed: n.collapsed, children: [] })
   }
-}
 
-function loadAll(projectId) {
-  try {
-    const raw = localStorage.getItem(storageKey(projectId))
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function saveAll(projectId, mindmaps) {
-  localStorage.setItem(storageKey(projectId), JSON.stringify(mindmaps))
-}
-
-export function useMindmaps(projectId) {
-  const mindmaps = ref(loadAll(projectId))
-
-  function createMindmap() {
-    const mindmap = {
-      id: crypto.randomUUID(),
-      root: makeNode('New Mindmap', ''),
-      updatedAt: new Date().toISOString()
+  let root = null
+  for (const n of flatNodes) {
+    const node = byId.get(n.id)
+    if (n.parentNodeId) {
+      byId.get(n.parentNodeId)?.children.push(node)
+    } else {
+      root = node
     }
-    mindmaps.value.push(mindmap)
-    saveAll(projectId, mindmaps.value)
-    return mindmap
   }
-
-  function deleteMindmap(id) {
-    mindmaps.value = mindmaps.value.filter(m => m.id !== id)
-    saveAll(projectId, mindmaps.value)
-  }
-
-  return { mindmaps, createMindmap, deleteMindmap }
+  return root
 }
 
-export function useMindmapEditor(projectId, mindmapId) {
-  const existing = loadAll(projectId).find(m => m.id === mindmapId)
+export function useMindmaps() {
+  const { user } = useAuth()
 
-  const root = ref(existing?.root ?? null)
-  const notFound = ref(!existing)
+  async function getMindmaps(projectId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/mindmaps`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
 
-  let saveTimer = null
-  watch(root, () => {
-    if (!root.value) return
-    clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => {
-      const current = loadAll(projectId)
-      const idx = current.findIndex(m => m.id === mindmapId)
-      const updated = { id: mindmapId, root: root.value, updatedAt: new Date().toISOString() }
-      if (idx !== -1) current[idx] = updated
-      else current.push(updated)
-      saveAll(projectId, current)
-    }, 400)
-  }, { deep: true })
+  async function getMindmap(projectId, mindmapId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/mindmaps/${mindmapId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
 
-  return { root, notFound }
+  async function createMindmap(projectId, name) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/mindmaps`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+    })
+  }
+
+  async function renameMindmap(projectId, mindmapId, name) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/mindmaps/${mindmapId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+    })
+  }
+
+  async function deleteMindmap(projectId, mindmapId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/mindmaps/${mindmapId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
+  async function createMindmapNode(projectId, mindmapId, parentNodeId, header = '', body = '') {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/mindmaps/${mindmapId}/nodes`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ parentNodeId, header, body }),
+    })
+  }
+
+  async function saveMindmapNode(projectId, mindmapId, nodeId, data) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/mindmaps/${mindmapId}/nodes/${nodeId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+  }
+
+  async function deleteMindmapNode(projectId, mindmapId, nodeId) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/mindmaps/${mindmapId}/nodes/${nodeId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
+
+  return {
+    getMindmaps,
+    getMindmap,
+    createMindmap,
+    renameMindmap,
+    deleteMindmap,
+    createMindmapNode,
+    saveMindmapNode,
+    deleteMindmapNode,
+  }
 }

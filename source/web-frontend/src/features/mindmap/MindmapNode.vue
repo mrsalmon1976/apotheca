@@ -5,7 +5,7 @@
         v-if="node.children.length"
         class="collapse-btn"
         :title="node.collapsed ? 'Expand' : 'Collapse'"
-        @click="node.collapsed = !node.collapsed"
+        @click="toggleCollapse"
       >
         <i :class="node.collapsed ? 'pi pi-chevron-right' : 'pi pi-chevron-down'"></i>
       </button>
@@ -17,6 +17,7 @@
           type="text"
           placeholder="Untitled"
           @keydown.enter.prevent="$event.target.blur()"
+          @blur="saveHeader"
         />
 
         <ul v-if="!editingBody" class="node-body-list" @click="startEditingBody">
@@ -61,8 +62,9 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
-import { makeNode } from '../../composables/useMindmaps'
+import { ref, computed, nextTick, inject } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { useMindmaps } from '../../composables/useMindmaps'
 
 const props = defineProps({
   node: { type: Object, required: true },
@@ -70,18 +72,70 @@ const props = defineProps({
 })
 defineEmits(['delete-self'])
 
+const projectId = inject('projectId')
+const mindmapId = inject('mindmapId')
+const toast = useToast()
+const { createMindmapNode, saveMindmapNode, deleteMindmapNode } = useMindmaps()
+
 const bodyLines = computed(() =>
-  props.node.body.split('\n').filter(line => line.trim() !== '')
+  (props.node.body ?? '').split('\n').filter(line => line.trim() !== '')
 )
 
-function addChild() {
-  props.node.children.push(makeNode('New Node', ''))
-  props.node.collapsed = false
+function notifyError(summary) {
+  toast.add({ severity: 'error', summary, detail: 'Could not connect to the server.', life: 8000 })
 }
 
-function removeChild(id) {
+async function addChild() {
+  const wasCollapsed = props.node.collapsed
+  try {
+    const response = await createMindmapNode(projectId.value, mindmapId.value, props.node.id, 'New Node', '')
+    if (!response.ok) {
+      notifyError('Failed to add node')
+      return
+    }
+    const { id } = await response.json()
+    props.node.children.push({ id, header: 'New Node', body: '', collapsed: false, children: [] })
+    if (wasCollapsed) {
+      props.node.collapsed = false
+      await saveMindmapNode(projectId.value, mindmapId.value, props.node.id, { collapsed: false })
+    }
+  } catch {
+    notifyError('Failed to add node')
+  }
+}
+
+async function removeChild(id) {
   const index = props.node.children.findIndex(child => child.id === id)
-  if (index !== -1) props.node.children.splice(index, 1)
+  if (index === -1) return
+  try {
+    const response = await deleteMindmapNode(projectId.value, mindmapId.value, id)
+    if (response.ok) {
+      props.node.children.splice(index, 1)
+    } else {
+      notifyError('Failed to delete node')
+    }
+  } catch {
+    notifyError('Failed to delete node')
+  }
+}
+
+async function toggleCollapse() {
+  props.node.collapsed = !props.node.collapsed
+  try {
+    const response = await saveMindmapNode(projectId.value, mindmapId.value, props.node.id, { collapsed: props.node.collapsed })
+    if (!response.ok) notifyError('Failed to save')
+  } catch {
+    notifyError('Failed to save')
+  }
+}
+
+async function saveHeader() {
+  try {
+    const response = await saveMindmapNode(projectId.value, mindmapId.value, props.node.id, { header: props.node.header })
+    if (!response.ok) notifyError('Failed to save')
+  } catch {
+    notifyError('Failed to save')
+  }
 }
 
 // ── Body editing (bullet list <-> textarea) ──────────────────────────────────
@@ -90,15 +144,21 @@ const draftBody = ref('')
 const bodyTextarea = ref(null)
 
 async function startEditingBody() {
-  draftBody.value = props.node.body
+  draftBody.value = props.node.body ?? ''
   editingBody.value = true
   await nextTick()
   bodyTextarea.value?.focus()
 }
 
-function commitBody() {
+async function commitBody() {
   props.node.body = draftBody.value
   editingBody.value = false
+  try {
+    const response = await saveMindmapNode(projectId.value, mindmapId.value, props.node.id, { body: props.node.body })
+    if (!response.ok) notifyError('Failed to save')
+  } catch {
+    notifyError('Failed to save')
+  }
 }
 
 function cancelEditingBody() {
