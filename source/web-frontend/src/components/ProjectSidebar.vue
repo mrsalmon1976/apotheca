@@ -38,6 +38,15 @@
         <i class="pi pi-folder-open"></i>
         <span>Documents</span>
       </a>
+      <a
+        class="sidebar-item"
+        :class="{ active: $route.path.startsWith(`/project/${projectId}/mindmaps`) }"
+        :href="`/project/${projectId}/mindmaps`"
+        @click.prevent="router.push(`/project/${projectId}/mindmaps`); closeSidebarOnMobile()"
+      >
+        <i class="pi pi-sitemap"></i>
+        <span>Mindmaps</span>
+      </a>
 
       <div class="nav-group-label" style="margin-top:1rem">Tasks</div>
       <a

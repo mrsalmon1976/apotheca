@@ -15,6 +15,8 @@ import DocumentsView from '../features/documents/DocumentsView.vue'
 import DocumentView from '../features/documents/DocumentView.vue'
 import ProjectSettingsView from '../features/projects/ProjectSettingsView.vue'
 import SearchView from '../features/search/SearchView.vue'
+import MindmapsView from '../features/mindmap/MindmapsView.vue'
+import MindmapView from '../features/mindmap/MindmapView.vue'
 import LoginView from '../features/auth/LoginView.vue'
 import LoggingInView from '../features/auth/LoggingInView.vue'
 
@@ -52,7 +54,9 @@ const routes = [
       { path: 'project/:id/tasks', redirect: to => `/project/${to.params.id}/tasks/all` },
       { path: 'project/:id/tasks/:filter', component: TasksView },
       { path: 'project/:id/settings', component: ProjectSettingsView },
-      { path: 'search', component: SearchView }
+      { path: 'search', component: SearchView },
+      { path: 'project/:id/mindmaps', component: MindmapsView },
+      { path: 'project/:id/mindmaps/:mindmapId', component: MindmapView }
     ]
   }
 ]
