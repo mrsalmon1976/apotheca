@@ -46,15 +46,16 @@
             <span v-if="task.dueAt" class="task-due" :class="{ overdue: isOverdue(task.dueAt) }">
               <i class="pi pi-calendar"></i> {{ formatDate(task.dueAt) }}
             </span>
+            <router-link :to="`/project/${task.projectId}/tasks/all`" class="project-badge">
+              {{ task.projectName }}
+            </router-link>
+            <span class="task-divider"></span>
             <span class="task-title">{{ task.title }}</span>
           </div>
           <div class="task-meta">
             <span v-if="task.priority !== 'NONE'" class="priority-badge" :class="task.priority.toLowerCase()">
               {{ task.priority.toLowerCase() }}
             </span>
-            <router-link :to="`/project/${task.projectId}/tasks/all`" class="project-badge">
-              {{ task.projectName }}
-            </router-link>
           </div>
         </div>
       </div>
@@ -297,6 +298,13 @@ watch(activeFilter, filter => loadTasks(filter), { immediate: true })
 .task-due.overdue {
   color: var(--color-pink);
   border-right-color: rgba(236, 72, 153, 0.25);
+}
+
+.task-divider {
+  width: 1px;
+  height: 0.85rem;
+  background: var(--border-color);
+  flex-shrink: 0;
 }
 
 .task-meta {
