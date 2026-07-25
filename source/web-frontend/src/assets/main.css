@@ -333,7 +333,7 @@ html, body {
   transition: background 0.15s, border-color 0.15s !important;
 }
 
-.p-checkbox-box.p-checked {
+.p-checkbox-checked .p-checkbox-box {
   background: var(--color-purple) !important;
   border-color: var(--color-purple) !important;
 }
