@@ -581,18 +581,18 @@ watch(folderIds, async (ids) => {
 .card-action-btn {
   background: transparent;
   border: none;
-  color: var(--text-dim);
+  color: var(--text-muted);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   padding: 0.25rem 0.4rem;
   border-radius: 4px;
   line-height: 1;
-  opacity: 0;
+  opacity: 0.65;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
   flex-shrink: 0;
 }
 .note-card:hover .card-action-btn { opacity: 1; }
-.card-action-btn:hover { color: var(--text-secondary); background: var(--bg-active); }
+.card-action-btn:hover { color: var(--color-purple-light); background: var(--bg-active); }
 
 .note-preview {
   font-size: 0.8rem;

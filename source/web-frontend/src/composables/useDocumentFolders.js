@@ -78,6 +78,18 @@ export function useDocumentFolders() {
     })
   }
 
+  async function moveDocument(projectId, documentId, targetFolderId = null) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/documents/${documentId}/move`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ targetFolderId }),
+    })
+  }
+
   async function downloadDocument(projectId, documentId) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/documents/${documentId}/download`, {
@@ -138,5 +150,5 @@ export function useDocumentFolders() {
     })
   }
 
-  return { getDocument, getDocuments, createFolder, renameFolder, createDocument, saveDocument, deleteDocument, downloadDocument, restoreDocument, uploadDocument, searchLabels, getDocumentLinks, createDocumentLink, deleteDocumentLink }
+  return { getDocument, getDocuments, createFolder, renameFolder, createDocument, saveDocument, deleteDocument, moveDocument, downloadDocument, restoreDocument, uploadDocument, searchLabels, getDocumentLinks, createDocumentLink, deleteDocumentLink }
 }

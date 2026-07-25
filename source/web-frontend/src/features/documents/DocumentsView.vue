@@ -34,6 +34,17 @@
       @confirm="onDeleteConfirm"
     />
 
+    <MoveDialog
+      :visible="showMoveDialog"
+      :project-id="projectId"
+      :item="moveTarget"
+      :current-parent-id="currentFolderId"
+      @close="showMoveDialog = false"
+      @moved="onMoved"
+    />
+
+    <Menu ref="actionsMenu" :model="menuItems" :popup="true" />
+
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
     <ProjectSidebar :open="sidebarOpen" />
@@ -123,11 +134,8 @@
                   <span class="row-title">{{ item.title }}</span>
                 </td>
                 <td class="col-actions">
-                  <button class="row-action-btn" title="Rename folder" @click.stop="promptRename(item)">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-                  <button class="row-action-btn row-delete-btn" title="Delete folder" @click.stop="promptDelete(item)">
-                    <i class="pi pi-trash"></i>
+                  <button class="row-action-btn" title="Actions" @click.stop="openActionsMenu($event, item)">
+                    <i class="pi pi-ellipsis-v"></i>
                   </button>
                 </td>
               </tr>
@@ -166,11 +174,8 @@
                 <td class="col-size">{{ formatSize(item.fileLength) }}</td>
                 <td class="col-date">{{ formatDate(item.updatedAt) }}</td>
                 <td class="col-actions">
-                  <button class="row-action-btn" title="Download document" @click.stop="downloadItem(item)">
-                    <i class="pi pi-download"></i>
-                  </button>
-                  <button class="row-action-btn row-delete-btn" title="Delete document" @click.stop="promptDelete(item)">
-                    <i class="pi pi-trash"></i>
+                  <button class="row-action-btn" title="Actions" @click.stop="openActionsMenu($event, item)">
+                    <i class="pi pi-ellipsis-v"></i>
                   </button>
                 </td>
               </tr>
@@ -191,11 +196,13 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Menu from 'primevue/menu'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewFolderDialog from './NewFolderDialog.vue'
 import RenameFolderDialog from './RenameFolderDialog.vue'
 import AddDocumentDialog from './AddDocumentDialog.vue'
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue'
+import MoveDialog from './MoveDialog.vue'
 import { useDocumentFolders } from '../../composables/useDocumentFolders'
 
 const route = useRoute()
@@ -215,6 +222,24 @@ const renameTarget     = ref(null)
 
 const showDeleteDialog = ref(false)
 const deleteTarget     = ref(null)
+
+const showMoveDialog = ref(false)
+const moveTarget     = ref(null)   // { id, title, isFolder }
+
+const actionsMenu = ref(null)
+const menuTarget   = ref(null)
+const menuItems    = computed(() => {
+  if (!menuTarget.value) return []
+  const items = []
+  if (menuTarget.value.isFolder) {
+    items.push({ label: 'Rename', icon: 'pi pi-pencil', command: () => promptRename(menuTarget.value) })
+  } else {
+    items.push({ label: 'Download', icon: 'pi pi-download', command: () => downloadItem(menuTarget.value) })
+  }
+  items.push({ label: 'Move', icon: 'pi pi-arrow-right-arrow-left', command: () => promptMove(menuTarget.value) })
+  items.push({ label: 'Delete', icon: 'pi pi-trash', class: 'danger-item', command: () => promptDelete(menuTarget.value) })
+  return items
+})
 
 const folderIds = computed(() => {
   const f = route.params.folders
@@ -290,12 +315,26 @@ async function downloadItem(item) {
   URL.revokeObjectURL(url)
 }
 
+function openActionsMenu(event, item) {
+  menuTarget.value = item
+  actionsMenu.value.toggle(event)
+}
+
 function promptRename(item) {
   renameTarget.value     = { id: item.id, title: item.title }
   showRenameDialog.value = true
 }
 
 function onFolderRenamed() {
+  loadDocuments(currentFolderId.value)
+}
+
+function promptMove(item) {
+  moveTarget.value     = { id: item.id, title: item.title, isFolder: item.isFolder }
+  showMoveDialog.value = true
+}
+
+function onMoved() {
   loadDocuments(currentFolderId.value)
 }
 
@@ -562,18 +601,17 @@ watch(folderIds, async (ids) => {
 .row-action-btn {
   background: transparent;
   border: none;
-  color: var(--text-dim);
+  color: var(--text-muted);
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   padding: 0.2rem 0.3rem;
   border-radius: 4px;
   line-height: 1;
-  opacity: 0;
+  opacity: 0.65;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
 .doc-row:hover .row-action-btn { opacity: 1; }
-.row-action-btn:hover { color: var(--text-secondary); background: var(--bg-active); }
-.row-delete-btn:hover { color: var(--color-pink-light); background: rgba(236, 72, 153, 0.12); }
+.row-action-btn:hover { color: var(--color-purple-light); background: var(--bg-active); }
 
 /* Section divider */
 .section-divider { display: flex; align-items: center; gap: 0.75rem; margin: 0.5rem 0 1rem; }
