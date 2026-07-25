@@ -268,6 +268,62 @@ html, body {
   color: var(--color-purple-light) !important;
 }
 
+/* ── PrimeVue Menu (popup) – Apotheca branding ── */
+.p-menu.p-menu-overlay {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-purple) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 24px var(--glow-purple), 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  margin-top: 4px;
+}
+
+.p-menu-list {
+  padding: 0.35rem !important;
+}
+
+.p-menu-item-content {
+  border-radius: 6px !important;
+  transition: background 0.15s, color 0.15s !important;
+}
+
+.p-menu-item-link {
+  padding: 0.55rem 0.75rem !important;
+  gap: 0.6rem !important;
+  color: var(--text-secondary) !important;
+}
+
+.p-menu-item-icon {
+  color: var(--text-muted) !important;
+  font-size: 0.8rem !important;
+}
+
+.p-menu-item-label {
+  font-size: 0.875rem !important;
+}
+
+.p-menu-item:not(.p-disabled) .p-menu-item-content:hover {
+  background: var(--bg-hover) !important;
+}
+
+.p-menu-item:not(.p-disabled) .p-menu-item-content:hover .p-menu-item-link,
+.p-menu-item:not(.p-disabled) .p-menu-item-content:hover .p-menu-item-icon {
+  color: var(--text-primary) !important;
+}
+
+.p-menu-separator {
+  border-color: var(--border-color) !important;
+}
+
+/* Destructive items (e.g. Delete) */
+.p-menu-item.danger-item .p-menu-item-link,
+.p-menu-item.danger-item .p-menu-item-icon {
+  color: var(--color-pink-light) !important;
+}
+
+.p-menu-item.danger-item:not(.p-disabled) .p-menu-item-content:hover {
+  background: rgba(236, 72, 153, 0.12) !important;
+}
+
 .p-checkbox-box {
   background: var(--bg-input) !important;
   border: 1px solid var(--border-purple) !important;

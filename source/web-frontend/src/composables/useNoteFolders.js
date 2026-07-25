@@ -79,6 +79,18 @@ export function useNoteFolders() {
     })
   }
 
+  async function moveNote(projectId, noteId, targetFolderId = null) {
+    const token = await user.value.getIdToken()
+    return fetch(`${API_URL}/projects/${projectId}/notes/${noteId}/move`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ targetFolderId }),
+    })
+  }
+
   async function searchLabels(projectId, query) {
     const token = await user.value.getIdToken()
     return fetch(`${API_URL}/projects/${projectId}/labels?q=${encodeURIComponent(query)}`, {
@@ -100,5 +112,5 @@ export function useNoteFolders() {
     return `${API_URL}${data.url}`
   }
 
-  return { getNote, getNotes, createFolder, renameFolder, createNote, saveNote, deleteNote, searchLabels, uploadNoteAttachment }
+  return { getNote, getNotes, createFolder, renameFolder, createNote, saveNote, deleteNote, moveNote, searchLabels, uploadNoteAttachment }
 }
