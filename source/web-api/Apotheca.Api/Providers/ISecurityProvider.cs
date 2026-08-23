@@ -8,4 +8,6 @@ public interface ISecurityProvider
 
     Task<SecurityResult> AuthorizeProjectAccessAsync(IDbContext db, string projectId, CancellationToken cancellationToken = default);
 
+    Task<SecurityResult> AuthorizeWorkspaceAccessAsync(IDbContext db, string workspaceId, bool requireAdmin = false, CancellationToken cancellationToken = default);
+
 }

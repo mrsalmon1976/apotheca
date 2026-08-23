@@ -24,7 +24,7 @@
       </div>
 
       <nav class="breadcrumbs">
-        <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/mindmaps`)">
+        <button class="breadcrumb-item" @click="router.push(`/workspace/${workspaceId}/project/${projectId}/mindmaps`)">
           Mindmaps
         </button>
         <template v-if="root">
@@ -62,6 +62,7 @@ import { useMindmaps, buildMindmapTree } from '../../composables/useMindmaps'
 const route = useRoute()
 const router = useRouter()
 const projectId = computed(() => route.params.id)
+const workspaceId = computed(() => route.params.workspaceId)
 const mindmapId = computed(() => route.params.mindmapId)
 const sidebarOpen = ref(window.innerWidth >= 768)
 

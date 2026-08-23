@@ -13,12 +13,12 @@ namespace Apotheca.Api.Features.Auth.Login
                 new { ProjectId = projectId, RefId = projectId, LogMessage = $"Project {projectName} created by user {username}", UserId = userId });
         }
 
-        public virtual async Task<string> CreateProjectAsync(IDbContext db, string name)
+        public virtual async Task<string> CreateProjectAsync(IDbContext db, string name, string workspaceId)
         {
             string projectId = Nanoid.Generate(DataConstants.KeyDefinition.ProjectAlphabet, DataConstants.KeyDefinition.ProjectIdLength);
             await db.ExecuteAsync(
-                "INSERT INTO projects (id, name) VALUES (@Id, @Name)",
-                new { Id = projectId, Name = name });
+                "INSERT INTO projects (id, name, workspace_id) VALUES (@Id, @Name, @WorkspaceId)",
+                new { Id = projectId, Name = name, WorkspaceId = workspaceId });
 
             return projectId;
         }
@@ -58,8 +58,32 @@ namespace Apotheca.Api.Features.Auth.Login
         public virtual async Task CreateUserProjectAsync(IDbContext db, string userId, string projectId, string role)
         {
             await db.ExecuteAsync(
-                "INSERT INTO user_projects (user_id, project_id, project_role) VALUES (@UserId, @ProjectId, @Role)",
+                "INSERT INTO project_users (user_id, project_id, project_role) VALUES (@UserId, @ProjectId, @Role)",
                 new { UserId = userId, ProjectId = projectId, Role = role });
+        }
+
+        public virtual async Task CreateUserSettingsAsync(IDbContext db, string userId, string currentWorkspaceId)
+        {
+            await db.ExecuteAsync(
+                "INSERT INTO user_settings (user_id, current_workspace_id) VALUES (@UserId, @CurrentWorkspaceId)",
+                new { UserId = userId, CurrentWorkspaceId = currentWorkspaceId });
+        }
+
+        public virtual async Task<string> CreateWorkspaceAsync(IDbContext db, string name)
+        {
+            string workspaceId = Nanoid.Generate(DataConstants.KeyDefinition.WorkspaceAlphabet, DataConstants.KeyDefinition.WorkspaceIdLength);
+            await db.ExecuteAsync(
+                "INSERT INTO workspaces (id, name) VALUES (@Id, @Name)",
+                new { Id = workspaceId, Name = name });
+
+            return workspaceId;
+        }
+
+        public virtual async Task CreateWorkspaceMemberAsync(IDbContext db, string workspaceId, string userId, string workspaceRole)
+        {
+            await db.ExecuteAsync(
+                "INSERT INTO workspace_users (workspace_id, user_id, workspace_role) VALUES (@WorkspaceId, @UserId, @WorkspaceRole)",
+                new { WorkspaceId = workspaceId, UserId = userId, WorkspaceRole = workspaceRole });
         }
 
         public virtual async Task<string?> GetUserIdByEmailAsync(IDbContext db, string email)

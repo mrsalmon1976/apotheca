@@ -45,6 +45,7 @@
           <h2 class="section-title">
             <i class="pi pi-folder"></i> Projects
           </h2>
+          <button class="link-btn" :disabled="!currentWorkspace" @click="showCreateProjectDialog = true">+ New Project</button>
         </div>
         <div v-if="projectsLoading" class="project-list-empty">Loading…</div>
         <div v-else-if="projects.length === 0" class="project-list-empty">No projects yet.</div>
@@ -53,7 +54,7 @@
             class="project-card"
             v-for="project in projects"
             :key="project.id"
-            @click="$router.push(`/project/${project.id}`)"
+            @click="$router.push(`/workspace/${project.workspaceId}/project/${project.id}`)"
           >
             <div class="project-card-top">
               <span class="project-name">{{ project.name }}</span>
@@ -85,7 +86,7 @@
             class="task-row"
             v-for="task in upcomingTasks"
             :key="task.id"
-            @click="$router.push(`/project/${task.projectId}/tasks/upcoming`)"
+            @click="currentWorkspace && $router.push(`/workspace/${currentWorkspace.id}/project/${task.projectId}/tasks/upcoming`)"
           >
             <span class="task-priority-dot" :style="{ background: priorityColor(task.priority) }"></span>
             <span class="task-row-title">{{ task.title }}</span>
@@ -96,25 +97,36 @@
       </section>
     </div>
     </div><!-- end main-body -->
+
+    <CreateProjectDialog
+      :visible="showCreateProjectDialog"
+      :workspace-id="currentWorkspace?.id"
+      @close="showCreateProjectDialog = false"
+      @saved="loadProjects(currentWorkspace.id)"
+    />
   </div><!-- end page-layout -->
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import AccountSidebar from '../../components/AccountSidebar.vue'
+import CreateProjectDialog from '../projects/CreateProjectDialog.vue'
 import { useProjects } from '../../composables/useProjects'
 import { useAuth } from '../../composables/useAuth'
+import { useWorkspaces } from '../../composables/useWorkspaces'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
 const sidebarOpen = ref(window.innerWidth >= 768)
 const toast = useToast()
 const { user } = useAuth()
+const { currentWorkspace } = useWorkspaces()
 
 const today = computed(() => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))
 
 const { projects, loading: projectsLoading, loadProjects } = useProjects()
+const showCreateProjectDialog = ref(false)
 
 const upcomingTasks = ref([])
 const tasksLoading  = ref(false)
@@ -124,7 +136,7 @@ async function loadUpcomingTasks() {
   tasksLoading.value = true
   try {
     const token    = await user.value.getIdToken()
-    const response = await fetch(`${API_URL}/tasks?filter=overdue-upcoming`, {
+    const response = await fetch(`${API_URL}/users/me/tasks?filter=overdue-upcoming`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (response.ok) {
@@ -139,8 +151,13 @@ async function loadUpcomingTasks() {
   }
 }
 
+watch(
+  () => currentWorkspace.value?.id,
+  (workspaceId) => { if (workspaceId) loadProjects(workspaceId) },
+  { immediate: true }
+)
+
 onMounted(() => {
-  loadProjects()
   loadUpcomingTasks()
 })
 

@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar" :class="{ open: open }">
     <div class="sidebar-header">
-      <span>My Account</span>
+      <span>{{ currentWorkspace?.name ?? 'My Account' }}</span>
     </div>
 
     <nav class="sidebar-nav">
@@ -28,11 +28,16 @@
         <span>Reports</span>
         <span class="coming-soon">Soon</span>
       </span>
-      <span class="sidebar-item disabled">
+      <component
+        :is="currentWorkspace ? 'a' : 'span'"
+        class="sidebar-item"
+        :class="{ active: $route.path === settingsPath, disabled: !currentWorkspace }"
+        :href="currentWorkspace ? settingsPath : undefined"
+        @click.prevent="currentWorkspace && (router.push(settingsPath), closeSidebarOnMobile())"
+      >
         <i class="pi pi-cog"></i>
         <span>Settings</span>
-        <span class="coming-soon">Soon</span>
-      </span>
+      </component>
 
       <div class="nav-group-label" style="margin-top:1rem">Tasks</div>
       <a
@@ -53,7 +58,9 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useWorkspaces } from '../composables/useWorkspaces'
 
 const appVersion = import.meta.env.VITE_APP_VERSION
 
@@ -64,6 +71,8 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const router = useRouter()
+const { currentWorkspace } = useWorkspaces()
+const settingsPath = computed(() => currentWorkspace.value ? `/workspace/${currentWorkspace.value.id}/settings` : '')
 
 function closeSidebarOnMobile() {
   if (window.innerWidth < 768) emit('close')

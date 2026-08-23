@@ -46,16 +46,11 @@ public class SecurityProviderTests
             .Returns(Task.FromResult<string?>(null));
     }
 
-    private void SetupProjectAccessGranted()
+    // First call resolves the internal user id (AuthorizeAccessAsync); second call resolves the project/workspace role.
+    private void SetupUserThenRole(string userId, string? role)
     {
-        _dbContext.QueryFirstOrDefaultAsync<int>(Arg.Any<string>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(1));
-    }
-
-    private void SetupProjectAccessDenied()
-    {
-        _dbContext.QueryFirstOrDefaultAsync<int>(Arg.Any<string>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(0));
+        _dbContext.QueryFirstOrDefaultAsync<string?>(Arg.Any<string>(), Arg.Any<object?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<string?>(userId), Task.FromResult<string?>(role));
     }
 
     // =========================================================================
@@ -160,8 +155,7 @@ public class SecurityProviderTests
     public async Task AuthorizeProjectAccess_ReturnsFailure_WhenProjectAccessDenied()
     {
         SetFirebaseUid("firebase-uid");
-        SetupUserFound();
-        SetupProjectAccessDenied();
+        SetupUserThenRole("user-id-123", null);
 
         var result = await _provider.AuthorizeProjectAccessAsync(_dbContext, "proj-1");
 
@@ -172,8 +166,7 @@ public class SecurityProviderTests
     public async Task AuthorizeProjectAccess_ReturnsFailureWithMessage_WhenProjectAccessDenied()
     {
         SetFirebaseUid("firebase-uid");
-        SetupUserFound();
-        SetupProjectAccessDenied();
+        SetupUserThenRole("user-id-123", null);
 
         var result = await _provider.AuthorizeProjectAccessAsync(_dbContext, "proj-1");
 
@@ -184,8 +177,7 @@ public class SecurityProviderTests
     public async Task AuthorizeProjectAccess_ReturnsSuccess_WhenAllChecksPass()
     {
         SetFirebaseUid("firebase-uid");
-        SetupUserFound();
-        SetupProjectAccessGranted();
+        SetupUserThenRole("user-id-123", DataConstants.ProjectRole.Contributor);
 
         var result = await _provider.AuthorizeProjectAccessAsync(_dbContext, "proj-1");
 
@@ -196,8 +188,7 @@ public class SecurityProviderTests
     public async Task AuthorizeProjectAccess_ReturnsCorrectFirebaseUid()
     {
         SetFirebaseUid("firebase-uid-abc");
-        SetupUserFound();
-        SetupProjectAccessGranted();
+        SetupUserThenRole("user-id-123", DataConstants.ProjectRole.Contributor);
 
         var result = await _provider.AuthorizeProjectAccessAsync(_dbContext, "proj-1");
 
@@ -208,12 +199,22 @@ public class SecurityProviderTests
     public async Task AuthorizeProjectAccess_ReturnsCorrectUserId()
     {
         SetFirebaseUid("firebase-uid");
-        SetupUserFound("user-id-xyz");
-        SetupProjectAccessGranted();
+        SetupUserThenRole("user-id-xyz", DataConstants.ProjectRole.Contributor);
 
         var result = await _provider.AuthorizeProjectAccessAsync(_dbContext, "proj-1");
 
         Assert.That(result.UserId, Is.EqualTo("user-id-xyz"));
+    }
+
+    [Test]
+    public async Task AuthorizeProjectAccess_ReturnsCorrectRole()
+    {
+        SetFirebaseUid("firebase-uid");
+        SetupUserThenRole("user-id-123", DataConstants.ProjectRole.Admin);
+
+        var result = await _provider.AuthorizeProjectAccessAsync(_dbContext, "proj-1");
+
+        Assert.That(result.Role, Is.EqualTo(DataConstants.ProjectRole.Admin));
     }
 
     [Test]
@@ -222,7 +223,96 @@ public class SecurityProviderTests
         // No sub claim — identity check fails before project query runs
         var result = await _provider.AuthorizeProjectAccessAsync(_dbContext, "proj-1");
 
-        await _dbContext.DidNotReceive().QueryFirstOrDefaultAsync<int>(
+        await _dbContext.DidNotReceive().QueryFirstOrDefaultAsync<string?>(
             Arg.Any<string>(), Arg.Any<object?>(), Arg.Any<CancellationToken>());
+    }
+
+    // =========================================================================
+    // AuthorizeWorkspaceAccessAsync
+    // =========================================================================
+
+    [Test]
+    public async Task AuthorizeWorkspaceAccess_ReturnsFailure_WhenSubClaimIsMissing()
+    {
+        var result = await _provider.AuthorizeWorkspaceAccessAsync(_dbContext, "ws-1");
+
+        Assert.That(result.IsAuthorized, Is.False);
+    }
+
+    [Test]
+    public async Task AuthorizeWorkspaceAccess_ReturnsFailure_WhenUserNotFoundInDatabase()
+    {
+        SetFirebaseUid("firebase-uid");
+        SetupUserNotFound();
+
+        var result = await _provider.AuthorizeWorkspaceAccessAsync(_dbContext, "ws-1");
+
+        Assert.That(result.IsAuthorized, Is.False);
+    }
+
+    [Test]
+    public async Task AuthorizeWorkspaceAccess_ReturnsFailure_WhenNotAMember()
+    {
+        SetFirebaseUid("firebase-uid");
+        SetupUserThenRole("user-id-123", null);
+
+        var result = await _provider.AuthorizeWorkspaceAccessAsync(_dbContext, "ws-1");
+
+        Assert.That(result.IsAuthorized, Is.False);
+    }
+
+    [Test]
+    public async Task AuthorizeWorkspaceAccess_ReturnsSuccess_WhenMember()
+    {
+        SetFirebaseUid("firebase-uid");
+        SetupUserThenRole("user-id-123", DataConstants.WorkspaceRole.Viewer);
+
+        var result = await _provider.AuthorizeWorkspaceAccessAsync(_dbContext, "ws-1");
+
+        Assert.That(result.IsAuthorized, Is.True);
+    }
+
+    [Test]
+    public async Task AuthorizeWorkspaceAccess_ReturnsCorrectRole()
+    {
+        SetFirebaseUid("firebase-uid");
+        SetupUserThenRole("user-id-123", DataConstants.WorkspaceRole.Admin);
+
+        var result = await _provider.AuthorizeWorkspaceAccessAsync(_dbContext, "ws-1");
+
+        Assert.That(result.Role, Is.EqualTo(DataConstants.WorkspaceRole.Admin));
+    }
+
+    [Test]
+    public async Task AuthorizeWorkspaceAccess_ReturnsSuccess_WhenViewerAndAdminNotRequired()
+    {
+        SetFirebaseUid("firebase-uid");
+        SetupUserThenRole("user-id-123", DataConstants.WorkspaceRole.Viewer);
+
+        var result = await _provider.AuthorizeWorkspaceAccessAsync(_dbContext, "ws-1", requireAdmin: false);
+
+        Assert.That(result.IsAuthorized, Is.True);
+    }
+
+    [Test]
+    public async Task AuthorizeWorkspaceAccess_ReturnsFailure_WhenViewerButAdminRequired()
+    {
+        SetFirebaseUid("firebase-uid");
+        SetupUserThenRole("user-id-123", DataConstants.WorkspaceRole.Viewer);
+
+        var result = await _provider.AuthorizeWorkspaceAccessAsync(_dbContext, "ws-1", requireAdmin: true);
+
+        Assert.That(result.IsAuthorized, Is.False);
+    }
+
+    [Test]
+    public async Task AuthorizeWorkspaceAccess_ReturnsSuccess_WhenAdminAndAdminRequired()
+    {
+        SetFirebaseUid("firebase-uid");
+        SetupUserThenRole("user-id-123", DataConstants.WorkspaceRole.Admin);
+
+        var result = await _provider.AuthorizeWorkspaceAccessAsync(_dbContext, "ws-1", requireAdmin: true);
+
+        Assert.That(result.IsAuthorized, Is.True);
     }
 }

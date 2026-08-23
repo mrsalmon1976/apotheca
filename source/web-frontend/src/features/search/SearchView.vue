@@ -102,10 +102,12 @@ import { useRouter } from 'vue-router'
 import MultiSelect from 'primevue/multiselect'
 import AccountSidebar from '../../components/AccountSidebar.vue'
 import { useAuth } from '../../composables/useAuth'
+import { useWorkspaces } from '../../composables/useWorkspaces'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
 const { user }  = useAuth()
+const { currentWorkspace } = useWorkspaces()
 const router    = useRouter()
 
 const sidebarOpen   = ref(window.innerWidth >= 768)
@@ -148,14 +150,15 @@ function typeIcon(t) {
 }
 
 function navigateTo(result) {
-  if (!result.projectId) return
+  if (!result.projectId || !currentWorkspace.value) return
+  const base = `/workspace/${currentWorkspace.value.id}/project/${result.projectId}`
   const type = result.referenceType.toLowerCase()
   if (type === 'note') {
-    router.push(`/project/${result.projectId}/notes/${result.referenceId}`)
+    router.push(`${base}/notes/${result.referenceId}`)
   } else if (type === 'document') {
-    router.push(`/project/${result.projectId}/documents/${result.referenceId}`)
+    router.push(`${base}/documents/${result.referenceId}`)
   } else if (type === 'mindmap') {
-    router.push(`/project/${result.projectId}/mindmaps/${result.referenceId}`)
+    router.push(`${base}/mindmaps/${result.referenceId}`)
   }
 }
 

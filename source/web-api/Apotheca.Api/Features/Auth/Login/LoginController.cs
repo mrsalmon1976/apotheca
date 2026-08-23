@@ -48,10 +48,15 @@ public class LoginController(
                 {
                     userId = await loginRepo.CreateUserAsync(db, user);
 
-                    var projectId = await loginRepo.CreateProjectAsync(db, DataConstants.DefaultProjectName);
-                    await loginRepo.CreateUserProjectAsync(db, userId, projectId, DataConstants.ProjectRole.Owner);
+                    var workspaceId = await loginRepo.CreateWorkspaceAsync(db, $"{user.DisplayName}'s Workspace");
+                    await loginRepo.CreateWorkspaceMemberAsync(db, workspaceId, userId, DataConstants.WorkspaceRole.Admin);
+
+                    var projectId = await loginRepo.CreateProjectAsync(db, DataConstants.DefaultProjectName, workspaceId);
+                    await loginRepo.CreateUserProjectAsync(db, userId, projectId, DataConstants.ProjectRole.Admin);
                     await loginRepo.CreateProjectAuditLogAsync(db, projectId, userId);
                     await loginRepo.CreateProjectActivityLogAsync(db, projectId, DataConstants.DefaultProjectName, userId, user.DisplayName);
+
+                    await loginRepo.CreateUserSettingsAsync(db, userId, workspaceId);
                 }
 
                 await loginRepo.CreateUserIdentityAsync(db, user, userId);

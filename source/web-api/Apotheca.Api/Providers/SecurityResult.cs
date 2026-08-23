@@ -6,12 +6,14 @@ public record SecurityResult
     public string? ErrorMessage { get; init; }
     public string FirebaseUid { get; init; } = string.Empty;
     public string UserId { get; init; } = string.Empty;
+    public string? Role { get; init; }
 
-    public static SecurityResult Success(string firebaseUid, string userId) => new()
+    public static SecurityResult Success(string firebaseUid, string userId, string? role = null) => new()
     {
         IsAuthorized = true,
         FirebaseUid  = firebaseUid,
         UserId       = userId,
+        Role         = role,
     };
 
     public static SecurityResult Failure(string errorMessage) => new()

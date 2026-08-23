@@ -56,10 +56,10 @@
         <!-- Breadcrumbs row -->
         <div class="breadcrumbs-row">
           <nav class="breadcrumbs">
-            <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents`)">Documents</button>
+            <button class="breadcrumb-item" @click="router.push(`/workspace/${workspaceId}/project/${projectId}/documents`)">Documents</button>
             <template v-for="(crumb, index) in breadcrumbs" :key="crumb.id">
               <i class="pi pi-chevron-right breadcrumb-sep"></i>
-              <button class="breadcrumb-item" @click="router.push(`/project/${projectId}/documents/f/${breadcrumbs.slice(0, index + 1).map(c => c.id).join('/')}`)">
+              <button class="breadcrumb-item" @click="router.push(`/workspace/${workspaceId}/project/${projectId}/documents/f/${breadcrumbs.slice(0, index + 1).map(c => c.id).join('/')}`)">
                 {{ crumb.title }}
               </button>
             </template>
@@ -197,6 +197,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const projectId  = computed(() => route.params.id)
+const workspaceId = computed(() => route.params.workspaceId)
 const documentId = computed(() => route.params.documentId)
 
 const sidebarOpen = ref(window.innerWidth >= 768)

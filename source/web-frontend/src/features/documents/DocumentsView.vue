@@ -164,7 +164,7 @@
                 v-for="item in apiDocumentItems"
                 :key="item.id"
                 class="doc-row"
-                @click="router.push(`/project/${projectId}/documents/${item.id}`)"
+                @click="router.push(`/workspace/${workspaceId}/project/${projectId}/documents/${item.id}`)"
               >
                 <td class="col-name">
                   <i :class="`pi ${fileIcon(item.fileExtension)} file-icon`"></i>
@@ -208,6 +208,7 @@ import { useDocumentFolders } from '../../composables/useDocumentFolders'
 const route = useRoute()
 const router = useRouter()
 const projectId = computed(() => route.params.id)
+const workspaceId = computed(() => route.params.workspaceId)
 const sidebarOpen = ref(window.innerWidth >= 768)
 const showNewFolderDialog    = ref(false)
 const showAddDocumentDialog  = ref(false)
@@ -276,15 +277,15 @@ async function loadDocuments(parentId = null) {
 
 function openFolder(folder) {
   const path = [...folderIds.value, folder.id].join('/')
-  router.push(`/project/${projectId.value}/documents/f/${path}`)
+  router.push(`/workspace/${workspaceId.value}/project/${projectId.value}/documents/f/${path}`)
 }
 
 function navigateTo(index) {
   if (index === -1) {
-    router.push(`/project/${projectId.value}/documents`)
+    router.push(`/workspace/${workspaceId.value}/project/${projectId.value}/documents`)
   } else {
     const path = folderIds.value.slice(0, index + 1).join('/')
-    router.push(`/project/${projectId.value}/documents/f/${path}`)
+    router.push(`/workspace/${workspaceId.value}/project/${projectId.value}/documents/f/${path}`)
   }
 }
 

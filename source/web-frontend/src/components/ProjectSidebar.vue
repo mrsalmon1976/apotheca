@@ -19,30 +19,30 @@
         <span v-if="item.disabled" class="coming-soon">Soon</span>
       </component>
 
-      <div class="nav-group-label" style="margin-top:1rem">Workspace</div>
+      <div class="nav-group-label" style="margin-top:1rem">Content</div>
       <a
         class="sidebar-item"
-        :class="{ active: $route.path === `/project/${projectId}/notes` }"
-        :href="`/project/${projectId}/notes`"
-        @click.prevent="router.push(`/project/${projectId}/notes`); closeSidebarOnMobile()"
+        :class="{ active: $route.path === `/workspace/${workspaceId}/project/${projectId}/notes` }"
+        :href="`/workspace/${workspaceId}/project/${projectId}/notes`"
+        @click.prevent="router.push(`/workspace/${workspaceId}/project/${projectId}/notes`); closeSidebarOnMobile()"
       >
         <i class="pi pi-file-edit"></i>
         <span>Notes</span>
       </a>
       <a
         class="sidebar-item"
-        :class="{ active: $route.path.startsWith(`/project/${projectId}/documents`) }"
-        :href="`/project/${projectId}/documents`"
-        @click.prevent="router.push(`/project/${projectId}/documents`); closeSidebarOnMobile()"
+        :class="{ active: $route.path.startsWith(`/workspace/${workspaceId}/project/${projectId}/documents`) }"
+        :href="`/workspace/${workspaceId}/project/${projectId}/documents`"
+        @click.prevent="router.push(`/workspace/${workspaceId}/project/${projectId}/documents`); closeSidebarOnMobile()"
       >
         <i class="pi pi-folder-open"></i>
         <span>Documents</span>
       </a>
       <a
         class="sidebar-item"
-        :class="{ active: $route.path.startsWith(`/project/${projectId}/mindmaps`) }"
-        :href="`/project/${projectId}/mindmaps`"
-        @click.prevent="router.push(`/project/${projectId}/mindmaps`); closeSidebarOnMobile()"
+        :class="{ active: $route.path.startsWith(`/workspace/${workspaceId}/project/${projectId}/mindmaps`) }"
+        :href="`/workspace/${workspaceId}/project/${projectId}/mindmaps`"
+        @click.prevent="router.push(`/workspace/${workspaceId}/project/${projectId}/mindmaps`); closeSidebarOnMobile()"
       >
         <i class="pi pi-sitemap"></i>
         <span>Mindmaps</span>
@@ -53,9 +53,9 @@
         v-for="tf in taskFilters"
         :key="tf.filter"
         class="sidebar-item"
-        :class="{ active: $route.path === `/project/${projectId}/tasks/${tf.filter}` }"
-        :href="`/project/${projectId}/tasks/${tf.filter}`"
-        @click.prevent="router.push(`/project/${projectId}/tasks/${tf.filter}`); closeSidebarOnMobile()"
+        :class="{ active: $route.path === `/workspace/${workspaceId}/project/${projectId}/tasks/${tf.filter}` }"
+        :href="`/workspace/${workspaceId}/project/${projectId}/tasks/${tf.filter}`"
+        @click.prevent="router.push(`/workspace/${workspaceId}/project/${projectId}/tasks/${tf.filter}`); closeSidebarOnMobile()"
       >
         <i :class="`pi ${tf.icon}`"></i>
         <span>{{ tf.label }}</span>
@@ -83,6 +83,7 @@ const route = useRoute()
 const router = useRouter()
 const { projects } = useProjects()
 const projectId   = computed(() => route.params.id)
+const workspaceId = computed(() => route.params.workspaceId)
 const projectName = computed(() => projects.value.find(p => p.id === projectId.value)?.name ?? null)
 
 function closeSidebarOnMobile() {
@@ -90,11 +91,11 @@ function closeSidebarOnMobile() {
 }
 
 const mainNav = [
-  { id: 'overview', label: 'Overview', icon: 'pi-home',           disabled: false, to: computed(() => `/project/${projectId.value}`) },
-  { id: 'kanban',   label: 'Kanban',   icon: 'pi-objects-column', disabled: true,  to: computed(() => `/project/${projectId.value}/kanban`) },
-  { id: 'backlog',  label: 'Backlog',  icon: 'pi-inbox',          disabled: true,  to: computed(() => `/project/${projectId.value}/backlog`) },
-  { id: 'reports',  label: 'Reports',  icon: 'pi-chart-bar',      disabled: true,  to: computed(() => `/project/${projectId.value}/reports`) },
-  { id: 'settings', label: 'Settings', icon: 'pi-cog',            disabled: false, to: computed(() => `/project/${projectId.value}/settings`) },
+  { id: 'overview', label: 'Overview', icon: 'pi-home',           disabled: false, to: computed(() => `/workspace/${workspaceId.value}/project/${projectId.value}`) },
+  { id: 'kanban',   label: 'Kanban',   icon: 'pi-objects-column', disabled: true,  to: computed(() => `/workspace/${workspaceId.value}/project/${projectId.value}/kanban`) },
+  { id: 'backlog',  label: 'Backlog',  icon: 'pi-inbox',          disabled: true,  to: computed(() => `/workspace/${workspaceId.value}/project/${projectId.value}/backlog`) },
+  { id: 'reports',  label: 'Reports',  icon: 'pi-chart-bar',      disabled: true,  to: computed(() => `/workspace/${workspaceId.value}/project/${projectId.value}/reports`) },
+  { id: 'settings', label: 'Settings', icon: 'pi-cog',            disabled: false, to: computed(() => `/workspace/${workspaceId.value}/project/${projectId.value}/settings`) },
 ]
 
 const taskFilters = [

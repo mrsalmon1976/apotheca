@@ -134,7 +134,7 @@
             v-for="item in apiNoteItems"
             :key="item.id"
             class="note-card"
-            @click="router.push(`/project/${projectId}/notes/${item.id}`)"
+            @click="router.push(`/workspace/${workspaceId}/project/${projectId}/notes/${item.id}`)"
           >
             <div class="note-card-header">
               <span class="note-title">{{ item.title }}</span>
@@ -179,6 +179,7 @@ import { useNoteFolders } from '../../composables/useNoteFolders'
 const route = useRoute()
 const router = useRouter()
 const projectId = computed(() => route.params.id)
+const workspaceId = computed(() => route.params.workspaceId)
 const sidebarOpen = ref(window.innerWidth >= 768)
 const showNewFolderDialog = ref(false)
 
@@ -244,15 +245,15 @@ async function loadNotes(parentId = null) {
 
 function openFolder(folder) {
   const path = [...folderIds.value, folder.id].join('/')
-  router.push(`/project/${projectId.value}/notes/f/${path}`)
+  router.push(`/workspace/${workspaceId.value}/project/${projectId.value}/notes/f/${path}`)
 }
 
 function navigateTo(index) {
   if (index === -1) {
-    router.push(`/project/${projectId.value}/notes`)
+    router.push(`/workspace/${workspaceId.value}/project/${projectId.value}/notes`)
   } else {
     const path = folderIds.value.slice(0, index + 1).join('/')
-    router.push(`/project/${projectId.value}/notes/f/${path}`)
+    router.push(`/workspace/${workspaceId.value}/project/${projectId.value}/notes/f/${path}`)
   }
 }
 
@@ -267,7 +268,7 @@ async function onCreateNote() {
     const response = await createNote(projectId.value, currentFolderId.value)
     if (response.ok) {
       const { id } = await response.json()
-      router.push(`/project/${projectId.value}/notes/${id}?new=true`)
+      router.push(`/workspace/${workspaceId.value}/project/${projectId.value}/notes/${id}?new=true`)
     } else {
       createNoteError.value = `Failed to create note (${response.status}).`
     }

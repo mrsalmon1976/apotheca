@@ -40,7 +40,7 @@
             v-for="item in mindmaps"
             :key="item.id"
             class="doc-row"
-            @click="router.push(`/project/${projectId}/mindmaps/${item.id}`)"
+            @click="router.push(`/workspace/${workspaceId}/project/${projectId}/mindmaps/${item.id}`)"
           >
             <td class="col-name">
               <i class="pi pi-sitemap file-icon"></i>
@@ -74,6 +74,7 @@ import { useMindmaps } from '../../composables/useMindmaps'
 const route = useRoute()
 const router = useRouter()
 const projectId = computed(() => route.params.id)
+const workspaceId = computed(() => route.params.workspaceId)
 const sidebarOpen = ref(window.innerWidth >= 768)
 
 const { getMindmaps, createMindmap, deleteMindmap } = useMindmaps()
@@ -105,7 +106,7 @@ async function createAndOpen() {
   const response = await createMindmap(projectId.value, 'Untitled Mindmap')
   if (response.ok) {
     const mindmap = await response.json()
-    router.push(`/project/${projectId.value}/mindmaps/${mindmap.id}`)
+    router.push(`/workspace/${workspaceId.value}/project/${projectId.value}/mindmaps/${mindmap.id}`)
   }
 }
 

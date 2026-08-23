@@ -28,18 +28,43 @@ public class SecurityProvider(IHttpContextAccessor httpContextAccessor) : ISecur
             return result;
         }
 
-        var hasAccess = await db.QueryFirstOrDefaultAsync<int>(
-            @"SELECT COUNT(1)
-              FROM user_projects up
+        var projectRole = await db.QueryFirstOrDefaultAsync<string?>(
+            @"SELECT up.project_role
+              FROM project_users up
               INNER JOIN user_firebase_identities ufi ON ufi.user_id = up.user_id
               WHERE ufi.firebase_uid = @FirebaseUid
                 AND up.project_id = @ProjectId",
             new { FirebaseUid = result.FirebaseUid, ProjectId = projectId });
 
-        if (hasAccess == 0)
+        if (projectRole is null)
             return SecurityResult.Failure("User does not have access to this project.");
 
-        return SecurityResult.Success(result.FirebaseUid, result.UserId);
+        return SecurityResult.Success(result.FirebaseUid, result.UserId, projectRole);
+    }
+
+    public async Task<SecurityResult> AuthorizeWorkspaceAccessAsync(IDbContext db, string workspaceId, bool requireAdmin = false, CancellationToken cancellationToken = default)
+    {
+        var result = await this.AuthorizeAccessAsync(db, cancellationToken);
+        if (!result.IsAuthorized)
+        {
+            return result;
+        }
+
+        var workspaceRole = await db.QueryFirstOrDefaultAsync<string?>(
+            @"SELECT wm.workspace_role
+              FROM workspace_users wm
+              INNER JOIN user_firebase_identities ufi ON ufi.user_id = wm.user_id
+              WHERE ufi.firebase_uid = @FirebaseUid
+                AND wm.workspace_id = @WorkspaceId",
+            new { FirebaseUid = result.FirebaseUid, WorkspaceId = workspaceId });
+
+        if (workspaceRole is null)
+            return SecurityResult.Failure("User does not have access to this workspace.");
+
+        if (requireAdmin && workspaceRole != DataConstants.WorkspaceRole.Admin)
+            return SecurityResult.Failure("Only workspace admins can perform this action.");
+
+        return SecurityResult.Success(result.FirebaseUid, result.UserId, workspaceRole);
     }
 
 }

@@ -56,10 +56,12 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { useWorkspaces } from '../composables/useWorkspaces'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
 const { user }    = useAuth()
+const { currentWorkspace } = useWorkspaces()
 const route       = useRoute()
 const router      = useRouter()
 
@@ -122,16 +124,17 @@ async function runSearch() {
 }
 
 function navigate(result) {
-  if (!result.projectId) return
+  if (!result.projectId || !currentWorkspace.value) return
+  const base = `/workspace/${currentWorkspace.value.id}/project/${result.projectId}`
   const type = result.referenceType.toLowerCase()
   if (type === 'note') {
-    router.push(`/project/${result.projectId}/notes/${result.referenceId}`)
+    router.push(`${base}/notes/${result.referenceId}`)
   } else if (type === 'task') {
-    router.push(`/project/${result.projectId}/tasks/all`)
+    router.push(`${base}/tasks/all`)
   } else if (type === 'document') {
-    router.push(`/project/${result.projectId}/documents/${result.referenceId}`)
+    router.push(`${base}/documents/${result.referenceId}`)
   } else if (type === 'mindmap') {
-    router.push(`/project/${result.projectId}/mindmaps/${result.referenceId}`)
+    router.push(`${base}/mindmaps/${result.referenceId}`)
   }
   close()
 }

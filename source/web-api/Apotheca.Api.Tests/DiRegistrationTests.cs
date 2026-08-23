@@ -3,7 +3,7 @@ using Apotheca.Api.Features.Auth.Login;
 using Apotheca.Api.Features.ProjectTasks.CompleteProjectTask;
 using Apotheca.Api.Features.ProjectTasks.GetProjectTasks;
 using Apotheca.Api.Features.ProjectTasks.SaveProjectTask;
-using Apotheca.Api.Features.Projects.GetUserProjects;
+using Apotheca.Api.Features.Users.GetUserProjects;
 using Apotheca.Api.Utilities;
 using Apotheca.Data;
 using Microsoft.Extensions.DependencyInjection;

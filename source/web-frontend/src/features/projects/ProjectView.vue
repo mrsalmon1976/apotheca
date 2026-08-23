@@ -34,13 +34,13 @@
             <h2 class="section-title">
               <i class="pi pi-file-edit"></i> Recent Notes
             </h2>
-            <button class="link-btn" @click="router.push(`/project/${projectId}/notes`)">View all</button>
+            <button class="link-btn" @click="router.push(`/workspace/${workspaceId}/project/${projectId}/notes`)">View all</button>
           </div>
           <div v-if="recentNotesLoading" class="task-list-empty">Loading…</div>
           <div v-else-if="recentNotes.length === 0" class="task-list-empty">No notes yet.</div>
           <div v-else class="note-list">
             <div class="note-row" v-for="note in recentNotes" :key="note.id"
-                 @click="router.push(`/project/${projectId}/notes/${note.id}`)">
+                 @click="router.push(`/workspace/${workspaceId}/project/${projectId}/notes/${note.id}`)">
               <div class="note-row-body">
                 <span class="note-row-title">{{ note.title }}</span>
                 <span class="note-row-preview">{{ note.body || 'No content' }}</span>
@@ -59,7 +59,7 @@
             <h2 class="section-title">
               <i class="pi pi-check-square"></i> Open Tasks
             </h2>
-            <button class="link-btn" @click="router.push(`/project/${projectId}/tasks/all`)">View all</button>
+            <button class="link-btn" @click="router.push(`/workspace/${workspaceId}/project/${projectId}/tasks/all`)">View all</button>
           </div>
           <div v-if="tasksLoading" class="task-list-empty">Loading…</div>
           <div v-else-if="tasks.length === 0" class="task-list-empty">No open tasks.</div>
@@ -68,7 +68,7 @@
               class="task-row"
               v-for="task in tasks"
               :key="task.id"
-              @click="router.push(`/project/${projectId}/tasks/all`)"
+              @click="router.push(`/workspace/${workspaceId}/project/${projectId}/tasks/all`)"
             >
               <span class="task-priority-dot" :style="{ background: priorityColor(task.priority) }"></span>
               <span class="task-row-title">{{ task.title }}</span>
@@ -98,6 +98,7 @@ const router = useRouter()
 const toast = useToast()
 const { user } = useAuth()
 const projectId = computed(() => route.params.id)
+const workspaceId = computed(() => route.params.workspaceId)
 const sidebarOpen = ref(window.innerWidth >= 768)
 
 const openTaskCount = ref('—')

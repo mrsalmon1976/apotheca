@@ -19,7 +19,7 @@ public class GetProjectTasksRepository
                  t.updated_at     AS UpdatedAt,
                  t.completed_at   AS CompletedAt
           FROM tasks t
-          INNER JOIN user_projects up ON up.project_id = t.project_id
+          INNER JOIN project_users up ON up.project_id = t.project_id
           INNER JOIN user_firebase_identities ufi ON ufi.user_id = up.user_id
           LEFT JOIN users u ON u.id = t.assigned_to
           WHERE ufi.firebase_uid = @FirebaseUid

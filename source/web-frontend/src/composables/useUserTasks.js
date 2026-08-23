@@ -19,7 +19,7 @@ export function useUserTasks() {
     tasks.value = []
     try {
       const token = await user.value.getIdToken()
-      const url = new URL(`${API_URL}/tasks`)
+      const url = new URL(`${API_URL}/users/me/tasks`)
       if (filter === 'today' || filter === 'upcoming') {
         url.searchParams.set('filter', filter)
       }

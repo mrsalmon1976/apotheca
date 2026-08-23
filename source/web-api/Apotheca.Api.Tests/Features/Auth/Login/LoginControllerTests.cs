@@ -38,6 +38,16 @@ public class LoginControllerTests
         _dbContext.Dispose();
     }
 
+    private void SetupNewUserCreationChain(string userId = "new-user-id", string workspaceId = "new-workspace-id", string projectId = "new-project-id")
+    {
+        _loginRepository.CreateUserAsync(_dbContext, Arg.Any<User>())
+            .Returns(Task.FromResult(userId));
+        _loginRepository.CreateWorkspaceAsync(_dbContext, Arg.Any<string>())
+            .Returns(Task.FromResult(workspaceId));
+        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.FromResult(projectId));
+    }
+
     // --- Result shape ---
 
     [Test]
@@ -67,10 +77,7 @@ public class LoginControllerTests
             .Returns(Task.FromResult(false));
         _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
             .Returns(Task.FromResult<string?>(null));
-        _loginRepository.CreateUserAsync(_dbContext, user)
-            .Returns(Task.FromResult("new-user-id"));
-        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult("new-project-id"));
+        SetupNewUserCreationChain();
 
         var result = await _controller.Login(loginRequest, CancellationToken.None);
 
@@ -149,10 +156,7 @@ public class LoginControllerTests
             .Returns(Task.FromResult(false));
         _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
             .Returns(Task.FromResult<string?>(null));
-        _loginRepository.CreateUserAsync(_dbContext, user)
-            .Returns(Task.FromResult("new-user-id"));
-        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult("new-project-id"));
+        SetupNewUserCreationChain();
 
         await _controller.Login(loginRequest, CancellationToken.None);
 
@@ -263,6 +267,83 @@ public class LoginControllerTests
         await _dbContext.Received(1).RollbackAsync(Arg.Any<CancellationToken>());
     }
 
+    // --- Workspace creation ---
+
+    [Test]
+    public async Task Login_CreatesWorkspace_WhenNewUserCreated()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>(null));
+        SetupNewUserCreationChain();
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateWorkspaceAsync(_dbContext, Arg.Any<string>());
+    }
+
+    [Test]
+    public async Task Login_CreatesWorkspaceMember_AsAdmin_WhenNewUserCreated()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>(null));
+        SetupNewUserCreationChain(userId: "new-user-id", workspaceId: "new-workspace-id");
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateWorkspaceMemberAsync(_dbContext, "new-workspace-id", "new-user-id", DataConstants.WorkspaceRole.Admin);
+    }
+
+    [Test]
+    public async Task Login_CreatesUserSettings_WithNewWorkspaceAsCurrent_WhenNewUserCreated()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>(null));
+        SetupNewUserCreationChain(userId: "new-user-id", workspaceId: "new-workspace-id");
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.Received(1).CreateUserSettingsAsync(_dbContext, "new-user-id", "new-workspace-id");
+    }
+
+    [Test]
+    public async Task Login_DoesNotCreateWorkspace_WhenUserAlreadyExistsByEmail()
+    {
+        var loginRequest = RandomData.Create<LoginRequest>();
+
+        var user = RandomData.Create<User>();
+        _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
+
+        _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid)
+            .Returns(Task.FromResult(false));
+        _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
+            .Returns(Task.FromResult<string?>("existing-user-id"));
+
+        await _controller.Login(loginRequest, CancellationToken.None);
+
+        await _loginRepository.DidNotReceive().CreateWorkspaceAsync(Arg.Any<IDbContext>(), Arg.Any<string>());
+    }
+
     // --- Project creation ---
 
     [Test]
@@ -277,14 +358,11 @@ public class LoginControllerTests
             .Returns(Task.FromResult(false));
         _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
             .Returns(Task.FromResult<string?>(null));
-        _loginRepository.CreateUserAsync(_dbContext, user)
-            .Returns(Task.FromResult("new-user-id"));
-        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult("new-project-id"));
+        SetupNewUserCreationChain();
 
         await _controller.Login(loginRequest, CancellationToken.None);
 
-        await _loginRepository.Received(1).CreateProjectAsync(_dbContext, Arg.Any<string>());
+        await _loginRepository.Received(1).CreateProjectAsync(_dbContext, Arg.Any<string>(), Arg.Any<string>());
     }
 
     [Test]
@@ -302,11 +380,11 @@ public class LoginControllerTests
 
         await _controller.Login(loginRequest, CancellationToken.None);
 
-        await _loginRepository.DidNotReceive().CreateProjectAsync(Arg.Any<IDbContext>(), Arg.Any<string>());
+        await _loginRepository.DidNotReceive().CreateProjectAsync(Arg.Any<IDbContext>(), Arg.Any<string>(), Arg.Any<string>());
     }
 
     [Test]
-    public async Task Login_CreatesUserProject_WhenNewUserCreated()
+    public async Task Login_CreatesUserProject_AsAdmin_WhenNewUserCreated()
     {
         var loginRequest = RandomData.Create<LoginRequest>();
 
@@ -317,14 +395,11 @@ public class LoginControllerTests
             .Returns(Task.FromResult(false));
         _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
             .Returns(Task.FromResult<string?>(null));
-        _loginRepository.CreateUserAsync(_dbContext, user)
-            .Returns(Task.FromResult("new-user-id"));
-        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult("new-project-id"));
+        SetupNewUserCreationChain(userId: "new-user-id", projectId: "new-project-id");
 
         await _controller.Login(loginRequest, CancellationToken.None);
 
-        await _loginRepository.Received(1).CreateUserProjectAsync(_dbContext, "new-user-id", "new-project-id", DataConstants.ProjectRole.Owner);
+        await _loginRepository.Received(1).CreateUserProjectAsync(_dbContext, "new-user-id", "new-project-id", DataConstants.ProjectRole.Admin);
     }
 
     [Test]
@@ -357,10 +432,7 @@ public class LoginControllerTests
             .Returns(Task.FromResult(false));
         _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
             .Returns(Task.FromResult<string?>(null));
-        _loginRepository.CreateUserAsync(_dbContext, user)
-            .Returns(Task.FromResult("new-user-id"));
-        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult("new-project-id"));
+        SetupNewUserCreationChain(userId: "new-user-id", projectId: "new-project-id");
 
         await _controller.Login(loginRequest, CancellationToken.None);
 
@@ -397,10 +469,7 @@ public class LoginControllerTests
             .Returns(Task.FromResult(false));
         _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email)
             .Returns(Task.FromResult<string?>(null));
-        _loginRepository.CreateUserAsync(_dbContext, user)
-            .Returns(Task.FromResult("new-user-id"));
-        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>())
-            .Returns(Task.FromResult("new-project-id"));
+        SetupNewUserCreationChain(userId: "new-user-id", projectId: "new-project-id");
 
         await _controller.Login(loginRequest, CancellationToken.None);
 
@@ -451,8 +520,7 @@ public class LoginControllerTests
         _firebaseService.LoginAsync(Arg.Any<LoginRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(user));
         _loginRepository.UserFirebaseIdentityExistsAsync(_dbContext, user.Uid).Returns(Task.FromResult(false));
         _loginRepository.GetUserIdByEmailAsync(_dbContext, user.Email).Returns(Task.FromResult<string?>(null));
-        _loginRepository.CreateUserAsync(_dbContext, user).Returns(Task.FromResult("new-user-id"));
-        _loginRepository.CreateProjectAsync(_dbContext, Arg.Any<string>()).Returns(Task.FromResult("new-project-id"));
+        SetupNewUserCreationChain(userId: "new-user-id");
 
         await _controller.Login(loginRequest, CancellationToken.None);
 

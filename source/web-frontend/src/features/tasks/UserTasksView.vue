@@ -46,7 +46,7 @@
             <span v-if="task.dueAt" class="task-due" :class="{ overdue: isOverdue(task.dueAt) }">
               <i class="pi pi-calendar"></i> {{ formatDate(task.dueAt) }}
             </span>
-            <router-link :to="`/project/${task.projectId}/tasks/all`" class="project-badge">
+            <router-link :to="`/workspace/${currentWorkspace?.id}/project/${task.projectId}/tasks/all`" class="project-badge">
               {{ task.projectName }}
             </router-link>
             <span class="task-divider"></span>
@@ -68,9 +68,11 @@ import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AccountSidebar from '../../components/AccountSidebar.vue'
 import { useUserTasks } from '../../composables/useUserTasks'
+import { useWorkspaces } from '../../composables/useWorkspaces'
 
 const route = useRoute()
 const { tasks, loading, error, loadTasks, completeTask } = useUserTasks()
+const { currentWorkspace } = useWorkspaces()
 
 const completingIds = ref(new Set())
 const sidebarOpen = ref(window.innerWidth >= 768)

@@ -14,6 +14,7 @@ import NoteView from '../features/notes/NoteView.vue'
 import DocumentsView from '../features/documents/DocumentsView.vue'
 import DocumentView from '../features/documents/DocumentView.vue'
 import ProjectSettingsView from '../features/projects/ProjectSettingsView.vue'
+import WorkspaceSettingsView from '../features/workspaces/WorkspaceSettingsView.vue'
 import SearchView from '../features/search/SearchView.vue'
 import MindmapsView from '../features/mindmap/MindmapsView.vue'
 import MindmapView from '../features/mindmap/MindmapView.vue'
@@ -42,21 +43,22 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: 'dashboard', component: DashboardView },
-      { path: 'project/:id', component: ProjectView },
-      { path: 'project/:id/notes', component: NotesView },
-      { path: 'project/:id/notes/f/:folders(.*)*', component: NotesView },
-      { path: 'project/:id/notes/:noteId', component: NoteView },
-      { path: 'project/:id/documents', component: DocumentsView },
-      { path: 'project/:id/documents/f/:folders(.*)*', component: DocumentsView },
-      { path: 'project/:id/documents/:documentId', component: DocumentView },
+      { path: 'workspace/:workspaceId/settings', component: WorkspaceSettingsView },
+      { path: 'workspace/:workspaceId/project/:id', component: ProjectView },
+      { path: 'workspace/:workspaceId/project/:id/notes', component: NotesView },
+      { path: 'workspace/:workspaceId/project/:id/notes/f/:folders(.*)*', component: NotesView },
+      { path: 'workspace/:workspaceId/project/:id/notes/:noteId', component: NoteView },
+      { path: 'workspace/:workspaceId/project/:id/documents', component: DocumentsView },
+      { path: 'workspace/:workspaceId/project/:id/documents/f/:folders(.*)*', component: DocumentsView },
+      { path: 'workspace/:workspaceId/project/:id/documents/:documentId', component: DocumentView },
       { path: 'tasks', redirect: '/tasks/all' },
       { path: 'tasks/:filter', component: UserTasksView },
-      { path: 'project/:id/tasks', redirect: to => `/project/${to.params.id}/tasks/all` },
-      { path: 'project/:id/tasks/:filter', component: TasksView },
-      { path: 'project/:id/settings', component: ProjectSettingsView },
+      { path: 'workspace/:workspaceId/project/:id/tasks', redirect: to => `/workspace/${to.params.workspaceId}/project/${to.params.id}/tasks/all` },
+      { path: 'workspace/:workspaceId/project/:id/tasks/:filter', component: TasksView },
+      { path: 'workspace/:workspaceId/project/:id/settings', component: ProjectSettingsView },
       { path: 'search', component: SearchView },
-      { path: 'project/:id/mindmaps', component: MindmapsView },
-      { path: 'project/:id/mindmaps/:mindmapId', component: MindmapView }
+      { path: 'workspace/:workspaceId/project/:id/mindmaps', component: MindmapsView },
+      { path: 'workspace/:workspaceId/project/:id/mindmaps/:mindmapId', component: MindmapView }
     ]
   }
 ]

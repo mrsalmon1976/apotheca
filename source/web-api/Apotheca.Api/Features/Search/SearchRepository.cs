@@ -38,7 +38,7 @@ public class SearchRepository
                     'MaxWords=35,MinWords=15,MaxFragments=2,StartSel=<b>,StopSel=</b>') AS Snippet,
                 s.project_id     AS ProjectId
             FROM search s
-            INNER JOIN user_projects up
+            INNER JOIN project_users up
                 ON s.project_id = up.project_id
                AND up.user_id = @UserId
             WHERE {vectorCondition}

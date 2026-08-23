@@ -18,6 +18,7 @@
         <Tabs value="details" @update:value="onTabChange">
           <TabList>
             <Tab value="details">Details</Tab>
+            <Tab value="people">People</Tab>
             <Tab value="activity">Activity</Tab>
             <Tab value="recycle-bin">Recycle Bin</Tab>
           </TabList>
@@ -55,6 +56,74 @@
                   <i v-if="saving" class="pi pi-spin pi-spinner"></i>
                   <span>{{ saving ? 'Saving…' : 'Save' }}</span>
                 </button>
+              </div>
+            </TabPanel>
+
+            <TabPanel value="people">
+              <div class="tab-content activity-tab">
+                <div v-if="isProjectAdmin" class="add-member-row">
+                  <Select
+                    v-model="newMemberUserId"
+                    :options="availableWorkspaceMembers"
+                    option-label="displayName"
+                    option-value="userId"
+                    placeholder="Select a workspace member…"
+                    class="member-select"
+                  />
+                  <Select
+                    v-model="newMemberRole"
+                    :options="projectRoleOptions"
+                    option-label="label"
+                    option-value="value"
+                    class="role-select"
+                  />
+                  <button class="restore-btn" :disabled="!newMemberUserId || addingMember" @click="addMember">
+                    <i :class="addingMember ? 'pi pi-spin pi-spinner' : 'pi pi-plus'"></i> Add
+                  </button>
+                </div>
+                <p v-if="addMemberError" class="modal-error">
+                  <i class="pi pi-exclamation-triangle"></i> {{ addMemberError }}
+                </p>
+
+                <div v-if="membersLoading" class="activity-loading">
+                  <i class="pi pi-spin pi-spinner"></i> Loading…
+                </div>
+                <div v-else-if="members.length === 0" class="activity-empty">
+                  No members yet.
+                </div>
+                <table v-else class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="member in members" :key="member.userId">
+                      <td class="message-cell">{{ member.displayName }}</td>
+                      <td>{{ member.email }}</td>
+                      <td>
+                        <Select
+                          v-if="isProjectAdmin"
+                          :model-value="member.projectRole"
+                          :options="projectRoleOptions"
+                          option-label="label"
+                          option-value="value"
+                          class="role-select"
+                          @update:model-value="(role) => changeMemberRole(member.userId, role)"
+                        />
+                        <span v-else>{{ formatRole(member.projectRole) }}</span>
+                      </td>
+                      <td class="action-cell">
+                        <button v-if="isProjectAdmin" class="restore-btn" @click="removeMember(member.userId)">
+                          <i class="pi pi-times"></i> Remove
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </TabPanel>
 
@@ -189,9 +258,12 @@ import TabPanels from 'primevue/tabpanels'
 import TabPanel from 'primevue/tabpanel'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
+import Select from 'primevue/select'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import { useProjects } from '../../composables/useProjects'
 import { useAuth } from '../../composables/useAuth'
+import { useProjectMembers } from '../../composables/useProjectMembers'
+import { useWorkspaceMembers } from '../../composables/useWorkspaceMembers'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
@@ -202,6 +274,7 @@ const { user } = useAuth()
 
 const sidebarOpen = ref(window.innerWidth >= 768)
 const projectId = computed(() => route.params.id)
+const workspaceId = computed(() => route.params.workspaceId)
 const currentProject = computed(() => projects.value.find(p => p.id === projectId.value))
 
 // --- Details tab ---
@@ -268,8 +341,70 @@ async function loadActivity() {
 }
 
 function onTabChange(tab) {
+  if (tab === 'people') loadPeople()
   if (tab === 'activity') loadActivity()
   if (tab === 'recycle-bin') loadRecycleBin()
+}
+
+// --- People tab ---
+const { members, loading: membersLoading, loadMembers, addMember: addProjectMember, saveMemberRole, removeMember: removeProjectMember } = useProjectMembers()
+const { members: workspaceMembers, loadMembers: loadWorkspaceMembers } = useWorkspaceMembers()
+
+const peopleLoaded = ref(false)
+const newMemberUserId = ref(null)
+const newMemberRole = ref('CONTRIBUTOR')
+const addingMember = ref(false)
+const addMemberError = ref(null)
+
+const isProjectAdmin = computed(() => currentProject.value?.projectRole === 'ADMIN')
+
+const availableWorkspaceMembers = computed(() =>
+  workspaceMembers.value.filter(wm => !members.value.some(m => m.userId === wm.userId))
+)
+
+const projectRoleOptions = [
+  { label: 'Admin', value: 'ADMIN' },
+  { label: 'Contributor', value: 'CONTRIBUTOR' },
+  { label: 'Viewer', value: 'VIEWER' },
+]
+
+function formatRole(role) {
+  if (!role) return ''
+  return role.charAt(0) + role.slice(1).toLowerCase()
+}
+
+async function loadPeople(force = false) {
+  if (peopleLoaded.value && !force) return
+  await Promise.all([loadMembers(projectId.value), loadWorkspaceMembers(workspaceId.value)])
+  peopleLoaded.value = true
+}
+
+async function addMember() {
+  if (!newMemberUserId.value) return
+  addingMember.value = true
+  addMemberError.value = null
+  try {
+    const response = await addProjectMember(projectId.value, newMemberUserId.value, newMemberRole.value)
+    if (response.ok) {
+      newMemberUserId.value = null
+      newMemberRole.value = 'CONTRIBUTOR'
+    } else if (response.status === 400 || response.status === 409) {
+      const body = await response.json()
+      addMemberError.value = body.error ?? 'Could not add that member.'
+    } else {
+      addMemberError.value = `Unexpected error (${response.status}). Please try again.`
+    }
+  } finally {
+    addingMember.value = false
+  }
+}
+
+function changeMemberRole(userId, role) {
+  saveMemberRole(projectId.value, userId, role)
+}
+
+function removeMember(userId) {
+  removeProjectMember(projectId.value, userId)
 }
 
 // --- Recycle Bin tab ---
@@ -338,8 +473,8 @@ async function doRestore(itemId) {
 }
 
 function refLink(entry) {
-  if (entry.refType === 'NOTE') return `/project/${projectId.value}/notes/${entry.refId}`
-  return `/project/${entry.refId}`
+  if (entry.refType === 'NOTE') return `/workspace/${workspaceId.value}/project/${projectId.value}/notes/${entry.refId}`
+  return `/workspace/${workspaceId.value}/project/${entry.refId}`
 }
 
 function formatDate(iso) {
@@ -467,6 +602,22 @@ function formatDate(iso) {
 /* Activity tab */
 .activity-tab {
   padding-top: 1.25rem;
+}
+
+/* People tab */
+.add-member-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+:deep(.member-select) {
+  min-width: 220px;
+}
+
+:deep(.role-select) {
+  min-width: 140px;
 }
 
 .activity-loading,

@@ -358,3 +358,4 @@ src/web-frontend-old
 /.aider.tags.cache.*
 /.aider.chat.history.md
 /.aider.input.history
+/source/web-api/_verify_obj
