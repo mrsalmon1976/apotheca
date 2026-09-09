@@ -138,11 +138,18 @@ function onKeyDown(e) {
 onMounted(() => window.addEventListener('keydown', onKeyDown))
 onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 
+function todayLocalDate() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
 function resetForm() {
   const t = props.task
   form.title    = t?.title    ?? ''
   form.priority = t?.priority ?? 'NONE'
-  form.dueAt    = t?.dueAt    ? t.dueAt.split('T')[0] : ''
+  form.dueAt    = t?.dueAt    ? t.dueAt.split('T')[0] : todayLocalDate()
   form.notes    = t?.notes    ?? ''
   fieldError.title = null
   saveError.value  = null
