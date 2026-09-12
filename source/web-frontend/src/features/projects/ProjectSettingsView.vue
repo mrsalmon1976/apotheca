@@ -269,13 +269,26 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
 
 const route = useRoute()
 const toast = useToast()
-const { projects, saveProject } = useProjects()
+const { projects, loadProjects, saveProject } = useProjects()
 const { user } = useAuth()
 
 const sidebarOpen = ref(window.innerWidth >= 768)
 const projectId = computed(() => route.params.id)
 const workspaceId = computed(() => route.params.workspaceId)
 const currentProject = computed(() => projects.value.find(p => p.id === projectId.value))
+
+// The project list is shared app-wide but only fetched on demand — make sure it's
+// loaded when landing directly on this page (deep link, restored location, etc.)
+// rather than relying on the Dashboard having populated it first.
+watch(
+  [workspaceId, projectId],
+  ([wsId, pId]) => {
+    if (wsId && pId && !projects.value.some(p => p.id === pId)) {
+      loadProjects(wsId)
+    }
+  },
+  { immediate: true }
+)
 
 // --- Details tab ---
 const nameInput = ref('')

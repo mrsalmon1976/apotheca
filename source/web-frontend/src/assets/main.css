@@ -342,3 +342,110 @@ html, body {
   color: #fff !important;
   font-size: 0.65rem !important;
 }
+
+/* ── PrimeVue DatePicker – Apotheca branding ── */
+/* Scoped to .task-date-panel (set via the component's `pt.panel` prop) rather than
+   the bare .p-datepicker-panel class, so this doesn't reach every DatePicker in the
+   app sight-unseen — the panel teleports to <body>, so it can't be reached with a
+   component's scoped :deep() styles and has to be themed globally here instead. */
+.task-date-panel {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-purple) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 0 24px var(--glow-purple), 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  padding: 0.85rem !important;
+}
+
+.task-date-panel .p-datepicker-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  padding: 0 0 0.6rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.task-date-panel .p-datepicker-title,
+.task-date-panel .p-datepicker-select-month,
+.task-date-panel .p-datepicker-select-year {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+
+.task-date-panel .p-datepicker-select-month:hover,
+.task-date-panel .p-datepicker-select-year:hover {
+  color: var(--color-purple) !important;
+  background: var(--bg-hover) !important;
+}
+
+.task-date-panel .p-datepicker-prev-button,
+.task-date-panel .p-datepicker-next-button {
+  color: var(--text-muted) !important;
+}
+
+.task-date-panel .p-datepicker-prev-button:hover,
+.task-date-panel .p-datepicker-next-button:hover {
+  color: var(--color-purple) !important;
+  background: var(--bg-hover) !important;
+}
+
+.task-date-panel .p-datepicker-weekday {
+  color: var(--text-dim) !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+}
+
+/* Default cell gutter (0.25rem on every side) reads as too airy for a small popup —
+   tighten the grid a bit. Keep weekday-cell padding matching day-cell so the header
+   row stays aligned over the day columns below it. */
+.task-date-panel .p-datepicker-weekday-cell,
+.task-date-panel .p-datepicker-day-cell {
+  padding: 0.15rem !important;
+}
+
+.task-date-panel .p-datepicker-day {
+  color: var(--text-secondary) !important;
+  border-radius: 8px !important;
+  transition: background 0.15s, color 0.15s !important;
+}
+
+.task-date-panel .p-datepicker-day:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.task-date-panel .p-datepicker-other-month .p-datepicker-day {
+  color: var(--text-dim) !important;
+}
+
+.task-date-panel .p-datepicker-today .p-datepicker-day {
+  border: 1px solid var(--border-purple) !important;
+  color: var(--color-purple-light) !important;
+}
+
+.task-date-panel .p-datepicker-day-selected {
+  background: var(--gradient-brand) !important;
+  color: #fff !important;
+  box-shadow: 0 0 12px var(--glow-purple) !important;
+}
+
+.task-date-panel .p-datepicker-buttonbar {
+  border-top: 1px solid var(--border-color) !important;
+  padding-top: 0.6rem !important;
+  margin-top: 0.5rem !important;
+}
+
+.task-date-panel .p-datepicker-today-button,
+.task-date-panel .p-datepicker-clear-button {
+  background: transparent !important;
+  border: 1px solid var(--border-purple) !important;
+  border-radius: 8px !important;
+  color: var(--text-secondary) !important;
+  font-size: 0.8rem !important;
+  padding: 0.35rem 0.85rem !important;
+}
+
+.task-date-panel .p-datepicker-today-button:hover,
+.task-date-panel .p-datepicker-clear-button:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}

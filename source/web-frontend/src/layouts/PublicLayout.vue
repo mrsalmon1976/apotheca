@@ -36,7 +36,7 @@
         </button>
         <template v-if="user">
           <button class="action-btn action-btn--ghost" :title="`Logged in as: ${user.displayName || user.email}`" @click="logout">Logout</button>
-          <button class="action-btn action-btn--primary" @click="$router.push('/dashboard')">Dashboard</button>
+          <button class="action-btn action-btn--primary" @click="goToDashboard">Dashboard</button>
         </template>
         <template v-else>
           <button class="action-btn action-btn--primary" @click="$router.push('/auth/login')">Sign In</button>
@@ -50,12 +50,33 @@
 </template>
 
 <script setup>
-import { RouterView } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useTheme } from '../composables/useTheme'
+import { useWorkspaces } from '../composables/useWorkspaces'
+import { getLastLocation } from '../composables/useLastLocation'
 
 const { user, logout } = useAuth()
 const { isDark, toggleTheme } = useTheme()
+const { workspaces, currentWorkspace, loadWorkspaces, switchWorkspace } = useWorkspaces()
+const router = useRouter()
+
+async function goToDashboard() {
+  const last = getLastLocation()
+  if (!last) {
+    router.push('/dashboard')
+    return
+  }
+
+  if (last.workspaceId) {
+    if (workspaces.value.length === 0) await loadWorkspaces()
+    if (currentWorkspace.value?.id !== last.workspaceId) {
+      await switchWorkspace(last.workspaceId)
+    }
+  }
+
+  router.push(last.path)
+}
 </script>
 
 <style scoped>

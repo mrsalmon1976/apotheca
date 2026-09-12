@@ -52,18 +52,41 @@
             <!-- Due Date -->
             <div class="field">
               <label class="field-label">Due Date</label>
-              <input v-model="form.dueAt" class="field-input field-date" type="date" />
+              <DatePicker
+                v-model="dueDate"
+                class="field-date"
+                date-format="M dd, yy"
+                placeholder="Select a due date"
+                show-icon
+                icon-display="input"
+                show-button-bar
+                :show-on-focus="false"
+                :pt="{ panel: { class: 'task-date-panel' } }"
+              />
             </div>
 
             <!-- Notes -->
             <div class="field">
               <label class="field-label">Notes</label>
               <textarea
+                v-if="notesEditing || !form.notes"
+                ref="notesTextarea"
                 v-model="form.notes"
                 class="field-input field-textarea"
                 placeholder="Add any additional notes..."
                 rows="3"
+                @focus="notesEditing = true"
+                @blur="notesEditing = false"
               ></textarea>
+              <div
+                v-else
+                class="field-input field-textarea notes-display"
+                role="textbox"
+                tabindex="0"
+                @click="editNotes"
+                @keydown="editNotes"
+                v-html="linkifiedNotes"
+              ></div>
             </div>
 
             <!-- API error -->
@@ -90,7 +113,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import DatePicker from 'primevue/datepicker'
 import { useProjectTasks } from '../../composables/useProjectTasks'
 
 const props = defineProps({
@@ -104,6 +128,8 @@ const emit = defineEmits(['close', 'saved'])
 const { saveTask } = useProjectTasks()
 
 const titleInput = ref(null)
+const notesTextarea = ref(null)
+const notesEditing = ref(false)
 const saving = ref(false)
 const saveError = ref(null)
 
@@ -131,6 +157,50 @@ watch(() => props.visible, (val) => {
   }
 })
 
+const URL_PATTERN = /(https?:\/\/[^\s<]+[^\s<.,:;!?'")\]])/g
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+const linkifiedNotes = computed(() => {
+  return escapeHtml(form.notes).replace(
+    URL_PATTERN,
+    (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="notes-link">${url}</a>`
+  )
+})
+
+function editNotes(e) {
+  if (e.target.tagName === 'A') return
+
+  // Reached via click, Enter, or any other keystroke on the read-only preview.
+  // Navigation/modifier keys (Tab, Shift, arrows, Escape, ...) should pass through
+  // untouched rather than dropping the user into edit mode.
+  const isTypingKey = e.type === 'keydown' && e.key !== 'Enter'
+  if (isTypingKey) {
+    const isPrintable = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey
+    if (!isPrintable) return
+  }
+
+  notesEditing.value = true
+
+  nextTick(() => {
+    const el = notesTextarea.value
+    if (!el) return
+    if (isTypingKey) {
+      // Carry the keystroke that opened the field through, instead of losing it.
+      e.preventDefault()
+      el.value += e.key
+      form.notes = el.value
+    }
+    el.focus()
+    el.selectionStart = el.selectionEnd = el.value.length
+  })
+}
+
 function onKeyDown(e) {
   if (e.key === 'Escape' && props.visible) close()
 }
@@ -145,12 +215,32 @@ function todayLocalDate() {
   return `${now.getFullYear()}-${month}-${day}`
 }
 
+// form.dueAt stays a plain 'YYYY-MM-DD' string (see save()/resetForm()); the DatePicker
+// needs a real Date, so bridge between the two without touching the storage format.
+function parseDateOnly(value) {
+  if (!value) return null
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function formatDateOnly(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+const dueDate = computed({
+  get: () => parseDateOnly(form.dueAt),
+  set: (value) => { form.dueAt = value ? formatDateOnly(value) : '' },
+})
+
 function resetForm() {
   const t = props.task
   form.title    = t?.title    ?? ''
   form.priority = t?.priority ?? 'NONE'
   form.dueAt    = t?.dueAt    ? t.dueAt.split('T')[0] : todayLocalDate()
   form.notes    = t?.notes    ?? ''
+  notesEditing.value = false
   fieldError.title = null
   saveError.value  = null
   saving.value     = false
@@ -333,8 +423,51 @@ async function save() {
   line-height: 1.5;
 }
 
-.field-date {
-  color-scheme: dark;
+/* DatePicker's root/input sit where the tag is declared (not teleported), so scoped
+   :deep() reaches them fine — the popup panel is handled globally in main.css since
+   it teleports to <body> and scoped selectors can't reach it there. */
+:deep(.field-date.p-datepicker) {
+  width: 100%;
+}
+:deep(.field-date .p-datepicker-input) {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  padding: 0.6rem 0.85rem;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+:deep(.field-date .p-datepicker-input::placeholder) {
+  color: var(--text-dim);
+}
+:deep(.field-date.p-focus .p-datepicker-input) {
+  border-color: var(--color-purple);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+}
+:deep(.field-date .p-datepicker-input-icon) {
+  color: var(--text-muted);
+}
+:deep(.field-date.p-focus .p-datepicker-input-icon) {
+  color: var(--color-purple);
+}
+
+.notes-display {
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+:deep(.notes-link) {
+  color: var(--color-purple-light);
+  text-decoration: underline;
+}
+:deep(.notes-link:hover) {
+  color: var(--color-pink-light);
 }
 
 .has-error .field-input {

@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjects } from '../composables/useProjects'
 
@@ -81,10 +81,23 @@ const emit = defineEmits([])
 
 const route = useRoute()
 const router = useRouter()
-const { projects } = useProjects()
+const { projects, loadProjects } = useProjects()
 const projectId   = computed(() => route.params.id)
 const workspaceId = computed(() => route.params.workspaceId)
 const projectName = computed(() => projects.value.find(p => p.id === projectId.value)?.name ?? null)
+
+// The project list is shared app-wide but only fetched on demand — make sure it's
+// loaded when landing directly on a project page (deep link, restored location, etc.)
+// rather than relying on the Dashboard having populated it first.
+watch(
+  [workspaceId, projectId],
+  ([wsId, pId]) => {
+    if (wsId && pId && !projects.value.some(p => p.id === pId)) {
+      loadProjects(wsId)
+    }
+  },
+  { immediate: true }
+)
 
 function closeSidebarOnMobile() {
   if (window.innerWidth < 768) emit('close')

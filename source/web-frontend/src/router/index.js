@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { auth } from '../firebase'
+import { saveLastLocation } from '../composables/useLastLocation'
 import PublicLayout from '../layouts/PublicLayout.vue'
 import AppLayout from '../layouts/AppLayout.vue'
 import HomeView from '../features/home/HomeView.vue'
@@ -80,6 +81,10 @@ router.beforeEach((to, from, next) => {
       next('/auth/login')
     }
   })
+})
+
+router.afterEach((to) => {
+  if (to.meta.requiresAuth) saveLastLocation(to)
 })
 
 export default router
