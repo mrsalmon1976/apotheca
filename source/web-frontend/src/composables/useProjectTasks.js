@@ -1,8 +1,10 @@
 import { ref } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useAuth } from './useAuth'
+import { PRIORITY_RANK } from '../constants/taskPriorities'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
+
 
 export function useProjectTasks() {
   const { user } = useAuth()
@@ -69,5 +71,52 @@ export function useProjectTasks() {
     }
   }
 
-  return { tasks, loading, error, loadTasks, saveTask, completeTask }
+  // Mirrors the API's ORDER BY (GetProjectTasksRepository): date ascending with undated
+  // last, then priority descending. Array.sort is stable, so ties keep server order.
+  function sortTasks() {
+    const dayOf = t => t.dueAt?.split('T')[0] ?? null
+    tasks.value.sort((a, b) => {
+      const da = dayOf(a), db = dayOf(b)
+      if (da !== db) {
+        if (da === null) return 1
+        if (db === null) return -1
+        return da < db ? -1 : 1
+      }
+      return (PRIORITY_RANK[b.priority] ?? 0) - (PRIORITY_RANK[a.priority] ?? 0)
+    })
+  }
+
+  // The save endpoint is a full upsert, so resend every editable field unchanged
+  // alongside the new date. `date` is a local-midnight Date (or null to clear);
+  // it's stored the same way NewTaskDialog stores it — the calendar day at UTC midnight.
+  async function setTaskDueDate(projectId, task, date) {
+    const dueAt = date
+      ? new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())).toISOString()
+      : null
+    try {
+      const response = await saveTask(projectId, {
+        id:           task.id,
+        parentTaskId: task.parentTaskId,
+        title:        task.title,
+        notes:        task.notes,
+        assignedTo:   task.assignedTo,
+        priority:     task.priority,
+        dueAt,
+      })
+      if (response.ok) {
+        const existing = tasks.value.find(t => t.id === task.id)
+        if (existing) {
+          existing.dueAt = dueAt
+          sortTasks()
+        }
+        return true
+      }
+      toast.add({ severity: 'error', summary: 'Failed to update date', detail: `Server error (${response.status})`, life: 10000 })
+    } catch {
+      toast.add({ severity: 'error', summary: 'Failed to update date', detail: 'Could not connect to the server.', life: 10000 })
+    }
+    return false
+  }
+
+  return { tasks, loading, error, loadTasks, saveTask, completeTask, setTaskDueDate }
 }

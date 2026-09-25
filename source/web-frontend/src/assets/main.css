@@ -449,3 +449,23 @@ html, body {
   background: var(--bg-hover) !important;
   color: var(--text-primary) !important;
 }
+
+/* Task date popover (TaskDatePopover.vue) — PrimeVue Popover teleports to <body>, so
+   its chrome is themed globally like .task-date-panel above. The inline calendar
+   inside it reuses .task-date-panel for the day grid. */
+.task-date-popover {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-purple) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 0 24px var(--glow-purple), 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  color: var(--text-primary) !important;
+}
+
+.task-date-popover .p-popover-content {
+  padding: 0 !important;
+}
+
+.task-date-popover::before,
+.task-date-popover::after {
+  display: none !important;
+}

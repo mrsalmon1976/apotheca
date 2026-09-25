@@ -13,6 +13,8 @@
       @saved="onTaskSaved"
     />
 
+    <TaskDatePopover ref="datePopover" @pick="onDatePicked" />
+
     <!-- Main Content -->
     <div class="main-body">
       <div class="content-header">
@@ -54,9 +56,25 @@
             <i :class="completingIds.has(task.id) ? 'pi pi-check-circle' : 'pi pi-circle'"></i>
           </button>
           <div class="task-info">
-            <span v-if="task.dueAt" class="task-due" :class="{ overdue: isOverdue(task.dueAt) }">
+            <button
+              v-if="task.dueAt"
+              class="task-due"
+              :class="{ overdue: isOverdue(task.dueAt) }"
+              type="button"
+              title="Change date"
+              @click="datePopover.toggle($event, task)"
+            >
               <i class="pi pi-calendar"></i> {{ formatDate(task.dueAt) }}
-            </span>
+            </button>
+            <button
+              v-else
+              class="task-due task-due-empty"
+              type="button"
+              title="Set date"
+              @click="datePopover.toggle($event, task)"
+            >
+              <i class="pi pi-calendar-plus"></i>
+            </button>
             <span class="task-title" @click="openTask(task)">{{ task.title }}</span>
           </div>
           <div class="task-meta">
@@ -75,14 +93,22 @@ import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 import NewTaskDialog from './NewTaskDialog.vue'
+import TaskDatePopover from './TaskDatePopover.vue'
 import { useProjectTasks } from '../../composables/useProjectTasks'
 
 const route = useRoute()
-const { tasks, loading, error, loadTasks, completeTask } = useProjectTasks()
+const { tasks, loading, error, loadTasks, completeTask, setTaskDueDate } = useProjectTasks()
 
 const showNewTaskDialog = ref(false)
 const selectedTask = ref(null)
 const completingIds = ref(new Set())
+const datePopover = ref(null)
+
+async function onDatePicked(task, date) {
+  const saved = await setTaskDueDate(projectId.value, task, date)
+  // Today/Upcoming are server-side filters, so a date change can move the task in or out.
+  if (saved && activeFilter.value !== 'all') loadTasks(projectId.value, activeFilter.value)
+}
 
 function openTask(task) {
   selectedTask.value = task
@@ -337,13 +363,30 @@ watch([projectId, activeFilter], ([pid, filter]) => {
   white-space: nowrap;
   flex-shrink: 0;
   padding-right: 0.75rem;
-  border-right: 1px solid var(--border-color);
+  border-right: 1px solid var(--text-dim);
 }
+
+button.task-due {
+  background: transparent;
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+  font-family: inherit;
+  padding-block: 0;
+  padding-left: 0;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+button.task-due:hover { color: var(--color-purple-light); }
 
 .task-due.overdue {
   color: var(--color-pink);
-  border-right-color: rgba(236, 72, 153, 0.25);
+  border-right-color: rgba(236, 72, 153, 0.55);
 }
+.task-due.overdue:hover { color: var(--color-pink-light); }
+
+/* Undated tasks get a "set date" icon in the same slot, so titles stay aligned. */
+.task-due-empty { font-size: 0.85rem; }
 
 .task-meta {
   display: flex;

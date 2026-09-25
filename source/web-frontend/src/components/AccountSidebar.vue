@@ -39,6 +39,21 @@
         <span>Settings</span>
       </component>
 
+      <template v-if="workspaceProjects.length">
+        <div class="nav-group-label" style="margin-top:1rem">Projects</div>
+        <a
+          v-for="project in workspaceProjects"
+          :key="project.id"
+          class="sidebar-item"
+          :href="projectPath(project)"
+          :title="project.name"
+          @click.prevent="router.push(projectPath(project)); closeSidebarOnMobile()"
+        >
+          <i class="pi pi-folder"></i>
+          <span class="sidebar-item-label">{{ project.name }}</span>
+        </a>
+      </template>
+
       <div class="nav-group-label" style="margin-top:1rem">Tasks</div>
       <a
         v-for="tf in taskFilters"
@@ -58,9 +73,10 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkspaces } from '../composables/useWorkspaces'
+import { useProjects } from '../composables/useProjects'
 
 const appVersion = import.meta.env.VITE_APP_VERSION
 
@@ -73,6 +89,31 @@ const emit = defineEmits(['close'])
 const router = useRouter()
 const { currentWorkspace } = useWorkspaces()
 const settingsPath = computed(() => currentWorkspace.value ? `/workspace/${currentWorkspace.value.id}/settings` : '')
+
+// The shared project list holds whichever workspace was loaded last (a project page can
+// load a non-current one), so filter to the current workspace rather than trusting it.
+const { projects, loading: projectsLoading, loadProjects } = useProjects()
+const workspaceProjects = computed(() =>
+  projects.value
+    .filter(p => p.workspaceId === currentWorkspace.value?.id)
+    .sort((a, b) => a.name.localeCompare(b.name))
+)
+
+function projectPath(project) {
+  return `/workspace/${project.workspaceId}/project/${project.id}`
+}
+
+// Search, Tasks and Workspace Settings don't load projects themselves (the Dashboard
+// does), so fetch here when the list doesn't already cover this workspace.
+watch(
+  () => currentWorkspace.value?.id,
+  (wsId) => {
+    if (wsId && !projectsLoading.value && !projects.value.some(p => p.workspaceId === wsId)) {
+      loadProjects(wsId)
+    }
+  },
+  { immediate: true }
+)
 
 function closeSidebarOnMobile() {
   if (window.innerWidth < 768) emit('close')
@@ -161,6 +202,13 @@ const taskFilters = [
   color: var(--color-pink);
 }
 .sidebar-item.active i { color: var(--color-purple); }
+
+.sidebar-item-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 
 .sidebar-item.disabled {
   cursor: default;

@@ -114,6 +114,7 @@ import AccountSidebar from '../../components/AccountSidebar.vue'
 import CreateProjectDialog from '../projects/CreateProjectDialog.vue'
 import { useProjects } from '../../composables/useProjects'
 import { useAuth } from '../../composables/useAuth'
+import { PRIORITY_COLORS } from '../../constants/taskPriorities'
 import { useWorkspaces } from '../../composables/useWorkspaces'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
@@ -193,7 +194,6 @@ const stats = [
   { label: 'Open Tasks', value: 5, icon: 'pi-check-square', iconColor: '#c084fc', iconBg: 'rgba(192,132,252,0.12)', link: '/tasks/all' },
 ]
 
-const PRIORITY_COLORS = { HIGH: '#ec4899', URGENT: '#f87171', MEDIUM: '#a855f7', LOW: '#7a7590', NONE: '#524e65' }
 
 function priorityColor(priority) {
   return PRIORITY_COLORS[priority?.toUpperCase()] ?? '#524e65'

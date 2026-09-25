@@ -89,6 +89,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useAuth } from '../../composables/useAuth'
+import { PRIORITY_COLORS } from '../../constants/taskPriorities'
 import ProjectSidebar from '../../components/ProjectSidebar.vue'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'https://localhost:6060'
@@ -191,7 +192,6 @@ function formatNoteDate(updatedAt) {
   return new Date(updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-const PRIORITY_COLORS = { HIGH: '#ec4899', URGENT: '#f87171', MEDIUM: '#a855f7', LOW: '#7a7590', NONE: '#524e65' }
 
 function priorityColor(priority) {
   return PRIORITY_COLORS[priority?.toUpperCase()] ?? '#524e65'

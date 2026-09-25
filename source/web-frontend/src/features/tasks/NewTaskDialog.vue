@@ -116,6 +116,7 @@
 import { ref, reactive, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import DatePicker from 'primevue/datepicker'
 import { useProjectTasks } from '../../composables/useProjectTasks'
+import { TASK_PRIORITIES } from '../../constants/taskPriorities'
 
 const props = defineProps({
   visible:   { type: Boolean, required: true },
@@ -142,13 +143,7 @@ const form = reactive({
 
 const fieldError = reactive({ title: null })
 
-const priorities = [
-  { value: 'NONE',   label: 'None',   cls: 'p-none'   },
-  { value: 'LOW',    label: 'Low',    cls: 'p-low'    },
-  { value: 'MEDIUM', label: 'Medium', cls: 'p-medium' },
-  { value: 'HIGH',   label: 'High',   cls: 'p-high'   },
-  { value: 'URGENT', label: 'Urgent', cls: 'p-urgent' },
-]
+const priorities = TASK_PRIORITIES.map(p => ({ ...p, cls: `p-${p.value.toLowerCase()}` }))
 
 watch(() => props.visible, (val) => {
   if (val) {
