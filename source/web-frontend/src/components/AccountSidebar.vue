@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar" :class="{ open: open }">
     <div class="sidebar-header">
-      <span>{{ currentWorkspace?.name ?? 'My Account' }}</span>
+      <span class="sidebar-title" :title="currentWorkspace?.name ?? 'My Account'"><span>{{ currentWorkspace?.name ?? 'My Account' }}</span></span>
     </div>
 
     <nav class="sidebar-nav">
@@ -103,11 +103,29 @@ const taskFilters = [
   align-items: center;
   justify-content: space-between;
   padding: 0.25rem 1rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  margin: 0 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.sidebar-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-pink);
+}
+.sidebar-title > span {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Firefox draws no ellipsis on background-clip: text, so fall back to a solid colour there */
+@supports (-moz-appearance: none) {
+  .sidebar-title { color: var(--color-purple); }
+  .sidebar-title > span { background: none; color: inherit; }
 }
 
 .sidebar-nav { padding: 0 0.5rem; }

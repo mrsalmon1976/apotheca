@@ -1,7 +1,19 @@
 <template>
   <aside class="sidebar" :class="{ open: open }">
     <div class="sidebar-header">
-      <span><template v-if="projectName">{{ projectName }}</template></span>
+      <a class="sidebar-title" href="/dashboard" :title="workspaceName ?? undefined" @click.prevent="goToWorkspace"><span v-if="workspaceName">{{ workspaceName }}</span></a>
+      <div class="sidebar-project">
+        <svg class="sidebar-project-arrow" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 1v6a5 5 0 0 0 5 5h6" />
+          <path d="M11 9l3 3-3 3" />
+        </svg>
+        <a
+          class="sidebar-project-name"
+          :href="mainNav[0].to.value"
+          :title="projectName ?? undefined"
+          @click.prevent="router.push(mainNav[0].to.value); closeSidebarOnMobile()"
+        >{{ projectName }}</a>
+      </div>
     </div>
 
     <nav class="sidebar-nav">
@@ -70,6 +82,7 @@
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjects } from '../composables/useProjects'
+import { useWorkspaces } from '../composables/useWorkspaces'
 
 const appVersion = import.meta.env.VITE_APP_VERSION
 
@@ -77,7 +90,7 @@ const props = defineProps({
   open: { type: Boolean, required: true },
 })
 
-const emit = defineEmits([])
+const emit = defineEmits(['close'])
 
 const route = useRoute()
 const router = useRouter()
@@ -85,6 +98,17 @@ const { projects, loadProjects } = useProjects()
 const projectId   = computed(() => route.params.id)
 const workspaceId = computed(() => route.params.workspaceId)
 const projectName = computed(() => projects.value.find(p => p.id === projectId.value)?.name ?? null)
+const { workspaces, currentWorkspace, switchWorkspace } = useWorkspaces()
+const workspaceName = computed(() => workspaces.value.find(w => w.id === workspaceId.value)?.name ?? null)
+
+// The Dashboard shows the current workspace, so switch to this project's workspace first if needed
+async function goToWorkspace() {
+  closeSidebarOnMobile()
+  if (workspaceId.value && workspaceId.value !== currentWorkspace.value?.id) {
+    if (!await switchWorkspace(workspaceId.value)) return
+  }
+  router.push('/dashboard')
+}
 
 // The project list is shared app-wide but only fetched on demand — make sure it's
 // loaded when landing directly on a project page (deep link, restored location, etc.)
@@ -133,15 +157,57 @@ const taskFilters = [
 
 .sidebar-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   padding: 0.25rem 1rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  margin: 0 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
+.sidebar-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-pink);
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+.sidebar-title:hover { opacity: 0.75; }
+.sidebar-title > span {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Firefox draws no ellipsis on background-clip: text, so fall back to a solid colour there */
+@supports (-moz-appearance: none) {
+  .sidebar-title { color: var(--color-purple); }
+  .sidebar-title > span { background: none; color: inherit; }
+}
+
+.sidebar-project {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+  padding-left: 0.1rem;
+}
+.sidebar-project-arrow {
+  flex-shrink: 0;
+  color: var(--color-purple);
+}
+.sidebar-project-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.sidebar-project-name:hover { color: var(--color-pink); }
 
 .sidebar-nav { padding: 0 0.5rem; }
 

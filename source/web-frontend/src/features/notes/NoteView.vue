@@ -1,7 +1,7 @@
 <template>
   <div class="page-layout" :class="{ 'full-screen': fullScreen }">
     <div v-if="sidebarOpen && !fullScreen" class="sidebar-backdrop" @click="sidebarOpen = false" />
-    <ProjectSidebar v-if="!fullScreen" :open="sidebarOpen" />
+    <ProjectSidebar v-if="!fullScreen" :open="sidebarOpen" @close="sidebarOpen = false" />
 
     <div class="main-body">
       <div v-if="!fullScreen" class="content-header">

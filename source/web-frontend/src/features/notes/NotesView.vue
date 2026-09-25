@@ -38,7 +38,7 @@
 
     <div v-if="sidebarOpen" class="sidebar-backdrop" @click="sidebarOpen = false" />
 
-    <ProjectSidebar :open="sidebarOpen" />
+    <ProjectSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
 
     <div class="main-body">
       <div class="content-header">
