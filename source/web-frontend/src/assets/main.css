@@ -408,13 +408,17 @@ html, body {
   transition: background 0.15s, color 0.15s !important;
 }
 
-.task-date-panel .p-datepicker-day:hover {
+.task-date-panel .p-datepicker-day:not(.p-disabled):hover {
   background: var(--bg-hover) !important;
   color: var(--text-primary) !important;
 }
 
-.task-date-panel .p-datepicker-other-month .p-datepicker-day {
+/* Only past days (before min-date) read as disabled. Leading/trailing days from the
+   adjacent months stay selectable (select-other-months) and keep the normal colour. */
+.task-date-panel .p-datepicker-day.p-disabled {
   color: var(--text-dim) !important;
+  opacity: 0.6 !important;
+  cursor: default !important;
 }
 
 .task-date-panel .p-datepicker-today .p-datepicker-day {

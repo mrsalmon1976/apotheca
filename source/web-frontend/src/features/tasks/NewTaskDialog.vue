@@ -61,6 +61,8 @@
                 icon-display="input"
                 show-button-bar
                 :show-on-focus="false"
+                :min-date="parseDateOnly(todayLocalDate())"
+                select-other-months
                 :pt="{ panel: { class: 'task-date-panel' } }"
               />
             </div>

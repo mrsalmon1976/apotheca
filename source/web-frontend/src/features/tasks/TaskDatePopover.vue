@@ -25,6 +25,8 @@
         :model-value="selectedDate"
         inline
         class="date-popover-calendar"
+        :min-date="startOfToday()"
+        select-other-months
         :pt="{ panel: { class: 'task-date-panel' } }"
         @update:model-value="pick"
       />
